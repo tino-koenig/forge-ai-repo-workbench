@@ -177,6 +177,31 @@ defined_on = "2026-04-03"
 implemented_on = "2026-04-03"
 notes = "LLM output language control via CLI/env/TOML and prompt propagation."
 
+[[feature]]
+id = "036"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "037"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "038"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "039"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "040"
+status = "defined"
+defined_on = "2026-04-03"
+
 # Issue examples:
 # [[issue]]
 # id = "12"
