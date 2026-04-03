@@ -29,6 +29,15 @@ class Evidence:
     text: str
 
 
+@dataclass
+class InferencePoint:
+    inference_id: str
+    inference: str
+    evidence_ids: list[str]
+    rationale: str
+    confidence: str
+
+
 ROLE_MARKERS = {
     "entrypoint": ["if __name__ == \"__main__\":", "argparse.ArgumentParser(", "main("],
     "configuration": [".yml", ".yaml", ".toml", ".ini", "config", "settings"],
@@ -120,6 +129,105 @@ def uncertainty_notes(target: ResolvedTarget, evidence: list[Evidence], profile:
     return notes
 
 
+def build_evidence_facts(repo_root: Path, evidence: list[Evidence]) -> list[dict[str, object]]:
+    facts: list[dict[str, object]] = []
+    for idx, item in enumerate(evidence, start=1):
+        fact_id = f"E{idx}"
+        rel_path = item.path.relative_to(repo_root)
+        facts.append(
+            {
+                "id": fact_id,
+                "path": str(rel_path),
+                "line": item.line,
+                "fact": item.text,
+            }
+        )
+    return facts
+
+
+def build_inference_points(
+    *,
+    role: str,
+    rationale: str,
+    evidence_facts: list[dict[str, object]],
+    profile: Profile,
+) -> list[InferencePoint]:
+    evidence_ids = [str(item.get("id")) for item in evidence_facts if isinstance(item.get("id"), str)]
+    strong = len(evidence_ids) >= 6
+    medium = len(evidence_ids) >= 3
+    if strong:
+        level = "high"
+        confidence_reason = "multiple structural evidence anchors are present"
+    elif medium:
+        level = "medium"
+        confidence_reason = "some evidence anchors are present, but coverage is limited"
+    else:
+        level = "low"
+        confidence_reason = "few direct evidence anchors were found"
+
+    points: list[InferencePoint] = [
+        InferencePoint(
+            inference_id="I1",
+            inference=f"Primary role hypothesis: this target is {role}.",
+            evidence_ids=evidence_ids[:6],
+            rationale=rationale,
+            confidence=level,
+        )
+    ]
+    if profile in {Profile.STANDARD, Profile.DETAILED}:
+        points.append(
+            InferencePoint(
+                inference_id="I2",
+                inference="The current role classification is based on visible structural markers, not runtime behavior.",
+                evidence_ids=evidence_ids[:4],
+                rationale="classification uses path/content/index signals from the resolved target",
+                confidence="medium" if evidence_ids else "low",
+            )
+        )
+    if profile == Profile.DETAILED:
+        points.append(
+            InferencePoint(
+                inference_id="I3",
+                inference="Related-file context may adjust interpretation boundaries for this target.",
+                evidence_ids=evidence_ids[:3],
+                rationale="related files are detected via deterministic repo-local matching",
+                confidence="medium" if len(evidence_ids) >= 3 else "low",
+            )
+        )
+    # Keep rationale from evidence-density computation visible by appending to first point.
+    points[0].rationale = f"{points[0].rationale}; {confidence_reason}"
+    return points
+
+
+def build_role_hypothesis_alternatives(
+    *,
+    role: str,
+    profile: Profile,
+    evidence_facts: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    if profile != Profile.DETAILED:
+        return []
+    evidence_density = len(evidence_facts)
+    alternatives: list[dict[str, object]] = []
+    if role != "implementation":
+        alternatives.append(
+            {
+                "role": "implementation",
+                "rationale": "target may still contain executable/source logic despite current primary role",
+                "confidence": "medium" if evidence_density >= 5 else "low",
+            }
+        )
+    if role != "support code":
+        alternatives.append(
+            {
+                "role": "support code",
+                "rationale": "helper/utility markers can overlap with implementation structure",
+                "confidence": "low",
+            }
+        )
+    return alternatives[:3]
+
+
 def print_explanation(
     request: CommandRequest,
     repo_root: Path,
@@ -133,6 +241,7 @@ def print_explanation(
     index_status: str | None,
     next_step: str,
     view: str,
+    inference_points: list[InferencePoint],
 ) -> None:
     rel_target = target.path.relative_to(repo_root)
     print("=== FORGE EXPLAIN ===")
@@ -157,6 +266,20 @@ def print_explanation(
     for item in evidence[:evidence_limit]:
         path_display = item.path.relative_to(repo_root)
         print(f"{path_display}:{item.line}: {item.text}")
+
+    print("\n--- Inference ---")
+    inference_limit = 1 if is_compact(view) else 2 if view == "standard" else len(inference_points)
+    for point in inference_points[:inference_limit]:
+        print(f"- {point.inference}")
+        if is_full(view):
+            print(f"  rationale: {point.rationale}")
+
+    print("\n--- Confidence ---")
+    confidence_limit = 1 if is_compact(view) else 2 if view == "standard" else len(inference_points)
+    for point in inference_points[:confidence_limit]:
+        print(f"- {point.inference_id}: {point.confidence}")
+        if is_full(view):
+            print(f"  rationale: {point.rationale}")
 
     if request.profile in {Profile.STANDARD, Profile.DETAILED} and is_full(view):
         print("\n--- Related Files ---")
@@ -279,11 +402,43 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         }
         for item in evidence
     ]
+    evidence_facts = build_evidence_facts(repo_root, evidence)
+    inference_points = build_inference_points(
+        role=role,
+        rationale=rationale,
+        evidence_facts=evidence_facts,
+        profile=request.profile,
+    )
+    role_hypothesis_alternatives = build_role_hypothesis_alternatives(
+        role=role,
+        profile=request.profile,
+        evidence_facts=evidence_facts,
+    )
     sections = {
         "role_classification": {"role": role, "reason": rationale},
         "related_files": [str(path) for path in related],
         "resolved_target": str(rel_target),
+        "evidence_facts": evidence_facts,
+        "inference_points": [
+            {
+                "id": point.inference_id,
+                "inference": point.inference,
+                "evidence_ids": point.evidence_ids,
+                "rationale": point.rationale,
+            }
+            for point in inference_points
+        ],
+        "confidence": [
+            {
+                "inference_id": point.inference_id,
+                "level": point.confidence,
+                "rationale": point.rationale,
+            }
+            for point in inference_points
+        ],
     }
+    if role_hypothesis_alternatives:
+        sections["role_hypothesis_alternatives"] = role_hypothesis_alternatives
     if from_run_meta:
         sections.update(from_run_meta)
     deterministic_summary = f"{rel_target} is primarily {role}."
@@ -331,6 +486,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         index_status=index_status,
         next_step=next_step,
         view=view,
+        inference_points=inference_points,
     )
     if from_run_meta:
         print("\n--- From Run ---")

@@ -133,9 +133,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     runs_parser = subparsers.add_parser("runs", help="Inspect or replay recorded capability runs")
     runs_parser.add_argument(
+        "--keep-last",
+        type=int,
+        help="Retention override for prune: keep only the newest N runs",
+    )
+    runs_parser.add_argument(
+        "--older-than-days",
+        type=int,
+        help="Retention override for prune: remove runs older than N days",
+    )
+    runs_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Prune preview mode; show what would change without rewriting history",
+    )
+    runs_parser.add_argument(
         "parts",
         nargs="*",
-        help="Examples: list | last | show <id> [compact|standard|full] | <id> show [view] | <id> rerun",
+        help=(
+            "Examples: list | last | show <id> [compact|standard|full] | "
+            "<id> show [view] | <id> rerun | prune"
+        ),
     )
 
     query_parser = subparsers.add_parser("query", help="Run query capability")

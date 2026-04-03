@@ -524,6 +524,100 @@ def gate_run_history_and_views(repo_root: Path) -> None:
     )
 
 
+def gate_run_history_prune(repo_root: Path) -> None:
+    history_file = repo_root / ".forge" / "runs.jsonl"
+    history_file.parent.mkdir(parents=True, exist_ok=True)
+    history_file.write_text("", encoding="utf-8")
+
+    for idx in range(6):
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                f"compute_price_{idx}",
+            ],
+            cwd=ROOT,
+        )
+
+    before_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(len(before_lines) >= 6, "runs prune: expected seeded runs history")
+
+    no_op = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "runs",
+                "--keep-last",
+                "100",
+                "--older-than-days",
+                "99999",
+                "--dry-run",
+                "prune",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    no_op_counts = no_op.get("sections", {}).get("counts", {})
+    assert_true(no_op_counts.get("removed_valid") == 0, "runs prune no-op: expected removed_valid=0")
+
+    dry_run = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "runs",
+                "--keep-last",
+                "2",
+                "--dry-run",
+                "prune",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    dry_counts = dry_run.get("sections", {}).get("counts", {})
+    assert_true(dry_counts.get("removed_valid") >= 4, "runs prune dry-run: expected removals")
+    after_dry_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(
+        len(after_dry_lines) == len(before_lines),
+        "runs prune dry-run must not rewrite runs history",
+    )
+
+    apply = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "runs",
+                "--keep-last",
+                "2",
+                "prune",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    apply_counts = apply.get("sections", {}).get("counts", {})
+    assert_true(apply_counts.get("after_valid") == 2, "runs prune apply: expected after_valid=2")
+    after_apply_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(len(after_apply_lines) == 2, "runs prune apply: expected file rewritten to kept entries")
+
+
 def gate_cross_lingual_query(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -1082,6 +1176,65 @@ def gate_evidence_quality(repo_root: Path) -> None:
     assert_true("proposed_cases" in test_sections, "test: expected proposed_cases section")
 
 
+def gate_explain_structured_synthesis(repo_root: Path) -> None:
+    explain_standard = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    sections = explain_standard.get("sections", {})
+    evidence_facts = sections.get("evidence_facts", [])
+    inference_points = sections.get("inference_points", [])
+    confidence = sections.get("confidence", [])
+
+    assert_true(isinstance(evidence_facts, list) and len(evidence_facts) > 0, "explain synthesis: expected evidence_facts")
+    assert_true(isinstance(inference_points, list) and len(inference_points) > 0, "explain synthesis: expected inference_points")
+    assert_true(isinstance(confidence, list) and len(confidence) == len(inference_points), "explain synthesis: confidence cardinality mismatch")
+
+    fact_ids = {item.get("id") for item in evidence_facts if isinstance(item, dict)}
+    for point in inference_points:
+        assert_true(isinstance(point, dict), "explain synthesis: inference point must be object")
+        refs = point.get("evidence_ids", [])
+        assert_true(isinstance(refs, list) and len(refs) > 0, "explain synthesis: inference must reference evidence ids")
+        assert_true(
+            any(ref in fact_ids for ref in refs),
+            "explain synthesis: inference evidence refs must map to evidence_facts ids",
+        )
+
+    explain_detailed = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "detailed",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    detailed_sections = explain_detailed.get("sections", {})
+    alternatives = detailed_sections.get("role_hypothesis_alternatives", [])
+    assert_true(
+        isinstance(alternatives, list),
+        "explain synthesis: detailed profile should include role_hypothesis_alternatives list",
+    )
+
+
 def gate_effect_boundaries(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     read_only_commands = [
@@ -1151,11 +1304,13 @@ def run_all_gates() -> None:
         gate_prompt_profile_policy(temp_repo)
         gate_prompt_template_resolution_failure(temp_repo_promptfail)
         gate_run_history_and_views(temp_repo)
+        gate_run_history_prune(temp_repo)
         gate_cross_lingual_query(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)
         gate_evidence_quality(temp_repo)
+        gate_explain_structured_synthesis(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
         gate_frontend_fixture(temp_repo_frontend)

@@ -105,7 +105,9 @@ notes = "Defined, not marked implemented yet."
 
 [[feature]]
 id = "021"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-03"
+notes = "Explain now emits structured evidence/inference/confidence sections with detailed alternatives."
 
 [[feature]]
 id = "022"
@@ -119,7 +121,9 @@ implemented_on = "2026-04-03"
 
 [[feature]]
 id = "024"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-03"
+notes = "Added runs prune with dry-run, retention criteria, config defaults, and safe rewrite behavior."
 
 [[feature]]
 id = "025"

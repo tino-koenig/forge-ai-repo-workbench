@@ -106,6 +106,9 @@ Examples:
 - `forge runs last --output-format json`
 - `forge runs 12 show full`
 - `forge runs 12 rerun`
+- `forge runs prune --dry-run`
+- `forge runs --keep-last 200 prune`
+- `forge runs --older-than-days 30 prune`
 
 Cross-capability reuse from history:
 - `forge explain --from-run 12`

@@ -9,6 +9,8 @@ All notable changes to Forge should be documented in this file.
 - issue 1: issue folder bootstrap in `docs/issues/`
 - feature 035: explicit LLM output-language control (`--llm-output-language`, `FORGE_LLM_OUTPUT_LANGUAGE`, `llm.prompt.output_language`)
 - feature 025: `--from-run` support for `explain`/`review`/`test`/`describe` with deterministic payload resolution and provenance metadata
+- feature 024: `forge runs prune` with `--dry-run`, retention criteria (`--keep-last`, `--older-than-days`), config defaults, and safe JSONL rewrite
+- feature 021: structured explain synthesis with `evidence_facts`, `inference_points`, `confidence`, and detailed `role_hypothesis_alternatives`
 
 ### Changed
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change
