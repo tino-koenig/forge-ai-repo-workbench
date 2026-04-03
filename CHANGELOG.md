@@ -31,6 +31,23 @@ All notable changes to Forge should be documented in this file.
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change
 - feature 041: console entrypoint import now uses `forge_cmd.cli` (renamed from `cmd.cli`) to avoid stdlib `cmd` module collision in installed environments
 - issue 2: fixed installed `forge` entrypoint import failure (`cmd` stdlib collision) by renaming internal package from `cmd` to `forge_cmd`
+- feature 046: query search term pipeline now prioritizes symbol-like/code-variant terms, suppresses weak generic terms by default (including `where` outside SQL-like context), and applies weighted evidence scoring for content/path/symbol/summary retrieval
+- feature 046: removed hardcoded intent-specific query boosts/hints (`entrypoint`, `llm`, `api_call`) from base term derivation and candidate scoring to keep core ranking behavior explicit and neutral
+- feature 046: simplified planner-driven term derivation to use planner outputs directly (`search_terms` + `code_variants`) before deterministic filtering/prioritization
+- feature 046: planner-driven query term derivation now uses `search_terms` only; `code_variants` are no longer injected into base query retrieval terms
+- feature 046: removed term-class branching (`primary/secondary/fallback`) from `derive_search_terms`; term order is now preserved and scoring priority derives from search-term position plus evidence source
+- feature 028: query planner now supports prioritized term buckets (`lead_terms`, `support_terms`) and query retrieval consumes them in stable order before fallback `search_terms`
+- feature 028: planner normalization now demotes generic terms (for example `code`, `location`, `file`, `module`) from `lead_terms` to `support_terms` to keep lead terms precise
+- feature 049: query `read` action now caps per-iteration inspected files to the same three-candidate bounded context window used by `enrich_detailed_context`, aligning `budget_files_used` with actual read scope
+- feature 049: query orchestration loop no longer terminates early from a default `sufficient_evidence` state when decision is `continue`; termination now reflects actual stop conditions
+- feature 049: query summary refinement now discards contradictory LLM rewrites that negate deterministic location findings (for example "not found" against known candidate files)
+- feature 049: query summary refinement now also requires retaining deterministic top-path anchors; rewrites that drop all anchored paths are discarded as contradictory/noisy
+- feature 049: query summary refinement now runs only for human text output (`--output-format text`); JSON output keeps deterministic summaries unchanged
+- feature 049: query summary refinement enforces deterministic-summary preservation (append-only style); rewrites that do not retain core deterministic claims are discarded
+- feature 049: query summary refinement prompt now uses strict JSON with `preserved_summary` (exact deterministic echo) plus optional `style_addendum`; non-conforming responses are rejected deterministically
+- feature 049: query `style_addendum` is now accepted only when it references a deterministic top-path anchor; generic non-anchored addenda are dropped
+- feature 049: query refinement now always emits deterministic summary only (no claim-bearing addendum accepted), preventing semantic drift in text output
+- feature 049: query orchestration adds deterministic anti-stall override from repeated `search` no-op to bounded `read`, reducing no-progress loops on stable candidate sets
 
 ## 2026-04-03
 

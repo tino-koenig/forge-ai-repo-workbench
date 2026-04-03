@@ -9,11 +9,20 @@ Boundaries:
 Requirements:
 - Keep output concise and grounded in evidence.
 - Do not fabricate files, lines, symbols, or APIs.
-- Preserve deterministic intent; only improve clarity.
-- Write the final answer in: ${output_language_instruction}
+- Do not alter deterministic claims.
+- `preserved_summary` must be exactly equal to the deterministic summary input.
+- `style_addendum` must be an empty string.
+- Write `style_addendum` in: ${output_language_instruction}
+- Return strict JSON only (no markdown, no code fences).
 
 Deterministic summary:
 ${deterministic_summary}
 
 Evidence lines:
 ${evidence_block}
+
+Output JSON schema:
+{
+  "preserved_summary": "string (must exactly equal deterministic_summary)",
+  "style_addendum": "string (optional)"
+}

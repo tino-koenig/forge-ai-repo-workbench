@@ -78,10 +78,17 @@ Current orchestration quality is limited when only one decision cycle is execute
   - `budget_exhausted`
   - `policy_blocked`
   - `no_progress`
+- `continue` decisions no longer inherit an implicit terminal `sufficient_evidence` state; loop progression now depends on real stop criteria.
 - Runtime budgets are enforced per run/iteration:
   - wall time (`max_wall_time_ms`)
   - files read (`max_files`)
   - token budget approximation (`max_tokens`)
+- `read` now applies a bounded per-iteration inspection batch (3 candidates), matching the detailed-context extractor scope so `budget_files_used` reflects actual read processing.
+- Query summary refinement keeps deterministic location claims authoritative and discards contradictory LLM rewrites, including rewrites that drop deterministic top-path anchors.
+- Query summary refinement is applied only for human-readable text output. JSON output keeps deterministic summaries unchanged.
+- Query summary refinement is constrained to deterministic-claim preservation; query text output keeps deterministic summary authoritative and does not accept claim-bearing addenda.
+- Query summary refinement uses a strict JSON response contract (`preserved_summary` exact echo + optional `style_addendum`); invalid or drifting refinements are rejected with deterministic fallback.
+- Repeated `search` no-op decisions trigger deterministic anti-stall override to bounded `read`, improving progression on stable candidate sets.
 - Iteration traces are emitted in output contract under `sections.action_orchestration.iterations`.
 
 ## How To Validate Quickly

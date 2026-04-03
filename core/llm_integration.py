@@ -54,6 +54,8 @@ class LLMOutcome:
 
 @dataclass
 class QueryPlannerOutcome:
+    lead_terms: list[str]
+    support_terms: list[str]
     search_terms: list[str]
     code_variants: list[str]
     normalized_question_en: str | None
@@ -62,6 +64,37 @@ class QueryPlannerOutcome:
     entity_types: list[str]
     dropped_filler_terms: list[str]
     usage: dict[str, object]
+
+
+LEAD_TERM_GENERIC_EXCLUSIONS = {
+    "code",
+    "location",
+    "where",
+    "what",
+    "which",
+    "find",
+    "show",
+    "entry",
+    "source",
+    "file",
+    "files",
+    "module",
+    "class",
+    "function",
+    "variable",
+    "api",
+    "api_call",
+    "config",
+    "defined",
+    "declaration",
+    "implementation",
+    "is",
+    "are",
+    "ist",
+    "wo",
+    "was",
+    "wie",
+}
 
 
 @dataclass
@@ -186,7 +219,99 @@ def _mock_complete(
     first_path = str(evidence[0].get("path", "repository"))
     if capability == Capability.REVIEW:
         return f"{deterministic_summary} Findings are anchored in concrete code evidence."
+    if capability == Capability.QUERY:
+        return json.dumps(
+            {
+                "preserved_summary": deterministic_summary,
+                "style_addendum": f"Primary evidence anchor: {first_path}.",
+            },
+            ensure_ascii=False,
+        )
     return f"{deterministic_summary} Primary evidence anchor: {first_path}."
+
+
+def _refinement_contradicts_deterministic_query_summary(*, deterministic_summary: str, refined_summary: str) -> bool:
+    deterministic_lower = deterministic_summary.strip().lower()
+    refined_lower = refined_summary.strip().lower()
+    if not deterministic_lower or not refined_lower:
+        return False
+    if not deterministic_lower.startswith("most likely relevant files:"):
+        return False
+
+    contradiction_markers = (
+        "nicht gefunden",
+        "nicht direkt ersichtlich",
+        "nicht ersichtlich",
+        "keine hinweise",
+        "keine expliziten hinweise",
+        "keine treffer",
+        "not found",
+        "not directly apparent",
+        "not apparent",
+        "no evidence",
+        "no explicit evidence",
+        "no matches",
+    )
+    if any(marker in refined_lower for marker in contradiction_markers):
+        return True
+
+    # Keep deterministic location anchors authoritative in query mode.
+    # If the refinement drops all top deterministic paths, treat it as contradiction/noise.
+    summary_body = deterministic_summary.strip()
+    colon_idx = summary_body.find(":")
+    if colon_idx == -1:
+        return False
+    path_part = summary_body[colon_idx + 1 :].strip().rstrip(".")
+    top_paths = [item.strip().lower() for item in path_part.split(",") if item.strip()]
+    if not top_paths:
+        return False
+    if not any(path in refined_lower for path in top_paths[:3]):
+        return True
+    return False
+
+
+def _normalize_text_for_containment(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _refinement_preserves_deterministic_summary(*, deterministic_summary: str, refined_summary: str) -> bool:
+    base = _normalize_text_for_containment(deterministic_summary)
+    refined = _normalize_text_for_containment(refined_summary)
+    if not base:
+        return True
+    return base in refined
+
+
+def _sanitize_single_sentence(value: object, *, max_len: int = 220) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = " ".join(value.strip().split())
+    if not candidate:
+        return None
+    if len(candidate) > max_len:
+        candidate = candidate[:max_len].rstrip()
+    return candidate
+
+
+def _parse_query_refinement_response(
+    *,
+    raw_response: str,
+    deterministic_summary: str,
+) -> tuple[str | None, str | None]:
+    try:
+        parsed = _extract_json_object(raw_response)
+    except RuntimeError as exc:
+        return None, f"query refinement JSON parse failed: {exc}"
+
+    preserved = parsed.get("preserved_summary")
+    if not isinstance(preserved, str):
+        return None, "query refinement missing preserved_summary"
+    if preserved != deterministic_summary:
+        return None, "query refinement altered preserved_summary"
+
+    # Query refinement is wording-only and must not introduce new factual claims.
+    # Keep deterministic summary as authoritative output even if optional addendum is present.
+    return deterministic_summary, None
 
 
 def _openai_compatible_complete(
@@ -375,6 +500,47 @@ def _sanitize_entity_types(value: object) -> list[str]:
     return result
 
 
+def _normalize_planner_priority_buckets(
+    lead_terms: list[str],
+    support_terms: list[str],
+    search_terms: list[str],
+) -> tuple[list[str], list[str], list[str]]:
+    # Keep lead terms focused on concrete anchors.
+    normalized_lead: list[str] = []
+    demoted: list[str] = []
+    for term in lead_terms:
+        base = term.strip().lower()
+        if base in LEAD_TERM_GENERIC_EXCLUSIONS:
+            demoted.append(term)
+            continue
+        normalized_lead.append(term)
+
+    support_raw = [*support_terms, *demoted]
+    normalized_support: list[str] = []
+    seen_support: set[str] = set()
+    for term in support_raw:
+        base = term.strip().lower()
+        if not base or base in seen_support:
+            continue
+        seen_support.add(base)
+        normalized_support.append(term)
+
+    if not normalized_lead and normalized_support:
+        normalized_lead.append(normalized_support[0])
+        normalized_support = normalized_support[1:]
+
+    search_raw = search_terms if search_terms else [*normalized_lead, *normalized_support]
+    normalized_search: list[str] = []
+    seen_search: set[str] = set()
+    for term in search_raw:
+        base = term.strip().lower()
+        if not base or base in seen_search:
+            continue
+        seen_search.add(base)
+        normalized_search.append(term)
+    return normalized_lead, normalized_support, normalized_search
+
+
 def _mock_plan_query(question: str, deterministic_terms: list[str]) -> dict[str, object]:
     token_map = {
         "wo": "where",
@@ -432,11 +598,15 @@ def _mock_plan_query(question: str, deterministic_terms: list[str]) -> dict[str,
         seen.add(normalized)
         deduped_terms.append(normalized)
     code_variants = ["openai_compatible_complete", "maybe_plan_query_terms"] if intent == "llm_usage_locations" else []
+    lead_terms = deduped_terms[:2]
+    support_terms = deduped_terms[2:10]
     return {
         "normalized_question_en": normalized_question_en,
         "intent": intent,
         "target_scope": target_scope,
         "entity_types": entity_types,
+        "lead_terms": lead_terms,
+        "support_terms": support_terms,
         "search_terms": deduped_terms[:10],
         "code_variants": code_variants[:4],
         "dropped_filler_terms": [token for token in tokens if token in {"bitte", "mal", "eigentlich", "kannst"}][:4],
@@ -469,6 +639,8 @@ def maybe_plan_query_terms(
 
     def _finish(
         *,
+        lead_terms: list[str],
+        support_terms: list[str],
         search_terms: list[str],
         code_variants: list[str],
         normalized_question_en: str | None,
@@ -478,6 +650,8 @@ def maybe_plan_query_terms(
         dropped_filler_terms: list[str],
     ) -> QueryPlannerOutcome:
         outcome = QueryPlannerOutcome(
+            lead_terms=lead_terms,
+            support_terms=support_terms,
             search_terms=search_terms,
             code_variants=code_variants,
             normalized_question_en=normalized_question_en,
@@ -507,6 +681,8 @@ def maybe_plan_query_terms(
     if not settings.query_planner_enabled or settings.query_planner_mode == "off":
         usage["fallback_reason"] = "query planner disabled by config"
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -518,6 +694,8 @@ def maybe_plan_query_terms(
     if settings.mode == "off":
         usage["fallback_reason"] = "llm disabled by cli mode"
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -529,6 +707,8 @@ def maybe_plan_query_terms(
     if settings.provider is None:
         usage["fallback_reason"] = "no llm provider configured"
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -540,6 +720,8 @@ def maybe_plan_query_terms(
     if settings.validation_error:
         usage["fallback_reason"] = f"config validation error: {settings.validation_error}"
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -565,6 +747,8 @@ def maybe_plan_query_terms(
     if prompt_error:
         usage["fallback_reason"] = prompt_error
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -604,6 +788,8 @@ def maybe_plan_query_terms(
                 f"planner latency {latency_ms}ms exceeds max {settings.query_planner_max_latency_ms}ms"
             )
             return _finish(
+                lead_terms=[],
+                support_terms=[],
                 search_terms=[],
                 code_variants=[],
                 normalized_question_en=None,
@@ -617,6 +803,8 @@ def maybe_plan_query_terms(
         intent = raw_result.get("intent")
         target_scope = _sanitize_scope(raw_result.get("target_scope"))
         entity_types = _sanitize_entity_types(raw_result.get("entity_types"))
+        lead_terms = _sanitize_str_list(raw_result.get("lead_terms"), limit=settings.query_planner_max_terms)
+        support_terms = _sanitize_str_list(raw_result.get("support_terms"), limit=settings.query_planner_max_terms)
         search_terms = _sanitize_str_list(raw_result.get("search_terms"), limit=settings.query_planner_max_terms)
         code_variants = _sanitize_str_list(
             raw_result.get("code_variants"),
@@ -630,9 +818,29 @@ def maybe_plan_query_terms(
         if not isinstance(intent, str) or not intent.strip():
             intent = None
 
+        # Backward/partial compatibility:
+        # If planner does not provide prioritized buckets, derive them from search_terms.
+        if not lead_terms and search_terms:
+            lead_terms = search_terms[:2]
+        if not support_terms and search_terms:
+            support_terms = [term for term in search_terms if term not in set(lead_terms)]
+        if not search_terms and (lead_terms or support_terms):
+            search_terms = [*lead_terms, *support_terms]
+            search_terms = _sanitize_str_list(search_terms, limit=settings.query_planner_max_terms)
+        lead_terms, support_terms, search_terms = _normalize_planner_priority_buckets(
+            lead_terms,
+            support_terms,
+            search_terms,
+        )
+        lead_terms = _sanitize_str_list(lead_terms, limit=settings.query_planner_max_terms)
+        support_terms = _sanitize_str_list(support_terms, limit=settings.query_planner_max_terms)
+        search_terms = _sanitize_str_list(search_terms, limit=settings.query_planner_max_terms)
+
         if not search_terms and not code_variants:
             usage["fallback_reason"] = "planner output did not contain usable terms"
             return _finish(
+                lead_terms=lead_terms,
+                support_terms=support_terms,
                 search_terms=[],
                 code_variants=[],
                 normalized_question_en=normalized_question_en,
@@ -643,6 +851,8 @@ def maybe_plan_query_terms(
             )
         usage["used"] = True
         return _finish(
+            lead_terms=lead_terms,
+            support_terms=support_terms,
             search_terms=search_terms,
             code_variants=code_variants,
             normalized_question_en=normalized_question_en,
@@ -655,6 +865,8 @@ def maybe_plan_query_terms(
         usage["latency_ms"] = int((time.perf_counter() - started) * 1000)
         usage["fallback_reason"] = f"planner failure: {exc}"
         return _finish(
+            lead_terms=[],
+            support_terms=[],
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -944,6 +1156,35 @@ def maybe_refine_summary(
         else:
             raise RuntimeError(f"provider '{settings.provider}' is not supported")
         usage["used"] = True
+        if capability == Capability.QUERY:
+            refined_query_summary, query_refinement_error = _parse_query_refinement_response(
+                raw_response=refined,
+                deterministic_summary=deterministic_summary,
+            )
+            if query_refinement_error:
+                usage["fallback_reason"] = query_refinement_error
+                uncertainty_notes.append(
+                    "Discarded LLM query refinement because it violated the strict summary-preservation JSON contract."
+                )
+                return _finish(deterministic_summary)
+            assert refined_query_summary is not None
+            refined = refined_query_summary
+        if capability == Capability.QUERY and not _refinement_preserves_deterministic_summary(
+            deterministic_summary=deterministic_summary,
+            refined_summary=refined,
+        ):
+            usage["fallback_reason"] = "refinement did not preserve deterministic summary"
+            uncertainty_notes.append(
+                "Discarded LLM summary rewrite because it changed deterministic core claims instead of only rephrasing."
+            )
+            return _finish(deterministic_summary)
+        if capability == Capability.QUERY and _refinement_contradicts_deterministic_query_summary(
+            deterministic_summary=deterministic_summary,
+            refined_summary=refined,
+        ):
+            usage["fallback_reason"] = "refinement contradicted deterministic query summary"
+            uncertainty_notes.append("Discarded LLM summary rewrite because it contradicted deterministic file evidence.")
+            return _finish(deterministic_summary)
         uncertainty_notes.append("Summary includes assistive LLM wording; verify nuanced interpretation manually.")
         return _finish(refined)
     except Exception as exc:  # pragma: no cover - defensive fallback

@@ -74,44 +74,37 @@ STOP_WORDS_DE = {
 
 GENERIC_QUERY_TERMS = {
     "find",
-    "entry",
-    "point",
-    "main",
     "show",
     "where",
     "which",
 }
 
-ENTRYPOINT_PHRASES = {
-    "main entry point",
-    "entry point",
-    "entrypoint",
+WEAK_GENERIC_TERMS = {
+    "where",
+    "what",
+    "which",
+    "find",
+    "show",
+    "code",
+    "source",
+    "location",
+    "file",
+    "files",
 }
 
-ENTRYPOINT_PATH_HINTS = {
-    "forge.py",
-    "__main__.py",
-    "main.py",
-    "forge_cmd/cli.py",
+SQL_WHERE_CONTEXT_HINTS = {
+    "sql",
+    "select",
+    "from",
+    "where",
+    "join",
+    "group",
+    "order",
+    "having",
+    "query builder",
+    "querybuilder",
+    "criteria",
 }
-
-ENTRYPOINT_LINE_HINTS = (
-    "__main__",
-    "argparse.argumentparser(",
-    "entry_points",
-    "def main(",
-    "raise systemexit(main(",
-)
-
-LLM_CALL_LINE_HINTS = (
-    "chat/completions",
-    "chat.completions",
-    "responses.create",
-    "request.urlopen(",
-    "authorization",
-    "openai_compatible",
-    "base_url",
-)
 
 LANGUAGE_HINTS_DE = {
     "wo",
@@ -363,66 +356,102 @@ def derive_search_terms(
     profile: Profile,
     cross_lingual: CrossLingualExpansion,
     planner_terms: list[str] | None = None,
-    planner_code_variants: list[str] | None = None,
 ) -> list[str]:
-    quoted_phrases = re.findall(r'"([^"]+)"', question)
-    word_tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
-    filtered_words: list[str] = []
-    for token in word_tokens:
-        parts = [token, *[p for p in re.split(r"[-_/]", token) if p]]
-        for part in parts:
-            if len(part) < 3:
-                continue
-            if part in STOP_WORDS or part in STOP_WORDS_DE:
-                continue
-            filtered_words.append(part)
-
+    planner_driven = bool(planner_terms)
     terms: list[str] = []
-    normalized_question = normalize_question(question)
-    if normalized_question:
-        terms.append(normalized_question.lower())
-    terms.extend([phrase.strip().lower() for phrase in quoted_phrases if phrase.strip()])
-    terms.extend(filtered_words)
-    terms.extend(item["mapped_term"] for item in cross_lingual.mapped_terms)
-    terms.extend([item.lower() for item in (planner_terms or [])])
-    terms.extend([item.lower() for item in (planner_code_variants or [])])
+    if planner_driven:
+        terms.extend([item.lower() for item in (planner_terms or [])])
+    else:
+        quoted_phrases = re.findall(r'"([^"]+)"', question)
+        word_tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
+        filtered_words: list[str] = []
+        for token in word_tokens:
+            parts = [token, *[p for p in re.split(r"[-_/]", token) if p]]
+            for part in parts:
+                if len(part) < 3:
+                    continue
+                if part in STOP_WORDS or part in STOP_WORDS_DE:
+                    continue
+                filtered_words.append(part)
+        normalized_question = normalize_question(question)
+        if normalized_question:
+            terms.append(normalized_question.lower())
+        terms.extend([phrase.strip().lower() for phrase in quoted_phrases if phrase.strip()])
+        terms.extend(filtered_words)
+        terms.extend(item["mapped_term"] for item in cross_lingual.mapped_terms)
 
-    # Keep order but deduplicate.
+    # Keep order and deduplicate only. Ranking priority is handled by scoring.
     seen: set[str] = set()
     deduped: list[str] = []
-    entrypoint_intent = has_entrypoint_intent(question)
+    sql_where_context = _is_sql_where_context(question)
     for term in terms:
-        if term in seen:
+        normalized_term = " ".join(term.strip().split()).lower()
+        if not normalized_term:
             continue
-        if term in STOP_WORDS:
+        if normalized_term in seen:
             continue
-        if term in GENERIC_QUERY_TERMS and not (
-            entrypoint_intent and term in {"main", "entry", "point"}
-        ):
+        if normalized_term in STOP_WORDS or normalized_term in STOP_WORDS_DE:
             continue
-        seen.add(term)
-        deduped.append(term)
-
-    if entrypoint_intent:
-        for hint in ("__main__", "main(", "argparse", "entrypoint"):
-            if hint in seen:
+        if normalized_term in GENERIC_QUERY_TERMS:
+            continue
+        if normalized_term in WEAK_GENERIC_TERMS:
+            if normalized_term == "where" and not sql_where_context:
                 continue
-            seen.add(hint)
-            deduped.append(hint)
-
-    lowered_question = normalize_question(question).lower()
-    if "llm" in lowered_question and any(marker in lowered_question for marker in ("aufruf", "call", "request")):
-        for hint in ("openai", "chat.completions", "responses.create", "litellm", "openai_compatible_complete"):
-            if hint in seen:
+            if normalized_term != "where":
                 continue
-            seen.add(hint)
-            deduped.append(hint)
-
+        seen.add(normalized_term)
+        deduped.append(normalized_term)
     if profile == Profile.SIMPLE:
         return deduped[:5]
     if profile == Profile.STANDARD:
         return deduped[:10]
     return deduped[:15]
+
+
+def compose_planner_terms(
+    lead_terms: list[str],
+    support_terms: list[str],
+    search_terms: list[str],
+) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for bucket in (lead_terms, support_terms, search_terms):
+        for item in bucket:
+            normalized = " ".join(item.strip().split()).lower()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            ordered.append(normalized)
+    return ordered
+
+
+def _is_sql_where_context(question: str) -> bool:
+    lowered = normalize_question(question).lower()
+    return any(hint in lowered for hint in SQL_WHERE_CONTEXT_HINTS)
+
+
+def _is_symbol_like_term(term: str) -> bool:
+    if not term:
+        return False
+    if any(ch in term for ch in ("(", ")", "::", ".", "/")):
+        return True
+    if re.fullmatch(r"[a-z_][a-z0-9_]*", term) and "_" in term and len(term) >= 6:
+        return True
+    return False
+
+
+def build_term_weight_map(terms: list[str]) -> dict[str, int]:
+    # Weight by search-term position: earlier terms carry more priority.
+    weights: dict[str, int] = {}
+    for idx, term in enumerate(terms):
+        normalized = " ".join(term.strip().split()).lower()
+        if not normalized:
+            continue
+        weight = max(1, 10 - idx)
+        existing = weights.get(normalized, 0)
+        if weight > existing:
+            weights[normalized] = weight
+    return weights
 
 
 def derive_exact_fallback_terms(question: str, profile: Profile) -> list[str]:
@@ -450,13 +479,6 @@ def derive_exact_fallback_terms(question: str, profile: Profile) -> list[str]:
     if profile == Profile.STANDARD:
         return deduped[:10]
     return deduped[:15]
-
-
-def has_entrypoint_intent(question: str) -> bool:
-    lowered = normalize_question(question).lower()
-    if any(phrase in lowered for phrase in ENTRYPOINT_PHRASES):
-        return True
-    return "main" in lowered and "entry" in lowered
 
 
 def has_write_request_intent(question: str) -> bool:
@@ -493,6 +515,11 @@ def _structural_tokens(raw: str) -> list[str]:
 def _path_term_score(rel_lower: str, term: str) -> tuple[int, list[str]]:
     normalized = " ".join(term.strip().lower().split())
     if not normalized:
+        return 0, []
+
+    if _is_symbol_like_term(normalized):
+        if normalized in rel_lower:
+            return 10, [normalized]
         return 0, []
 
     rel_parts = [part for part in re.split(r"[\\/._-]+", rel_lower) if part]
@@ -533,17 +560,22 @@ def _path_term_score(rel_lower: str, term: str) -> tuple[int, list[str]]:
 
 def _symbol_term_score(symbol: str, token: str) -> int:
     if symbol == token:
-        return 5
+        return 14
     if len(token) >= 4 and symbol.startswith(token):
-        return 3
+        return 8
     if len(token) >= 5 and token in symbol:
-        return 1
+        return 4
     return 0
 
 
 def _summary_term_score(summary_lower: str, term: str) -> tuple[int, list[str]]:
     normalized = " ".join(term.strip().lower().split())
     if not normalized:
+        return 0, []
+
+    if _is_symbol_like_term(normalized):
+        if normalized in summary_lower:
+            return 6, [normalized]
         return 0, []
 
     matched_tokens: list[str] = []
@@ -582,11 +614,13 @@ def collect_matches(
     session: ExecutionSession,
     *,
     index_entry_map: dict[str, dict[str, object]],
+    term_weights: dict[str, int] | None = None,
 ) -> dict[str, list[Evidence]]:
     results: dict[str, list[Evidence]] = {}
     if not terms:
         return results
 
+    weight_map = term_weights or {}
     repo_files = iter_repo_files(root, session)
     rel_paths = [str(path.relative_to(root)) for path in repo_files]
     for file_path in repo_files:
@@ -599,11 +633,18 @@ def collect_matches(
         evidences: list[Evidence] = []
         for idx, line in enumerate(lines, start=1):
             haystack = line.lower()
-            matched_term = next((term for term in terms if term in haystack), None)
-            if matched_term is None:
+            matches_in_line = [term for term in terms if term in haystack]
+            if not matches_in_line:
                 continue
+            matched_term = max(matches_in_line, key=lambda item: (weight_map.get(item, 1), len(item)))
             evidences.append(
-                Evidence(line=idx, text=line.strip(), term=matched_term, source="content_match", weight=1)
+                Evidence(
+                    line=idx,
+                    text=line.strip(),
+                    term=matched_term,
+                    source="content_match",
+                    weight=max(1, weight_map.get(matched_term, 1)),
+                )
             )
             if len(evidences) >= 12:
                 break
@@ -626,7 +667,7 @@ def collect_matches(
                     text=f"path overlap ({token_hint})",
                     term=term,
                     source="path_match",
-                    weight=score,
+                    weight=score * max(1, weight_map.get(term, 1)),
                 )
             )
         if path_hits:
@@ -635,14 +676,13 @@ def collect_matches(
 
     # Symbol retrieval from index metadata.
     if index_entry_map:
-        structural_terms: list[str] = []
-        seen_terms: set[str] = set()
+        structural_terms: list[tuple[str, int]] = []
+        seen_terms: dict[str, int] = {}
         for term in terms:
+            term_weight = max(1, weight_map.get(term, 1))
             for token in _structural_tokens(term):
-                if token in seen_terms:
-                    continue
-                seen_terms.add(token)
-                structural_terms.append(token)
+                seen_terms[token] = max(seen_terms.get(token, 0), term_weight)
+        structural_terms.extend(seen_terms.items())
 
         for rel, entry in index_entry_map.items():
             raw_symbols = entry.get("top_level_symbols")
@@ -650,7 +690,7 @@ def collect_matches(
                 continue
             symbols = [str(item).strip().lower() for item in raw_symbols if str(item).strip()]
             symbol_hits: list[Evidence] = []
-            for token in structural_terms:
+            for token, token_weight in structural_terms:
                 best_symbol = ""
                 best_score = 0
                 for symbol in symbols:
@@ -665,7 +705,7 @@ def collect_matches(
                             text=f"symbol match: {best_symbol}",
                             term=token,
                             source="symbol_match",
-                            weight=best_score,
+                            weight=best_score * token_weight,
                         )
                     )
             if symbol_hits:
@@ -690,7 +730,7 @@ def collect_matches(
                         text=f"summary overlap ({token_hint})",
                         term=term,
                         source="summary_match",
-                        weight=score,
+                        weight=score * max(1, weight_map.get(term, 1)),
                     )
                 )
             if summary_hits:
@@ -704,10 +744,7 @@ def score_candidate(
     evidences: list[Evidence],
     path_class: str,
     *,
-    entrypoint_intent: bool,
-    llm_call_intent: bool,
     target_scope: str | None,
-    entity_types: list[str],
     index_explain_summary: str | None,
     question_terms: set[str],
     source_type: str,
@@ -719,6 +756,7 @@ def score_candidate(
     summary_evidences = [item for item in evidences if item.source == "summary_match"]
 
     unique_terms = {e.term for e in content_evidences}
+    # Code/config content hits are normal-strength baseline evidence.
     base = len(content_evidences) + (len(unique_terms) * 2)
     class_bonus = path_class_weight(path_class)
     score = base + class_bonus
@@ -727,37 +765,13 @@ def score_candidate(
         path_weight += 3
     if path_evidences and max(item.weight for item in path_evidences) >= 6 and len(path_evidences) >= 2:
         path_weight += 2
-    score += min(path_weight, 16)
-    score += min(sum(item.weight for item in symbol_evidences), 6)
-    score += min(sum(item.weight for item in summary_evidences), 8)
-
-    if entrypoint_intent:
-        rel = str(candidate_path).lower()
-        if rel in ENTRYPOINT_PATH_HINTS:
-            score += 9
-        elif rel.endswith("/__main__.py") or rel.endswith("/main.py"):
-            score += 7
-        line_boost = 0
-        for evidence in evidences[:8]:
-            line_lower = evidence.text.lower()
-            if any(hint in line_lower for hint in ENTRYPOINT_LINE_HINTS):
-                line_boost += 2
-        score += min(line_boost, 8)
-
-    if llm_call_intent:
-        rel = str(candidate_path).lower()
-        if rel == "core/llm_integration.py" or rel.endswith("/llm_integration.py"):
-            score += 14
-        elif rel.startswith("core/"):
-            score += 4
-        elif rel.startswith("docs/"):
-            score -= 6
-        line_boost = 0
-        for evidence in evidences[:10]:
-            line_lower = evidence.text.lower()
-            if any(hint in line_lower for hint in LLM_CALL_LINE_HINTS):
-                line_boost += 3
-        score += min(line_boost, 12)
+    # Index-derived path/symbol/summary signals should rank relatively high.
+    score += min(path_weight, 24)
+    symbol_weight = sum(item.weight for item in symbol_evidences)
+    score += min(symbol_weight, 36)
+    score += min(sum(item.weight for item in summary_evidences), 12)
+    if symbol_weight >= 14:
+        score += 8
 
     rel = str(candidate_path).lower()
     if target_scope == "code":
@@ -771,12 +785,17 @@ def score_candidate(
         else:
             score -= 3
 
-    if "api_call" in entity_types:
-        for evidence in evidences[:10]:
-            line_lower = evidence.text.lower()
-            if "(" in line_lower and any(marker in line_lower for marker in ("openai", "request", "chat", "responses")):
-                score += 2
+    # Explicit definition signatures should dominate generic lexical noise.
+    symbol_tokens = {item.term.lower() for item in symbol_evidences if item.term}
+    definition_hits = 0
+    for evidence in content_evidences[:12]:
+        line_lower = evidence.text.lower()
+        for token in symbol_tokens:
+            if re.search(rf"\b(def|class|function)\s+{re.escape(token)}\b", line_lower):
+                definition_hits += 1
                 break
+    if definition_hits > 0:
+        score += min(definition_hits * 14, 28)
 
     if index_explain_summary:
         lowered = index_explain_summary.lower()
@@ -790,6 +809,10 @@ def score_candidate(
         score -= 3 if prefer_repo_sources else 1
     elif source_type == "external":
         score -= 4 if prefer_repo_sources else 2
+
+    # Docs-only hits should stay lower priority in code-target query ranking.
+    if rel.startswith("docs/") or rel.endswith(".md"):
+        score -= 6
 
     return score
 
@@ -821,10 +844,7 @@ def rank_candidates(
     matches: dict[str, list[Evidence]],
     *,
     path_classes: dict[str, str],
-    entrypoint_intent: bool,
-    llm_call_intent: bool,
     target_scope: str | None,
-    entity_types: list[str],
     index_entry_map: dict[str, dict[str, object]],
     question_terms: set[str],
 ) -> list[Candidate]:
@@ -851,10 +871,7 @@ def rank_candidates(
                     Path(rel_path),
                     evidences,
                     path_class,
-                    entrypoint_intent=entrypoint_intent,
-                    llm_call_intent=llm_call_intent,
                     target_scope=target_scope,
-                    entity_types=entity_types,
                     index_explain_summary=(
                         str(index_entry_map.get(rel_path, {}).get("explain_summary"))
                         if isinstance(index_entry_map.get(rel_path, {}).get("explain_summary"), str)
@@ -881,17 +898,10 @@ def rank_candidates_for_query(
     index_entry_map: dict[str, dict[str, object]],
     path_classes: dict[str, str],
 ) -> list[Candidate]:
-    llm_call_intent = bool(planner is not None and planner.usage.get("used")) and (planner.intent or "").strip().lower() in {
-        "llm_usage_locations",
-        "llm_calls",
-    }
     return rank_candidates(
         matches,
         path_classes=path_classes,
-        entrypoint_intent=has_entrypoint_intent(question),
-        llm_call_intent=llm_call_intent,
         target_scope=planner.target_scope if planner is not None else None,
-        entity_types=planner.entity_types if planner is not None else [],
         index_entry_map=index_entry_map,
         question_terms=_question_terms_for_intent(question),
     )
@@ -1264,20 +1274,17 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
 
     if planner is not None and planner.usage.get("used"):
-        terms: list[str] = []
-        terms.extend([item.lower() for item in planner.search_terms])
-        terms.extend([item.lower() for item in planner.code_variants])
-        deduped_terms: list[str] = []
-        seen_terms: set[str] = set()
-        for term in terms:
-            normalized_term = " ".join(term.strip().split())
-            if not normalized_term:
-                continue
-            if normalized_term in seen_terms:
-                continue
-            seen_terms.add(normalized_term)
-            deduped_terms.append(normalized_term)
-        terms = deduped_terms[:20]
+        effective_planner_terms = compose_planner_terms(
+            planner.lead_terms,
+            planner.support_terms,
+            planner.search_terms,
+        )
+        terms = derive_search_terms(
+            question,
+            request.profile,
+            cross_lingual,
+            planner_terms=effective_planner_terms,
+        )
     else:
         # Fallback is strict: only use exactly requested query terms.
         terms = derive_exact_fallback_terms(question, request.profile)
@@ -1302,11 +1309,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
 
     if not is_json and is_full(view):
         print(f"Search terms: {', '.join(terms[:8])}" if terms else "Search terms: none")
+    term_weights = build_term_weight_map(terms)
     matches = collect_matches(
         repo_root,
         terms,
         session,
         index_entry_map=index_entry_map,
+        term_weights=term_weights,
     )
     candidates = rank_candidates_for_query(
         matches=matches,
@@ -1338,12 +1347,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             )
     orchestration_decisions = []
     orchestration_iterations: list[QueryOrchestrationIteration] = []
-    orchestration_done_reason = "sufficient_evidence"
+    orchestration_done_reason = "running"
     orchestration_usage: dict[str, object] = {}
     orchestration_fallback_reason: str | None = None
     adaptive_continue_triggered = False
     no_progress_streak = 0
     no_progress_streak_limit = 2
+    search_noop_streak = 0
     progress_threshold = 1.5
     budget_tokens_used = 0
     budget_files_used = 0
@@ -1394,6 +1404,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
         confidence = outcome.decisions[0].confidence if outcome.decisions else "medium"
         iteration_fallback_trigger = outcome.fallback_reason
+
+        if (
+            decision == "continue"
+            and next_action == "search"
+            and search_noop_streak >= 1
+            and candidates
+            and budget_files_used < llm_settings.query_orchestrator_max_files
+        ):
+            next_action = "read"
+            reason = f"{reason} (deterministic anti-stall override: repeated search-noop switched to read)"
 
         if outcome.done_reason in {"policy_blocked", "budget_exhausted"} and not outcome.decisions:
             orchestration_done_reason = outcome.done_reason
@@ -1546,7 +1566,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     source_scope_reason = "read denied by budget caps"
                 else:
                     start_idx = 1 if adaptive_continue else 0
-                    inspect_size = max(1, min(len(candidates) - start_idx, remaining_files))
+                    # enrich_detailed_context reads at most three candidates per call.
+                    max_read_batch = 3
+                    inspect_size = max(1, min(len(candidates) - start_idx, remaining_files, max_read_batch))
                     inspect_slice = candidates[start_idx : start_idx + inspect_size]
                     if inspect_slice:
                         if all(item.source_type == "repo" for item in inspect_slice):
@@ -1702,6 +1724,11 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if no_progress_streak >= no_progress_streak_limit:
             orchestration_done_reason = "no_progress"
 
+        if next_action == "search" and handler_status == "noop":
+            search_noop_streak += 1
+        else:
+            search_noop_streak = 0
+
         elapsed_after_ms = int((time.perf_counter() - loop_started) * 1000)
         if elapsed_after_ms >= llm_settings.query_orchestrator_max_wall_time_ms:
             orchestration_done_reason = "budget_exhausted"
@@ -1793,17 +1820,20 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if candidates
         else "Try a narrower question with a concrete symbol or path fragment."
     )
-    llm_outcome = maybe_refine_summary(
-        capability=request.capability,
-        profile=request.profile,
-        task=question,
-        deterministic_summary=summary,
-        evidence=evidence_payload,
-        settings=llm_settings,
-        repo_root=repo_root,
-    )
-    summary = llm_outcome.summary
-    uncertainty.extend(llm_outcome.uncertainty_notes)
+    if not is_json:
+        llm_outcome = maybe_refine_summary(
+            capability=request.capability,
+            profile=request.profile,
+            task=question,
+            deterministic_summary=summary,
+            evidence=evidence_payload,
+            settings=llm_settings,
+            repo_root=repo_root,
+        )
+        summary = llm_outcome.summary
+        uncertainty.extend(llm_outcome.uncertainty_notes)
+    else:
+        llm_outcome = None
 
     sections: dict[str, object] = {
         "likely_locations": [
@@ -1845,9 +1875,19 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             for candidate in candidates[:5]
             if str(candidate.path) in index_entry_map
         ],
-        "llm_usage": llm_outcome.usage,
+        "llm_usage": (
+            llm_outcome.usage
+            if llm_outcome is not None
+            else {
+                "policy": "off",
+                "mode": llm_settings.mode,
+                "attempted": False,
+                "used": False,
+                "fallback_reason": "summary refinement disabled for json output",
+            }
+        ),
         "provenance": provenance_section(
-            llm_used=bool(llm_outcome.usage.get("used")),
+            llm_used=bool(llm_outcome.usage.get("used")) if llm_outcome is not None else False,
             evidence_count=len(evidence_payload),
         ),
         "cross_lingual": {
@@ -1860,6 +1900,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "intent": planner.intent if planner is not None else None,
             "target_scope": planner.target_scope if planner is not None else None,
             "entity_types": planner.entity_types if planner is not None else [],
+            "lead_terms": planner.lead_terms if planner is not None else [],
+            "support_terms": planner.support_terms if planner is not None else [],
             "search_terms": planner.search_terms if planner is not None else [],
             "code_variants": planner.code_variants if planner is not None else [],
             "dropped_filler_terms": planner.dropped_filler_terms if planner is not None else [],
@@ -2023,6 +2065,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             print(f"Entity types: {', '.join(planner.entity_types)}")
         if planner is not None and planner.search_terms:
             print(f"Planner terms: {', '.join(planner.search_terms[:8])}")
+        if planner is not None and planner.lead_terms:
+            print(f"Lead terms: {', '.join(planner.lead_terms[:8])}")
+        if planner is not None and planner.support_terms:
+            print(f"Support terms: {', '.join(planner.support_terms[:8])}")
         if planner is not None and planner.code_variants:
             print(f"Code variants: {', '.join(planner.code_variants[:8])}")
         if planner_usage.get("fallback_reason"):
