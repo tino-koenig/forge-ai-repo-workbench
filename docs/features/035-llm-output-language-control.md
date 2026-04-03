@@ -58,3 +58,20 @@ Invalid values produce explicit config validation errors.
 - all LLM prompt templates include output-language instruction
 - LLM usage metadata exposes effective `output_language`
 - docs include option and config examples
+
+## Implemented Behavior (Current)
+
+- Implementation status: implemented.
+- Traceability: `CHANGELOG.md` references feature 035; status and notes are indexed in `docs/status/features-index.md`.
+- This addendum summarizes runtime availability; the normative intent remains in the spec sections above.
+
+## How To Validate Quickly
+
+- Run `forge --help` to confirm command surface is available.
+- Run the relevant capability command(s) for this feature in a repository context.
+- Use `python3 scripts/run_quality_gates.py` for regression-oriented validation when behavior changes.
+
+## Known Limits / Notes
+
+- For detailed constraints and non-goals, rely on the original spec content above.
+- When implementation behavior diverges, update this addendum together with `CHANGELOG.md`.
