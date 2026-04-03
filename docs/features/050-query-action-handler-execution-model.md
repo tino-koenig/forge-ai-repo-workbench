@@ -67,3 +67,37 @@ Without explicit handlers, orchestration decisions cannot reliably improve resul
 - handler-level budget accounting is visible in run metadata
 - invalid actions degrade safely with explicit fallback reason
 - source-aware execution and caps are enforced per handler
+
+## Implemented Behavior (Current)
+
+- Query orchestration executes explicit handlers for all catalog actions:
+  - `search`: bounded candidate expansion from deterministic path-hint matches
+  - `read`: bounded contextual evidence collection from selected candidates
+  - `explain`: explain-feedback recomputation for top candidates
+  - `rank`: deterministic rerank from current explain-feedback state
+  - `summarize`: controlled finalization (`sufficient_evidence`)
+  - `stop`: controlled finalization (`sufficient_evidence`)
+- Unsupported/invalid actions degrade to `policy_blocked` with explicit handler diagnostics.
+- Per-iteration metadata now includes handler execution info:
+  - `handler_status`
+  - `handler_detail`
+  - `budget_files_used`
+  - `budget_tokens_used`
+- Source-scope behavior is deterministic for search:
+  - default `repo_only`
+  - bounded widening to `all` when top repo evidence is weak
+
+## How To Validate Quickly
+
+- Text diagnostics:
+  - `forge --view full query "Where is query orchestration implemented?"`
+  - inspect the `Action Orchestration` section for handler status/details
+- JSON diagnostics:
+  - `forge --output-format json query "Where is query orchestration implemented?"`
+  - inspect `sections.action_orchestration.iterations[]` for handler metadata
+
+## Known Limits / Notes
+
+- `search` expansion remains intentionally conservative and path-hint based.
+- Token accounting is bounded estimation, not provider token metering.
+- Framework-specific dedicated caps are not yet separate config knobs; global orchestration budgets remain enforced.

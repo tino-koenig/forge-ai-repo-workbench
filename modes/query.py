@@ -257,6 +257,8 @@ class QueryOrchestrationIteration:
     budget_tokens_used: int
     budget_files_used: int
     elapsed_ms: int
+    handler_status: str
+    handler_detail: str
 
 
 FRAMEWORK_PATH_MARKERS = (
@@ -855,6 +857,77 @@ def rank_candidates(
     return ranked
 
 
+def rank_candidates_for_query(
+    *,
+    matches: dict[str, list[Evidence]],
+    question: str,
+    planner,
+    index_entry_map: dict[str, dict[str, object]],
+    path_classes: dict[str, str],
+) -> list[Candidate]:
+    llm_call_intent = bool(planner is not None and planner.usage.get("used")) and (planner.intent or "").strip().lower() in {
+        "llm_usage_locations",
+        "llm_calls",
+    }
+    return rank_candidates(
+        matches,
+        path_classes=path_classes,
+        entrypoint_intent=has_entrypoint_intent(question),
+        llm_call_intent=llm_call_intent,
+        target_scope=planner.target_scope if planner is not None else None,
+        entity_types=planner.entity_types if planner is not None else [],
+        index_entry_map=index_entry_map,
+        question_terms=_question_terms_for_intent(question),
+    )
+
+
+def _expand_matches_with_search_action(
+    *,
+    matches: dict[str, list[Evidence]],
+    index_entry_map: dict[str, dict[str, object]],
+    path_classes: dict[str, str],
+    terms: list[str],
+    max_new_candidates: int,
+    source_scope: str,
+) -> int:
+    if not index_entry_map or max_new_candidates <= 0:
+        return 0
+
+    existing_paths = set(matches.keys())
+    added = 0
+    for rel, entry in index_entry_map.items():
+        if rel in existing_paths:
+            continue
+        inferred_class = path_classes.get(rel, "normal")
+        source_type = classify_source_type(rel, path_class=inferred_class, index_entry=entry)
+        if source_scope == "repo_only" and source_type != "repo":
+            continue
+        if source_scope == "framework_only" and source_type != "framework":
+            continue
+        rel_lower = rel.lower()
+        hits: list[Evidence] = []
+        for term in terms:
+            score, matched_tokens = _path_term_score(rel_lower, term)
+            if score <= 0:
+                continue
+            token_hint = ", ".join(matched_tokens) if matched_tokens else "segment"
+            hits.append(
+                Evidence(
+                    line=0,
+                    text=f"search-expanded path overlap ({token_hint})",
+                    term=term,
+                    source="path_match",
+                    weight=score,
+                )
+            )
+        if hits:
+            matches[rel] = hits[:3]
+            added += 1
+        if added >= max_new_candidates:
+            break
+    return added
+
+
 def _question_terms_for_intent(question: str) -> set[str]:
     tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
     terms: set[str] = set()
@@ -1145,19 +1218,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         session,
         index_entry_map=index_entry_map,
     )
-    llm_call_intent = bool(planner is not None and planner.usage.get("used")) and (planner.intent or "").strip().lower() in {
-        "llm_usage_locations",
-        "llm_calls",
-    }
-    candidates = rank_candidates(
-        matches,
-        path_classes=path_classes,
-        entrypoint_intent=has_entrypoint_intent(question),
-        llm_call_intent=llm_call_intent,
-        target_scope=planner.target_scope if planner is not None else None,
-        entity_types=planner.entity_types if planner is not None else [],
+    candidates = rank_candidates_for_query(
+        matches=matches,
+        question=question,
+        planner=planner,
         index_entry_map=index_entry_map,
-        question_terms=_question_terms_for_intent(question),
+        path_classes=path_classes,
     )
     explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
     candidates = rerank_with_explain_feedback(candidates, explain_feedback)
@@ -1247,6 +1313,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    handler_status="blocked",
+                    handler_detail="decision not executable due to policy/budget block before handler stage",
                 )
             )
             break
@@ -1268,60 +1336,124 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    handler_status="stop",
+                    handler_detail="decision requested stop before handler stage",
                 )
             )
             break
 
         action_applied = False
-        if next_action == "read" and candidates:
-            remaining_files = max(0, llm_settings.query_orchestrator_max_files - budget_files_used)
-            remaining_tokens = max(0, llm_settings.query_orchestrator_max_tokens - budget_tokens_used)
-            if remaining_files <= 0 or remaining_tokens <= 0:
-                orchestration_done_reason = "budget_exhausted"
+        handler_status = "ok"
+        handler_detail = "no action executed"
+        source_scope = "repo_only"
+
+        if next_action == "search":
+            # Deterministically expand candidate pool via path-based index hints.
+            source_scope = "repo_only"
+            top_repo_candidates = sum(1 for item in candidates[:5] if item.source_type == "repo")
+            if top_repo_candidates <= 1:
+                source_scope = "all"
+            added_candidates = _expand_matches_with_search_action(
+                matches=matches,
+                index_entry_map=index_entry_map,
+                path_classes=path_classes,
+                terms=terms,
+                max_new_candidates=min(12, llm_settings.query_orchestrator_max_files),
+                source_scope=source_scope,
+            )
+            if added_candidates > 0:
+                candidates = rank_candidates_for_query(
+                    matches=matches,
+                    question=question,
+                    planner=planner,
+                    index_entry_map=index_entry_map,
+                    path_classes=path_classes,
+                )
+                explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
+                candidates = rerank_with_explain_feedback(candidates, explain_feedback)
+                action_applied = True
+                budget_tokens_used += min(added_candidates * 20, 240)
+                handler_detail = f"search expanded candidate pool by {added_candidates} path-hint matches (scope={source_scope})"
             else:
-                start_idx = 1 if adaptive_continue else 0
-                inspect_size = max(1, min(len(candidates) - start_idx, remaining_files))
-                inspect_slice = candidates[start_idx : start_idx + inspect_size]
-                budget_files_used += len(inspect_slice)
-                bounded_details = enrich_detailed_context(repo_root, inspect_slice, session)
-                extra_limit = min(len(bounded_details), remaining_tokens // 40)
-                for raw in bounded_details[:extra_limit]:
-                    if raw.count(":") < 2:
-                        continue
-                    path_part, line_part, text_part = raw.split(":", 2)
-                    try:
-                        line_no = int(line_part)
-                    except ValueError:
-                        continue
-                    evidence_payload.append(
-                        {
-                            "path": path_part.strip(),
-                            "line": line_no,
-                            "text": text_part.strip(),
-                            "term": "orchestrator_read",
-                            "source": "content_match",
-                            "retrieval_source": "content_match",
-                        }
-                    )
-                    action_applied = True
-                budget_tokens_used += extra_limit * 40
-                if bounded_details:
-                    detailed_lines.extend(bounded_details[:12])
-        elif next_action == "explain" and candidates:
-            explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
-            candidates = rerank_with_explain_feedback(candidates, explain_feedback)
-            action_applied = True
+                handler_status = "noop"
+                handler_detail = "search found no additional bounded candidates"
+
+        elif next_action == "read":
+            if not candidates:
+                handler_status = "noop"
+                handler_detail = "read skipped because no candidates are available"
+            else:
+                remaining_files = max(0, llm_settings.query_orchestrator_max_files - budget_files_used)
+                remaining_tokens = max(0, llm_settings.query_orchestrator_max_tokens - budget_tokens_used)
+                if remaining_files <= 0 or remaining_tokens <= 0:
+                    orchestration_done_reason = "budget_exhausted"
+                    handler_status = "budget_blocked"
+                    handler_detail = "read skipped because budget is exhausted"
+                else:
+                    start_idx = 1 if adaptive_continue else 0
+                    inspect_size = max(1, min(len(candidates) - start_idx, remaining_files))
+                    inspect_slice = candidates[start_idx : start_idx + inspect_size]
+                    budget_files_used += len(inspect_slice)
+                    bounded_details = enrich_detailed_context(repo_root, inspect_slice, session)
+                    extra_limit = min(len(bounded_details), remaining_tokens // 40)
+                    for raw in bounded_details[:extra_limit]:
+                        if raw.count(":") < 2:
+                            continue
+                        path_part, line_part, text_part = raw.split(":", 2)
+                        try:
+                            line_no = int(line_part)
+                        except ValueError:
+                            continue
+                        evidence_payload.append(
+                            {
+                                "path": path_part.strip(),
+                                "line": line_no,
+                                "text": text_part.strip(),
+                                "term": "orchestrator_read",
+                                "source": "content_match",
+                                "retrieval_source": "content_match",
+                            }
+                        )
+                        action_applied = True
+                    budget_tokens_used += extra_limit * 40
+                    if bounded_details:
+                        detailed_lines.extend(bounded_details[:12])
+                    if action_applied:
+                        handler_detail = f"read collected {extra_limit} bounded context lines"
+                    else:
+                        handler_status = "noop"
+                        handler_detail = "read executed but produced no parseable evidence lines"
+
+        elif next_action == "explain":
+            if not candidates:
+                handler_status = "noop"
+                handler_detail = "explain skipped because no candidates are available"
+            else:
+                explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
+                candidates = rerank_with_explain_feedback(candidates, explain_feedback)
+                action_applied = True
+                budget_tokens_used += min(80, llm_settings.query_orchestrator_max_tokens // 8)
+                handler_detail = "explain feedback recomputed for top candidates"
+
         elif next_action == "rank":
             candidates = rerank_with_explain_feedback(candidates, explain_feedback)
             action_applied = True
+            handler_detail = "rank recomputed candidate order from current explain feedback"
+
         elif next_action == "summarize":
             orchestration_done_reason = "sufficient_evidence"
             action_applied = True
-        elif next_action == "search":
-            # Search expansion handler is intentionally conservative for now.
-            action_applied = False
+            handler_detail = "summarize requested finalization"
+
+        elif next_action == "stop":
+            orchestration_done_reason = "sufficient_evidence"
+            action_applied = True
+            handler_detail = "stop requested finalization"
+
         else:
             orchestration_done_reason = "policy_blocked"
+            handler_status = "invalid_action"
+            handler_detail = f"unsupported action '{next_action}'"
 
         if orchestration_done_reason in {"policy_blocked", "budget_exhausted", "sufficient_evidence"} and (
             next_action in {"summarize"} or not action_applied and next_action not in {"search", "read", "explain", "rank"}
@@ -1341,6 +1473,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    handler_status=handler_status,
+                    handler_detail=handler_detail,
                 )
             )
             break
@@ -1376,6 +1510,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 budget_tokens_used=budget_tokens_used,
                 budget_files_used=budget_files_used,
                 elapsed_ms=elapsed_after_ms,
+                handler_status=handler_status,
+                handler_detail=handler_detail,
             )
         )
 
@@ -1547,6 +1683,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     "budget_tokens_used": item.budget_tokens_used,
                     "budget_files_used": item.budget_files_used,
                     "elapsed_ms": item.elapsed_ms,
+                    "handler_status": item.handler_status,
+                    "handler_detail": item.handler_detail,
                 }
                 for item in orchestration_iterations
             ],
@@ -1656,8 +1794,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     f"- #{item.iteration}: decision={item.decision} next_action={item.next_action or '-'} "
                     f"done={item.done_reason} evidence={item.evidence_count_before}->{item.evidence_count_after} "
                     f"candidates={item.candidate_count_before}->{item.candidate_count_after} "
-                    f"files={item.budget_files_used} tokens~={item.budget_tokens_used} elapsed_ms={item.elapsed_ms}"
+                    f"files={item.budget_files_used} tokens~={item.budget_tokens_used} elapsed_ms={item.elapsed_ms} "
+                    f"handler={item.handler_status}"
                 )
+                print(f"  detail: {item.handler_detail}")
         if orchestration_usage.get("fallback_reason"):
             print(f"Fallback: {orchestration_usage['fallback_reason']}")
 

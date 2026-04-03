@@ -257,8 +257,10 @@ notes = "Query orchestration now runs as a bounded iterative state machine with 
 
 [[feature]]
 id = "050"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Query orchestration now executes explicit handlers for search/read/explain/rank/summarize/stop with per-iteration handler diagnostics."
 
 [[feature]]
 id = "051"

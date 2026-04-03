@@ -23,6 +23,7 @@ All notable changes to Forge should be documented in this file.
 - feature 043: repository context now resolves via nearest ancestor `.forge/` marker (auto-discovery from cwd or `--repo-root`) with explicit `forge init` guidance when missing
 - feature 044: added `forge init` with interactive and non-interactive template setup, dry-run/overwrite safeguards, and generated repository-owned `.forge` baseline files
 - feature 049: query action orchestration now executes as a bounded iterative state machine with explicit per-iteration trace and deterministic done reasons
+- feature 050: query orchestration now uses explicit action handlers for all catalog actions with per-iteration handler diagnostics and bounded search expansion
 
 ### Changed
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change
