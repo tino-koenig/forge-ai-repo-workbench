@@ -6,9 +6,11 @@ from pathlib import Path
 from urllib import error, request
 
 from core.capability_model import CommandRequest
+from core.capability_model import Capability
 from core.config import resolve_llm_config
 from core.effects import ExecutionSession
 from core.output_contracts import build_contract, emit_contract_json
+from core.prompt_profiles import default_prompt_profile, is_prompt_profile_allowed
 
 
 @dataclass
@@ -144,6 +146,45 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 recommendation="Use provider=openai_compatible (or mock for local tests).",
             )
         )
+
+    if config.source.get("prompt_profile") == "default":
+        checks.append(
+            CheckResult(
+                key="prompt_profile_mapping",
+                status="pass",
+                detail="capability-default prompt profile mapping active",
+            )
+        )
+    else:
+        selected = config.prompt_profile
+        invalid_caps = [
+            cap.value
+            for cap in (
+                Capability.QUERY,
+                Capability.EXPLAIN,
+                Capability.REVIEW,
+                Capability.DESCRIBE,
+                Capability.TEST,
+            )
+            if not is_prompt_profile_allowed(cap, selected)
+        ]
+        if invalid_caps:
+            checks.append(
+                CheckResult(
+                    key="prompt_profile_mapping",
+                    status="fail",
+                    detail=f"profile '{selected}' not allowed for capabilities: {', '.join(invalid_caps)}",
+                    recommendation="Use capability defaults or a compatible profile for all targeted capabilities.",
+                )
+            )
+        else:
+            checks.append(
+                CheckResult(
+                    key="prompt_profile_mapping",
+                    status="pass",
+                    detail=f"profile '{selected}' is compatible with core analysis capabilities",
+                )
+            )
 
     if config.provider == "openai_compatible":
         checks.append(

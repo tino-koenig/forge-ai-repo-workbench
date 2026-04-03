@@ -10,6 +10,11 @@ from urllib import error, request
 
 from core.capability_model import Capability, Profile
 from core.config import ResolvedLLMConfig, resolve_llm_config
+from core.prompt_profiles import (
+    default_prompt_profile,
+    default_system_template_path,
+    is_prompt_profile_allowed,
+)
 
 
 class LLMInvocationPolicy(str):
@@ -112,8 +117,7 @@ def _render_prompt(
     return prompt, None
 
 
-def _load_system_prompt(settings: ResolvedLLMConfig) -> tuple[str | None, str | None]:
-    path = settings.system_template_path
+def _load_system_prompt(path: Path) -> tuple[str | None, str | None]:
     if not path.exists():
         return None, f"missing system template: {path}"
     try:
@@ -241,6 +245,28 @@ def maybe_refine_summary(
         usage["fallback_reason"] = f"config validation error: {settings.validation_error}"
         return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
 
+    effective_profile = settings.prompt_profile
+    effective_system_template = settings.system_template_path
+    config_source = dict(settings.source)
+
+    if settings.source.get("prompt_profile") == "default":
+        effective_profile = default_prompt_profile(capability)
+        config_source["prompt_profile"] = "capability_default"
+    if not is_prompt_profile_allowed(capability, effective_profile):
+        usage["fallback_reason"] = (
+            f"prompt profile '{effective_profile}' not allowed for capability '{capability.value}'"
+        )
+        usage["config_source"] = config_source
+        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+
+    if settings.source.get("system_template") == "default":
+        effective_system_template = default_system_template_path(effective_profile)
+        config_source["system_template"] = "profile_default"
+
+    usage["prompt_profile"] = effective_profile
+    usage["system_template"] = str(effective_system_template)
+    usage["config_source"] = config_source
+
     usage["attempted"] = True
     prompt, prompt_error = _render_prompt(
         capability=capability,
@@ -253,7 +279,7 @@ def maybe_refine_summary(
     if prompt_error:
         usage["fallback_reason"] = prompt_error
         return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
-    system_prompt, system_error = _load_system_prompt(settings)
+    system_prompt, system_error = _load_system_prompt(effective_system_template)
     if system_error:
         usage["fallback_reason"] = system_error
         return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)

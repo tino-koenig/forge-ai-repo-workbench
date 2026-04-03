@@ -8,13 +8,7 @@ import os
 from typing import Any
 
 import tomli
-
-
-ALLOWED_PROMPT_PROFILES = {
-    "strict_read_only",
-    "review_strict",
-    "describe_onboarding",
-}
+from core.prompt_profiles import ALLOWED_PROMPT_PROFILES
 
 
 @dataclass(frozen=True)

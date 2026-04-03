@@ -371,6 +371,64 @@ def gate_env_file_autoload(repo_root: Path) -> None:
     assert_true(usage.get("used") is True, ".env autoload should provide missing API key")
 
 
+def gate_prompt_profile_policy(repo_root: Path) -> None:
+    default_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    default_usage = default_payload.get("sections", {}).get("llm_usage", {})
+    assert_true(default_usage.get("prompt_profile") == "describe_onboarding", "describe should use capability-default profile")
+    default_sources = default_usage.get("config_source", {})
+    assert_true(
+        default_sources.get("prompt_profile") == "capability_default",
+        "default prompt profile source should be capability_default",
+    )
+
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'provider = "mock"\n'
+            "[llm.prompt]\n"
+            'profile = "review_strict"\n'
+        ),
+        encoding="utf-8",
+    )
+    mismatch_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    mismatch_usage = mismatch_payload.get("sections", {}).get("llm_usage", {})
+    assert_true(mismatch_usage.get("used") is False, "invalid profile mapping should fallback")
+    reason = str(mismatch_usage.get("fallback_reason", ""))
+    assert_true("not allowed for capability 'query'" in reason, "expected profile-compatibility fallback reason")
+
+
 def gate_run_history_and_views(repo_root: Path) -> None:
     run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "query", "standard", "compute_price"], cwd=ROOT)
     run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "explain", "compute_price"], cwd=ROOT)
@@ -495,6 +553,7 @@ def run_all_gates() -> None:
         gate_config_toml_fallback(temp_repo)
         gate_config_precedence(temp_repo)
         gate_env_file_autoload(temp_repo)
+        gate_prompt_profile_policy(temp_repo)
         gate_run_history_and_views(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
