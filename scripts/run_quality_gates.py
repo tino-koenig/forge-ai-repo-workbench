@@ -308,6 +308,47 @@ def gate_config_precedence(repo_root: Path) -> None:
     assert_true(sources.get("base_url") == "toml", "base_url source should be toml")
 
 
+def gate_env_file_autoload(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'provider = "openai_compatible"\n'
+            "[llm.openai_compatible]\n"
+            'base_url = "mock://openai/v1"\n'
+            'model = "model-from-config"\n'
+            'api_key_env = "FORGE_LLM_API_KEY"\n'
+            "timeout_s = 2\n"
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / ".env").write_text("FORGE_LLM_API_KEY=env-autoload-key\n", encoding="utf-8")
+
+    env = os.environ.copy()
+    env.pop("FORGE_LLM_API_KEY", None)
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "compute_price",
+            ],
+            cwd=ROOT,
+            env=env,
+        ).stdout
+    )
+    usage = payload.get("sections", {}).get("llm_usage", {})
+    assert_true(usage.get("provider") == "openai_compatible", ".env autoload should preserve provider from config")
+    assert_true(usage.get("used") is True, ".env autoload should provide missing API key")
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -386,6 +427,7 @@ def run_all_gates() -> None:
         gate_openai_compatible_provider(temp_repo)
         gate_config_toml_fallback(temp_repo)
         gate_config_precedence(temp_repo)
+        gate_env_file_autoload(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)

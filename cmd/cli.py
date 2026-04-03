@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from core.capability_model import build_request
+from core.env_loader import load_env_file
 from core.runtime import execute
 
 
@@ -23,6 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo-root",
         default=".",
         help="Repository root to analyze (default: current directory)",
+    )
+    parser.add_argument(
+        "--env-file",
+        help="Optional .env file path; defaults to <repo-root>/.env when present",
     )
     parser.add_argument(
         "--output-format",
@@ -103,6 +109,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    repo_root = Path(args.repo_root).resolve()
+    env_file_path = Path(args.env_file).resolve() if args.env_file else (repo_root / ".env")
+    load_env_file(env_file_path)
     parts = getattr(args, "parts", []) or []
     try:
         request = build_request(

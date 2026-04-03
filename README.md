@@ -214,6 +214,8 @@ Precedence:
 Secrets:
 - store API keys in environment variables (for example loaded via `.env`)
 - do not store raw secrets in `.forge/config.toml`
+- Forge auto-loads `<repo-root>/.env` when present (without overriding already-set environment variables)
+- optional override: `--env-file /path/to/.env`
 
 Notes:
 - deterministic evidence collection always runs first
