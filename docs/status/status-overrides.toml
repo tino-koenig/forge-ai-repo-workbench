@@ -233,8 +233,10 @@ notes = "CLI now resolves repo context via nearest ancestor .forge marker, with 
 
 [[feature]]
 id = "044"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Added `forge init` with template selection, interactive/non-interactive flows, preview/overwrite safeguards, and repo-owned .forge file generation."
 
 [[feature]]
 id = "047"

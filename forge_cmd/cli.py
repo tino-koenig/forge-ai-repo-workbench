@@ -16,6 +16,7 @@ from core.runtime import execute
 
 
 REQUIRES_PAYLOAD = {
+    "init": False,
     "index": False,
     "doctor": False,
     "runs": False,
@@ -121,6 +122,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="Query input processing mode: planner (LLM-assisted) or exact (no interpretation)",
     )
     subparsers = parser.add_subparsers(dest="capability", required=True)
+
+    init_parser = subparsers.add_parser("init", help="Initialize Forge configuration in a repository")
+    init_parser.add_argument(
+        "--template",
+        choices=("balanced", "strict-review", "lightweight"),
+        help="Init template id (default: balanced)",
+    )
+    init_parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Disable interactive prompts and use defaults/flags only",
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwrite of existing init-managed files",
+    )
+    init_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview generated files without writing",
+    )
+    init_parser.add_argument(
+        "--list-templates",
+        action="store_true",
+        help="List available templates and exit",
+    )
+    init_parser.add_argument(
+        "--output-language",
+        choices=("auto", "de", "en"),
+        help="Override generated llm.prompt.output_language",
+    )
+    init_parser.add_argument(
+        "--review-strictness",
+        choices=("balanced", "strict"),
+        help="Override generated review baseline strictness",
+    )
+    init_parser.add_argument(
+        "--index-enrichment",
+        choices=("enabled", "disabled"),
+        help="Override generated index enrichment setting",
+    )
+    init_parser.add_argument(
+        "parts",
+        nargs="*",
+        help="Unused positional args (kept for command-model compatibility)",
+    )
 
     index_parser = subparsers.add_parser("index", help="Build or refresh repository index")
     index_parser.add_argument(
@@ -265,7 +313,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        repo_root = resolve_repo_root(args.repo_root)
+        if args.capability == "init":
+            raw = args.repo_root if args.repo_root else "."
+            repo_root = Path(raw).expanduser().resolve()
+        else:
+            repo_root = resolve_repo_root(args.repo_root)
     except ValueError as exc:
         parser.error(str(exc))
         return 2

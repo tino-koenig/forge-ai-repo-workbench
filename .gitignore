@@ -30,6 +30,9 @@ htmlcov/
 # Forge local data
 .forge/*
 !.forge/config.toml
+!.forge/review-rules.toml
+!.forge/template-meta.toml
+!.forge/config.local.toml.example
 
 # Local environment secrets
 .env

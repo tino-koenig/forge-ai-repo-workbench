@@ -20,6 +20,7 @@ All notable changes to Forge should be documented in this file.
 - feature 045: run history now always stores structured `output.contract` across text and json capability runs
 - feature 041: added packaging-based development invocation model (`forge` console script + `python -m forge` compatibility)
 - feature 043: repository context now resolves via nearest ancestor `.forge/` marker (auto-discovery from cwd or `--repo-root`) with explicit `forge init` guidance when missing
+- feature 044: added `forge init` with interactive and non-interactive template setup, dry-run/overwrite safeguards, and generated repository-owned `.forge` baseline files
 
 ### Changed
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change

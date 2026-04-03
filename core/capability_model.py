@@ -7,6 +7,7 @@ from enum import Enum
 
 
 class Capability(str, Enum):
+    INIT = "init"
     QUERY = "query"
     EXPLAIN = "explain"
     REVIEW = "review"
@@ -47,6 +48,9 @@ class EffectViolationError(PermissionError):
 
 
 CAPABILITY_POLICIES: dict[Capability, CapabilityPolicy] = {
+    Capability.INIT: CapabilityPolicy(
+        allowed_effects=frozenset({EffectClass.READ_ONLY, EffectClass.FORGE_WRITE})
+    ),
     Capability.QUERY: CapabilityPolicy(allowed_effects=frozenset({EffectClass.READ_ONLY})),
     Capability.EXPLAIN: CapabilityPolicy(allowed_effects=frozenset({EffectClass.READ_ONLY})),
     Capability.REVIEW: CapabilityPolicy(allowed_effects=frozenset({EffectClass.READ_ONLY})),

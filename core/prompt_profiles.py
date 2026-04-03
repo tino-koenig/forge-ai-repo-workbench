@@ -16,6 +16,7 @@ PROFILE_TEMPLATE = {
 ALLOWED_PROMPT_PROFILES = set(PROFILE_TEMPLATE.keys())
 
 CAPABILITY_DEFAULT_PROMPT_PROFILE = {
+    Capability.INIT: "strict_read_only",
     Capability.QUERY: "strict_read_only",
     Capability.EXPLAIN: "strict_read_only",
     Capability.REVIEW: "review_strict",
@@ -27,6 +28,7 @@ CAPABILITY_DEFAULT_PROMPT_PROFILE = {
 }
 
 CAPABILITY_ALLOWED_PROMPT_PROFILES = {
+    Capability.INIT: {"strict_read_only"},
     Capability.QUERY: {"strict_read_only"},
     Capability.EXPLAIN: {"strict_read_only"},
     Capability.REVIEW: {"strict_read_only", "review_strict"},
@@ -49,4 +51,3 @@ def is_prompt_profile_allowed(capability: Capability, profile: str) -> bool:
 def default_system_template_path(profile: str) -> Path:
     filename = PROFILE_TEMPLATE[profile]
     return Path(__file__).resolve().parents[1] / "prompts" / "system" / filename
-
