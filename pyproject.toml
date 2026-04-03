@@ -20,4 +20,4 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["forge", "cmd", "core", "modes"]
+include = ["forge", "forge_cmd", "core", "modes"]

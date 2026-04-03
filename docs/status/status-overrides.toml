@@ -287,3 +287,10 @@ status = "implemented"
 defined_on = "2026-04-03"
 implemented_on = "2026-04-03"
 notes = "Introduced mandatory change tracking policy and changelog."
+
+[[issue]]
+id = "2"
+status = "implemented"
+defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Fixed forge console entrypoint import failure caused by stdlib cmd name collision by renaming internal package to forge_cmd."

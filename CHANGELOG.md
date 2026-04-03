@@ -23,6 +23,8 @@ All notable changes to Forge should be documented in this file.
 
 ### Changed
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change
+- feature 041: console entrypoint import now uses `forge_cmd.cli` (renamed from `cmd.cli`) to avoid stdlib `cmd` module collision in installed environments
+- issue 2: fixed installed `forge` entrypoint import failure (`cmd` stdlib collision) by renaming internal package from `cmd` to `forge_cmd`
 
 ## 2026-04-03
 

@@ -10,3 +10,4 @@ Status values:
 | ID | Issue | Defined On | Status | Implemented On | Spec/Link |
 |---|---|---|---|---|---|
 | 1 | Change Tracking and Changelog Policy | 2026-04-03 | implemented | 2026-04-03 | [1-change-tracking-and-changelog-policy.md](/Users/tino/PhpstormProjects/forge/docs/issues/1-change-tracking-and-changelog-policy.md) |
+| 2 | Cmd Package Name Collision with Python Stdlib | 2026-04-03 | implemented | 2026-04-03 | [2-cmd-package-name-collision-with-python-stdlib.md](/Users/tino/PhpstormProjects/forge/docs/issues/2-cmd-package-name-collision-with-python-stdlib.md) |

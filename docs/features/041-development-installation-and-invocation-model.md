@@ -67,6 +67,7 @@ From repository root:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
 pip install -e .
 forge --help
 ```
@@ -89,3 +90,5 @@ forge explain modes/query.py
 
 - This feature defines the development invocation model, not workstation/user distribution packaging.
 - User-focused installation/distribution is specified separately (see feature 042).
+- On some macOS/system Python setups, the default venv pip is too old for reliable editable installs from `pyproject.toml`. Upgrade pip/setuptools/wheel in the venv first.
+- After local packaging/layout changes, rerun `python -m pip install -e .` so the `forge` console script resolves current modules.

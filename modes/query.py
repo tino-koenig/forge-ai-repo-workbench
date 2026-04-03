@@ -91,7 +91,7 @@ ENTRYPOINT_PATH_HINTS = {
     "forge.py",
     "__main__.py",
     "main.py",
-    "cmd/cli.py",
+    "forge_cmd/cli.py",
 }
 
 ENTRYPOINT_LINE_HINTS = (
