@@ -216,6 +216,7 @@ Use explicit CLI controls:
 ```bash
 forge --llm-mode auto --llm-provider openai_compatible --llm-base-url http://localhost:4000/v1 --llm-model gpt-4o-mini query standard "where is compute_price"
 forge --llm-mode off review detailed src/controller.py
+forge --query-input-mode exact query "grep-like exact terms without interpretation"
 ```
 
 Repo-local configuration is loaded from `.forge/config.toml`:
@@ -238,6 +239,13 @@ temperature = 0.2
 [llm.prompt]
 system_template = "prompts/system/default_read_only.txt"
 profile = "strict_read_only"
+
+[llm.query_planner]
+enabled = true
+mode = "optional" # off | optional | preferred
+max_terms = 12
+max_code_variants = 8
+max_latency_ms = 2500
 ```
 
 Precedence:
@@ -254,6 +262,7 @@ Secrets:
 
 Notes:
 - deterministic evidence collection always runs first
+- query planner is optional and bounded; deterministic retrieval remains authoritative
 - LLM use never expands effect boundaries
 - if LLM is unavailable, Forge falls back explicitly to deterministic behavior
 

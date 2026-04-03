@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template
+import time
 from urllib import error, request
 
 from core.capability_model import Capability, Profile
@@ -49,6 +51,18 @@ class LLMOutcome:
     uncertainty_notes: list[str]
 
 
+@dataclass
+class QueryPlannerOutcome:
+    search_terms: list[str]
+    code_variants: list[str]
+    normalized_question_en: str | None
+    intent: str | None
+    target_scope: str | None
+    entity_types: list[str]
+    dropped_filler_terms: list[str]
+    usage: dict[str, object]
+
+
 def policy_for(capability: Capability, profile: Profile) -> str:
     return POLICY_MATRIX.get((capability, profile), LLMInvocationPolicy.OFF)
 
@@ -69,6 +83,11 @@ def resolve_settings(args, repo_root: Path) -> ResolvedLLMConfig:
             temperature=config.temperature,
             prompt_profile=config.prompt_profile,
             system_template_path=config.system_template_path,
+            query_planner_enabled=config.query_planner_enabled,
+            query_planner_mode=config.query_planner_mode,
+            query_planner_max_terms=config.query_planner_max_terms,
+            query_planner_max_code_variants=config.query_planner_max_code_variants,
+            query_planner_max_latency_ms=config.query_planner_max_latency_ms,
             source=config.source,
             validation_error=config.validation_error,
         )
@@ -145,6 +164,7 @@ def _openai_compatible_complete(
     settings: ResolvedLLMConfig,
     system_prompt: str,
     user_prompt: str,
+    timeout_s: float | None = None,
 ) -> str:
     if not settings.base_url:
         raise RuntimeError("missing base_url for openai_compatible provider")
@@ -177,7 +197,7 @@ def _openai_compatible_complete(
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=settings.timeout_s) as resp:
+        with request.urlopen(req, timeout=timeout_s if timeout_s is not None else settings.timeout_s) as resp:
             raw = resp.read().decode("utf-8")
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
@@ -199,6 +219,345 @@ def _openai_compatible_complete(
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError("openai-compatible response missing content")
     return content.strip()
+
+
+def _query_planner_template_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "prompts" / "llm" / "query_planner.txt"
+
+
+def _render_query_planner_prompt(
+    *,
+    question: str,
+    source_language: str,
+    deterministic_terms: list[str],
+    settings: ResolvedLLMConfig,
+) -> tuple[str | None, str | None]:
+    path = _query_planner_template_path()
+    if not path.exists():
+        return None, f"missing prompt template: {path}"
+    raw = path.read_text(encoding="utf-8")
+    prompt = Template(raw).safe_substitute(
+        question=question,
+        source_language=source_language,
+        deterministic_terms=", ".join(deterministic_terms[:16]),
+        max_terms=str(settings.query_planner_max_terms),
+        max_code_variants=str(settings.query_planner_max_code_variants),
+    )
+    return prompt, None
+
+
+def _extract_json_object(raw_text: str) -> dict[str, object]:
+    stripped = raw_text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```[a-zA-Z0-9_-]*\n", "", stripped)
+        stripped = re.sub(r"\n```$", "", stripped)
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise RuntimeError("planner response does not contain a JSON object")
+    try:
+        parsed = json.loads(stripped[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"planner JSON parse failed: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError("planner response is not a JSON object")
+    return parsed
+
+
+def _sanitize_str_list(value: object, *, limit: int, min_len: int = 2, max_len: int = 80) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        candidate = " ".join(item.strip().split())
+        if len(candidate) < min_len or len(candidate) > max_len:
+            continue
+        lowered = candidate.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        out.append(candidate)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _sanitize_scope(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"code", "docs", "both"}:
+        return normalized
+    return None
+
+
+def _sanitize_entity_types(value: object) -> list[str]:
+    allowed = {"file", "module", "function", "class", "variable", "api_call", "config", "command_flag"}
+    items = _sanitize_str_list(value, limit=8, min_len=2, max_len=32)
+    result: list[str] = []
+    for item in items:
+        normalized = item.strip().lower()
+        if normalized in allowed and normalized not in result:
+            result.append(normalized)
+    return result
+
+
+def _mock_plan_query(question: str, deterministic_terms: list[str]) -> dict[str, object]:
+    token_map = {
+        "wo": "where",
+        "wird": "is",
+        "werden": "are",
+        "preis": "price",
+        "berechnet": "computed",
+        "eintrittspunkt": "entrypoint",
+        "haupt": "main",
+        "welchen": "which",
+        "dateien": "files",
+        "eingesetzt": "used",
+        "aufrufe": "calls",
+        "aufruf": "call",
+        "in": "in",
+    }
+    stop_de = {
+        "in",
+        "ein",
+        "eine",
+        "einen",
+        "dem",
+        "den",
+        "der",
+        "die",
+        "das",
+        "welchen",
+        "wird",
+        "werden",
+        "gemacht",
+    }
+    stop_en = {"in", "the", "a", "an", "is", "are", "made", "used"}
+    tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
+    translated: list[str] = []
+    for token in tokens:
+        translated.append(token_map.get(token, token))
+    normalized_question_en = " ".join(translated[:16]).strip() or question
+    filtered = [t for t in translated if t not in stop_de and t not in stop_en and len(t) >= 3]
+    target_scope = "both"
+    entity_types = ["file", "module"]
+    intent = "code_location_lookup"
+    lowered = question.lower()
+    if "llm" in lowered and any(marker in lowered for marker in ("aufruf", "call", "eingesetzt", "used")):
+        intent = "llm_usage_locations"
+        target_scope = "code"
+        entity_types = ["api_call", "module", "function", "config"]
+        filtered.extend(["openai", "chat/completions", "responses.create", "request.urlopen", "litellm"])
+
+    deduped_terms: list[str] = []
+    seen: set[str] = set()
+    for term in [*deterministic_terms, *filtered]:
+        normalized = term.strip().lower()
+        if len(normalized) < 3 or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped_terms.append(normalized)
+    code_variants = ["openai_compatible_complete", "maybe_plan_query_terms"] if intent == "llm_usage_locations" else []
+    return {
+        "normalized_question_en": normalized_question_en,
+        "intent": intent,
+        "target_scope": target_scope,
+        "entity_types": entity_types,
+        "search_terms": deduped_terms[:10],
+        "code_variants": code_variants[:4],
+        "dropped_filler_terms": [token for token in tokens if token in {"bitte", "mal", "eigentlich", "kannst"}][:4],
+    }
+
+
+def maybe_plan_query_terms(
+    *,
+    question: str,
+    source_language: str,
+    deterministic_terms: list[str],
+    settings: ResolvedLLMConfig,
+) -> QueryPlannerOutcome:
+    usage: dict[str, object] = {
+        "enabled": settings.query_planner_enabled,
+        "mode": settings.query_planner_mode,
+        "attempted": False,
+        "used": False,
+        "provider": settings.provider,
+        "model": settings.model,
+        "prompt_template": str(_query_planner_template_path().relative_to(Path(__file__).resolve().parents[1])),
+        "fallback_reason": None,
+        "latency_ms": None,
+        "source_language": source_language,
+    }
+    if not settings.query_planner_enabled or settings.query_planner_mode == "off":
+        usage["fallback_reason"] = "query planner disabled by config"
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
+    if settings.mode == "off":
+        usage["fallback_reason"] = "llm disabled by cli mode"
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
+    if settings.provider is None:
+        usage["fallback_reason"] = "no llm provider configured"
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
+    if settings.validation_error:
+        usage["fallback_reason"] = f"config validation error: {settings.validation_error}"
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
+
+    usage["attempted"] = True
+    prompt, prompt_error = _render_query_planner_prompt(
+        question=question,
+        source_language=source_language,
+        deterministic_terms=deterministic_terms,
+        settings=settings,
+    )
+    if prompt_error:
+        usage["fallback_reason"] = prompt_error
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
+    assert prompt is not None
+
+    started = time.perf_counter()
+    try:
+        if settings.provider == "mock":
+            raw_result = _mock_plan_query(question, deterministic_terms)
+        elif settings.provider == "openai_compatible":
+            if (settings.base_url or "").startswith("mock://"):
+                raw_result = _mock_plan_query(question, deterministic_terms)
+            else:
+                system_prompt, system_error = _load_system_prompt(settings.system_template_path)
+                if system_error:
+                    raise RuntimeError(system_error)
+                assert system_prompt is not None
+                timeout_s = min(settings.timeout_s, max(settings.query_planner_max_latency_ms / 1000.0, 0.2))
+                text = _openai_compatible_complete(
+                    settings=settings,
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    timeout_s=timeout_s,
+                )
+                raw_result = _extract_json_object(text)
+        else:
+            raise RuntimeError(f"provider '{settings.provider}' is not supported")
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        usage["latency_ms"] = latency_ms
+        if latency_ms > settings.query_planner_max_latency_ms:
+            usage["fallback_reason"] = (
+                f"planner latency {latency_ms}ms exceeds max {settings.query_planner_max_latency_ms}ms"
+            )
+            return QueryPlannerOutcome(
+                search_terms=[],
+                code_variants=[],
+                normalized_question_en=None,
+                intent=None,
+                dropped_filler_terms=[],
+                usage=usage,
+            )
+
+        normalized_question_en = raw_result.get("normalized_question_en")
+        intent = raw_result.get("intent")
+        target_scope = _sanitize_scope(raw_result.get("target_scope"))
+        entity_types = _sanitize_entity_types(raw_result.get("entity_types"))
+        search_terms = _sanitize_str_list(raw_result.get("search_terms"), limit=settings.query_planner_max_terms)
+        code_variants = _sanitize_str_list(
+            raw_result.get("code_variants"),
+            limit=settings.query_planner_max_code_variants,
+            min_len=1,
+            max_len=120,
+        )
+        dropped_filler_terms = _sanitize_str_list(raw_result.get("dropped_filler_terms"), limit=12, min_len=1)
+        if not isinstance(normalized_question_en, str) or not normalized_question_en.strip():
+            normalized_question_en = None
+        if not isinstance(intent, str) or not intent.strip():
+            intent = None
+
+        if not search_terms and not code_variants:
+            usage["fallback_reason"] = "planner output did not contain usable terms"
+            return QueryPlannerOutcome(
+                search_terms=[],
+                code_variants=[],
+                normalized_question_en=normalized_question_en,
+                intent=intent,
+                target_scope=target_scope,
+                entity_types=entity_types,
+                dropped_filler_terms=dropped_filler_terms,
+                usage=usage,
+            )
+        usage["used"] = True
+        return QueryPlannerOutcome(
+            search_terms=search_terms,
+            code_variants=code_variants,
+            normalized_question_en=normalized_question_en,
+            intent=intent,
+            target_scope=target_scope,
+            entity_types=entity_types,
+            dropped_filler_terms=dropped_filler_terms,
+            usage=usage,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        usage["latency_ms"] = int((time.perf_counter() - started) * 1000)
+        usage["fallback_reason"] = f"planner failure: {exc}"
+        return QueryPlannerOutcome(
+            search_terms=[],
+            code_variants=[],
+            normalized_question_en=None,
+            intent=None,
+            target_scope=None,
+            entity_types=[],
+            dropped_filler_terms=[],
+            usage=usage,
+        )
 
 
 def maybe_refine_summary(

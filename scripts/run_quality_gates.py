@@ -86,7 +86,18 @@ def gate_behavior_smoke(repo_root: Path) -> None:
         ["python3", str(FORGE), "--repo-root", str(repo_root), "index"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "doctor"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "config", "validate"],
-        ["python3", str(FORGE), "--repo-root", str(repo_root), "query", "where", "is", "compute_price"],
+        [
+            "python3",
+            str(FORGE),
+            "--llm-provider",
+            "mock",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "where",
+            "is",
+            "compute_price",
+        ],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "explain", "compute_price"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "review", "src/controller.py"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "describe"],
@@ -102,7 +113,18 @@ def gate_output_contract(repo_root: Path) -> None:
         cwd=ROOT,
     ).stdout
     query_out = run_cmd(
-        ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "query", "compute_price"],
+        [
+            "python3",
+            str(FORGE),
+            "--output-format",
+            "json",
+            "--llm-provider",
+            "mock",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "compute_price",
+        ],
         cwd=ROOT,
     ).stdout
     explain_out = run_cmd(
@@ -276,10 +298,12 @@ def gate_config_toml_fallback(repo_root: Path) -> None:
             ],
             cwd=ROOT,
             env=os.environ.copy(),
+            expect_ok=False,
         ).stdout
     )
-    usage = payload.get("sections", {}).get("llm_usage", {})
-    assert_true(usage.get("used") is False, "misconfigured provider should fallback to deterministic path")
+    planner = payload.get("sections", {}).get("query_planner", {})
+    usage = planner.get("usage", {}) if isinstance(planner, dict) else {}
+    assert_true(usage.get("used") is False, "misconfigured provider should fail planner usage")
     reason = str(usage.get("fallback_reason", ""))
     assert_true("missing API key" in reason or "missing API key from env var" in reason, "expected missing key fallback")
 
@@ -430,7 +454,20 @@ def gate_prompt_profile_policy(repo_root: Path) -> None:
 
 
 def gate_run_history_and_views(repo_root: Path) -> None:
-    run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "query", "standard", "compute_price"], cwd=ROOT)
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--llm-provider",
+            "mock",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "standard",
+            "compute_price",
+        ],
+        cwd=ROOT,
+    )
     run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "explain", "compute_price"], cwd=ROOT)
 
     history_file = repo_root / ".forge" / "runs.jsonl"
@@ -466,6 +503,8 @@ def gate_cross_lingual_query(repo_root: Path) -> None:
                 str(FORGE),
                 "--output-format",
                 "json",
+                "--llm-provider",
+                "mock",
                 "--repo-root",
                 str(repo_root),
                 "query",
@@ -489,10 +528,96 @@ def gate_cross_lingual_query(repo_root: Path) -> None:
     )
 
 
+def gate_query_planner_success(repo_root: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "wo",
+                "wird",
+                "preis",
+                "berechnet",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    planner = payload.get("sections", {}).get("query_planner", {})
+    usage = planner.get("usage", {}) if isinstance(planner, dict) else {}
+    assert_true(bool(planner), "query planner success: expected query_planner section")
+    assert_true(usage.get("attempted") is True, "query planner success: expected attempted=true")
+    assert_true(usage.get("used") is True, "query planner success: expected used=true with mock provider")
+    planner_terms = planner.get("search_terms", [])
+    assert_true(isinstance(planner_terms, list) and len(planner_terms) > 0, "query planner success: expected terms")
+    normalized = planner.get("normalized_question_en")
+    assert_true(isinstance(normalized, str) and len(normalized.strip()) > 0, "query planner success: expected normalization")
+
+
+def gate_query_planner_fallback(repo_root: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-mode",
+                "off",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "where",
+                "is",
+                "compute_price",
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    planner = payload.get("sections", {}).get("query_planner", {})
+    usage = planner.get("usage", {}) if isinstance(planner, dict) else {}
+    assert_true(bool(planner), "query planner fallback: expected query_planner section")
+    assert_true(usage.get("used") is False, "query planner fallback: expected used=false")
+    reason = str(usage.get("fallback_reason", ""))
+    assert_true(
+        "disabled" in reason or "provider" in reason,
+        "query planner fallback: expected explicit fallback reason",
+    )
+    likely = payload.get("sections", {}).get("likely_locations", [])
+    assert_true(isinstance(likely, list), "query planner fallback: expected likely_locations section")
+    uncertainty = payload.get("uncertainty", [])
+    assert_true(
+        any("exact user terms only" in str(item) for item in uncertainty),
+        "query planner fallback: expected explicit strict exact-term fallback note",
+    )
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
-            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "query", "compute_price"],
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
             cwd=ROOT,
         ).stdout
     )
@@ -536,7 +661,7 @@ def gate_evidence_quality(repo_root: Path) -> None:
 def gate_effect_boundaries(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     read_only_commands = [
-        ["python3", str(FORGE), "--repo-root", str(repo_root), "query", "compute_price"],
+        ["python3", str(FORGE), "--llm-provider", "mock", "--repo-root", str(repo_root), "query", "compute_price"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "explain", "compute_price"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "review", "src/controller.py"],
         ["python3", str(FORGE), "--repo-root", str(repo_root), "describe"],
@@ -552,7 +677,7 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
     # Ensure index exists first.
     run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "index"], cwd=ROOT)
     with_index = run_cmd(
-        ["python3", str(FORGE), "--repo-root", str(repo_root), "query", "compute_price"],
+        ["python3", str(FORGE), "--llm-provider", "mock", "--repo-root", str(repo_root), "query", "compute_price"],
         cwd=ROOT,
     ).stdout
     assert_true("Index: loaded .forge/index.json" in with_index, "query: expected index-assisted mode")
@@ -568,6 +693,8 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
     ]
     for parts in without_index_checks:
         cmd = ["python3", str(FORGE), "--repo-root", str(repo_root), *parts]
+        if parts and parts[0] == "query":
+            cmd = ["python3", str(FORGE), "--llm-provider", "mock", "--repo-root", str(repo_root), *parts]
         out = run_cmd(cmd, cwd=ROOT).stdout
         assert_true("Index: not available" in out or "Index: skipped" in out, f"{parts[0]}: expected index fallback message")
 
@@ -587,6 +714,8 @@ def run_all_gates() -> None:
         gate_prompt_profile_policy(temp_repo)
         gate_run_history_and_views(temp_repo)
         gate_cross_lingual_query(temp_repo)
+        gate_query_planner_success(temp_repo)
+        gate_query_planner_fallback(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)

@@ -25,6 +25,11 @@ class ResolvedLLMConfig:
     temperature: float
     prompt_profile: str
     system_template_path: Path
+    query_planner_enabled: bool
+    query_planner_mode: str
+    query_planner_max_terms: int
+    query_planner_max_code_variants: int
+    query_planner_max_latency_ms: int
     source: dict[str, str]
     validation_error: str | None = None
 
@@ -75,6 +80,20 @@ def _int_or_default(value: Any, default: int) -> int:
         return default
 
 
+def _bool_or_default(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
 def _default_system_template() -> Path:
     return Path(__file__).resolve().parents[1] / "prompts" / "system" / "default_read_only.txt"
 
@@ -98,6 +117,11 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             temperature=0.2,
             prompt_profile="strict_read_only",
             system_template_path=_default_system_template(),
+            query_planner_enabled=True,
+            query_planner_mode="optional",
+            query_planner_max_terms=12,
+            query_planner_max_code_variants=8,
+            query_planner_max_latency_ms=2500,
             source={"config": "error"},
             validation_error=str(payload["_error"]),
         )
@@ -115,6 +139,11 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             temperature=0.2,
             prompt_profile="strict_read_only",
             system_template_path=_default_system_template(),
+            query_planner_enabled=True,
+            query_planner_mode="optional",
+            query_planner_max_terms=12,
+            query_planner_max_code_variants=8,
+            query_planner_max_latency_ms=2500,
             source={"config.local": "error"},
             validation_error=str(local_payload["_error"]),
         )
@@ -211,6 +240,47 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     else:
         system_template_path = _default_system_template()
 
+    planner_enabled_raw, source["query_planner_enabled"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.query_planner.enabled")),
+            ("toml", _nested_get(payload, "llm.query_planner.enabled")),
+            ("default", True),
+        ]
+    )
+    planner_mode_raw, source["query_planner_mode"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.query_planner.mode")),
+            ("toml", _nested_get(payload, "llm.query_planner.mode")),
+            ("default", "optional"),
+        ]
+    )
+    planner_max_terms_raw, source["query_planner_max_terms"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.query_planner.max_terms")),
+            ("toml", _nested_get(payload, "llm.query_planner.max_terms")),
+            ("default", 12),
+        ]
+    )
+    planner_max_code_variants_raw, source["query_planner_max_code_variants"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.query_planner.max_code_variants")),
+            ("toml", _nested_get(payload, "llm.query_planner.max_code_variants")),
+            ("default", 8),
+        ]
+    )
+    planner_max_latency_ms_raw, source["query_planner_max_latency_ms"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.query_planner.max_latency_ms")),
+            ("toml", _nested_get(payload, "llm.query_planner.max_latency_ms")),
+            ("default", 2500),
+        ]
+    )
+    query_planner_enabled = _bool_or_default(planner_enabled_raw, True)
+    query_planner_mode = str(planner_mode_raw).strip().lower()
+    query_planner_max_terms = _int_or_default(planner_max_terms_raw, 12)
+    query_planner_max_code_variants = _int_or_default(planner_max_code_variants_raw, 8)
+    query_planner_max_latency_ms = _int_or_default(planner_max_latency_ms_raw, 2500)
+
     validation_errors: list[str] = []
     if provider is not None and provider not in {"openai_compatible", "mock"}:
         validation_errors.append(f"unknown provider '{provider}'")
@@ -224,6 +294,16 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         validation_errors.append("temperature must be within [0, 2]")
     if prompt_profile not in ALLOWED_PROMPT_PROFILES:
         validation_errors.append(f"unknown prompt profile '{prompt_profile}'")
+    if query_planner_mode not in {"off", "optional", "preferred"}:
+        validation_errors.append(
+            f"unknown query planner mode '{query_planner_mode}' (expected off|optional|preferred)"
+        )
+    if query_planner_max_terms <= 0 or query_planner_max_terms > 64:
+        validation_errors.append("query_planner.max_terms must be within [1, 64]")
+    if query_planner_max_code_variants < 0 or query_planner_max_code_variants > 64:
+        validation_errors.append("query_planner.max_code_variants must be within [0, 64]")
+    if query_planner_max_latency_ms < 200 or query_planner_max_latency_ms > 120000:
+        validation_errors.append("query_planner.max_latency_ms must be within [200, 120000]")
     if not system_template_path.exists():
         validation_errors.append(f"missing system template: {system_template_path}")
     elif not system_template_path.is_file():
@@ -246,6 +326,11 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         temperature=temperature,
         prompt_profile=prompt_profile,
         system_template_path=system_template_path,
+        query_planner_enabled=query_planner_enabled,
+        query_planner_mode=query_planner_mode,
+        query_planner_max_terms=query_planner_max_terms,
+        query_planner_max_code_variants=query_planner_max_code_variants,
+        query_planner_max_latency_ms=query_planner_max_latency_ms,
         source=source,
         validation_error=validation_error,
     )

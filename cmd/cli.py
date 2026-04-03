@@ -76,6 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         help="Explicit LLM timeout in seconds (or FORGE_LLM_TIMEOUT_S)",
     )
+    parser.add_argument(
+        "--query-input-mode",
+        choices=("planner", "exact"),
+        default="planner",
+        help="Query input processing mode: planner (LLM-assisted) or exact (no interpretation)",
+    )
     subparsers = parser.add_subparsers(dest="capability", required=True)
 
     index_parser = subparsers.add_parser("index", help="Build or refresh repository index")
