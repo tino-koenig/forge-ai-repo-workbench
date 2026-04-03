@@ -502,6 +502,25 @@ def format_summary(question: str, candidates: list[Candidate]) -> str:
     return f"Most likely relevant files: {top_paths}."
 
 
+def human_summary(summary: str, view: str) -> str:
+    if is_full(view):
+        return summary
+    cleaned_lines: list[str] = []
+    for raw_line in summary.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lowered = line.lower()
+        if lowered.startswith("deterministic summary"):
+            continue
+        if lowered.startswith("evidence:"):
+            break
+        cleaned_lines.append(line)
+        if len(cleaned_lines) >= 2:
+            break
+    return " ".join(cleaned_lines) if cleaned_lines else summary
+
+
 def print_output(
     question: str,
     candidates: list[Candidate],
@@ -511,10 +530,10 @@ def print_output(
     interpreted_question: str | None,
 ) -> None:
     print("\n--- Answer ---")
-    print(summary)
-    if interpreted_question and not is_compact(view):
+    print(human_summary(summary, view))
+    if interpreted_question and is_full(view):
         print(f"Interpreted question: {interpreted_question}")
-    if cross_lingual.mapped_terms and not is_compact(view):
+    if cross_lingual.mapped_terms and is_full(view):
         mapped = ", ".join(
             f"{item['source_term']}->{item['mapped_term']}" for item in cross_lingual.mapped_terms[:4]
         )
@@ -649,7 +668,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     elif not is_json:
         print("Index: skipped in simple profile")
 
-    if not is_json:
+    if not is_json and is_full(view):
         print(f"Search terms: {', '.join(terms[:8])}" if terms else "Search terms: none")
     matches = collect_matches(
         repo_root,
@@ -835,7 +854,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     for note in notes:
         print(f"- {note}")
 
-    if detailed_lines:
+    if detailed_lines and is_full(view):
             print("\n--- Detailed Context ---")
             for line in detailed_lines[:20]:
                 print(line)

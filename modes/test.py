@@ -398,8 +398,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
 
     print("\n--- Existing Test Conventions ---")
     print(f"Framework: {conventions.framework}")
-    print(f"Naming: {conventions.naming_style}")
-    print(f"Assertions: {conventions.assertion_style}")
+    if is_full(view):
+        print(f"Naming: {conventions.naming_style}")
+        print(f"Assertions: {conventions.assertion_style}")
     print(f"Primary test dir: {conventions.likely_test_dir}")
 
     print("\n--- Proposed Test Cases ---")
@@ -407,7 +408,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     for idx, case in enumerate(cases[:case_limit], start=1):
         print(f"{idx}. {case}")
 
-    if skeleton and not is_compact(view):
+    if skeleton and is_full(view):
         print("\n--- Draft Test Skeleton ---")
         print("```python")
         print(skeleton)

@@ -12,6 +12,7 @@ from core.effects import ExecutionSession
 from core.output_contracts import build_contract, emit_contract_json
 from core.prompt_profiles import default_prompt_profile, is_prompt_profile_allowed
 from core.output_views import is_compact, is_full, resolve_view
+from core.review_rules import load_review_rules
 
 
 @dataclass
@@ -125,6 +126,26 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 key="config_validation",
                 status="pass",
                 detail="config values passed validation",
+            )
+        )
+
+    loaded_rules, rule_errors = load_review_rules(repo_root)
+    if rule_errors:
+        checks.append(
+            CheckResult(
+                key="review_rules",
+                status="warn",
+                detail=f"loaded={len(loaded_rules)}; invalid={len(rule_errors)}",
+                recommendation="Fix .forge/review-rules.toml invalid entries; invalid rules are skipped safely.",
+            )
+        )
+    else:
+        checks.append(
+            CheckResult(
+                key="review_rules",
+                status="pass",
+                detail=f"loaded={len(loaded_rules)}; invalid=0",
+                recommendation=None,
             )
         )
 
@@ -277,6 +298,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     }
                     for item in checks
                 ],
+                "review_rules": {"loaded": len(loaded_rules), "errors": rule_errors},
             },
         )
         emit_contract_json(contract)

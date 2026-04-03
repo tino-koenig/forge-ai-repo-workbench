@@ -1,0 +1,18 @@
+[llm]
+provider = "openai_compatible"
+
+[llm.openai_compatible]
+base_url = "mock://openai/v1"
+model = "fixture-model"
+api_key_env = "FORGE_LLM_API_KEY"
+timeout_s = 1
+
+[llm.prompt]
+profile = "unknown_profile"
+system_template = "prompts/system/does_not_exist.txt"
+
+[llm.observability]
+enabled = true
+level = "verbose"
+retention_count = 10
+max_file_mb = 0

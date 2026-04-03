@@ -15,7 +15,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FORGE = ROOT / "forge.py"
-FIXTURE_SRC = ROOT / "tests" / "fixtures" / "basic_repo"
+FIXTURE_BASIC_SRC = ROOT / "tests" / "fixtures" / "basic_repo"
+FIXTURE_FRONTEND_SRC = ROOT / "tests" / "fixtures" / "frontend_repo"
+FIXTURE_MIXED_SRC = ROOT / "tests" / "fixtures" / "mixed_sparse_repo"
+FIXTURE_MALFORMED_SRC = ROOT / "tests" / "fixtures" / "malformed_repo"
 
 
 class GateError(RuntimeError):
@@ -472,6 +475,7 @@ def gate_run_history_and_views(repo_root: Path) -> None:
 
     history_file = repo_root / ".forge" / "runs.jsonl"
     assert_true(history_file.exists(), "runs history file should exist after capability execution")
+    before_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     last_payload = parse_json_output(
         run_cmd(
@@ -482,17 +486,42 @@ def gate_run_history_and_views(repo_root: Path) -> None:
     last_id = int(last_payload.get("id", 0))
     assert_true(last_id > 0, "runs last should return a concrete run id")
 
+    compact_out = run_cmd(
+        ["python3", str(FORGE), "--repo-root", str(repo_root), "runs", "show", str(last_id), "compact"],
+        cwd=ROOT,
+    ).stdout
+    standard_out = run_cmd(
+        ["python3", str(FORGE), "--repo-root", str(repo_root), "runs", str(last_id), "standard"],
+        cwd=ROOT,
+    ).stdout
     show_out = run_cmd(
         ["python3", str(FORGE), "--repo-root", str(repo_root), "runs", str(last_id), "show", "full"],
         cwd=ROOT,
     ).stdout
+
+    assert_true(f"#{last_id} |" in compact_out, "runs compact should use compact one-line format")
+    assert_true("Payload:" not in compact_out, "runs compact should not print payload details")
+    assert_true("Payload:" in standard_out, "runs standard should include essential metadata")
+    assert_true("--- Full Output ---" not in standard_out, "runs standard should not include full output block")
     assert_true(f"Run #{last_id}" in show_out, "runs show full should print selected run id")
+    assert_true("--- Full Output ---" in show_out, "runs full should include full output block")
+
+    after_show_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(
+        len(after_show_lines) == len(before_lines),
+        "runs show/list/last should not mutate run history or trigger re-execution",
+    )
 
     rerun_out = run_cmd(
         ["python3", str(FORGE), "--repo-root", str(repo_root), "runs", str(last_id), "rerun"],
         cwd=ROOT,
     ).stdout
     assert_true(len(rerun_out.strip()) > 0, "runs rerun should emit execution output")
+    after_rerun_lines = [line for line in history_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(
+        len(after_rerun_lines) == len(after_show_lines),
+        "runs rerun should execute explicitly without mutating history records",
+    )
 
 
 def gate_cross_lingual_query(repo_root: Path) -> None:
@@ -643,6 +672,240 @@ def gate_llm_observability_redaction(repo_root: Path) -> None:
     assert_true("capability" in first and "stage" in first, "observability: expected structured event metadata")
 
 
+def gate_llm_contract_parity(repo_root: Path) -> None:
+    off_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-mode",
+                "off",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "compute_price",
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    on_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    assert_true(off_payload.get("capability") == on_payload.get("capability") == "query", "parity: capability mismatch")
+    assert_true(off_payload.get("profile") == on_payload.get("profile"), "parity: profile mismatch")
+    for field in ("summary", "evidence", "uncertainty", "next_step", "sections"):
+        assert_true(field in off_payload, f"parity/off: missing field '{field}'")
+        assert_true(field in on_payload, f"parity/on: missing field '{field}'")
+    off_sections = off_payload.get("sections", {})
+    on_sections = on_payload.get("sections", {})
+    for key in ("likely_locations", "llm_usage", "query_planner", "provenance"):
+        assert_true(key in off_sections, f"parity/off: missing sections.{key}")
+        assert_true(key in on_sections, f"parity/on: missing sections.{key}")
+
+
+def gate_prompt_template_resolution_failure(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'provider = "mock"\n'
+            "[llm.prompt]\n"
+            'system_template = "prompts/system/does_not_exist.txt"\n'
+        ),
+        encoding="utf-8",
+    )
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    usage = payload.get("sections", {}).get("llm_usage", {})
+    assert_true(usage.get("used") is False, "prompt template failure: expected deterministic fallback")
+    reason = str(usage.get("fallback_reason", ""))
+    assert_true("missing system template" in reason, "prompt template failure: expected missing-template reason")
+
+
+def gate_doctor_config_validate_matrix_malformed(repo_root: Path) -> None:
+    doctor = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "doctor"],
+            cwd=ROOT,
+        ).stdout
+    )
+    cfg_validate = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "config", "validate"],
+            cwd=ROOT,
+        ).stdout
+    )
+    doctor_sections = doctor.get("sections", {})
+    cfg_sections = cfg_validate.get("sections", {})
+    assert_true(doctor_sections.get("status") == "fail", "doctor matrix: malformed fixture should fail")
+    assert_true(cfg_sections.get("status") == "fail", "config validate matrix: malformed fixture should fail")
+    doctor_checks = doctor_sections.get("checks", [])
+    cfg_checks = cfg_sections.get("checks", [])
+    assert_true(isinstance(doctor_checks, list) and doctor_checks, "doctor matrix: expected checks")
+    assert_true(isinstance(cfg_checks, list) and cfg_checks, "config validate matrix: expected checks")
+    doctor_validation = [item for item in doctor_checks if isinstance(item, dict) and item.get("key") == "config_validation"]
+    cfg_validation = [item for item in cfg_checks if isinstance(item, dict) and item.get("key") == "config_validation"]
+    assert_true(doctor_validation and doctor_validation[0].get("status") == "fail", "doctor matrix: config_validation should fail")
+    assert_true(cfg_validation and cfg_validation[0].get("status") == "fail", "config validate matrix: config_validation should fail")
+
+
+def gate_frontend_fixture(frontend_repo: Path) -> None:
+    describe_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(frontend_repo),
+                "describe",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    languages = describe_payload.get("sections", {}).get("technologies", {}).get("languages", [])
+    assert_true(isinstance(languages, list), "frontend fixture: expected describe technologies.languages list")
+    assert_true(
+        any(str(item) in {"React TSX", "TypeScript", "JavaScript"} for item in languages),
+        "frontend fixture: expected frontend language detection",
+    )
+
+def gate_mixed_fixture_describe(mixed_repo: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(mixed_repo), "describe"],
+            cwd=ROOT,
+        ).stdout
+    )
+    languages = payload.get("sections", {}).get("technologies", {}).get("languages", [])
+    assert_true(isinstance(languages, list), "mixed fixture: expected technologies.languages list")
+    lang_set = {str(item) for item in languages}
+    assert_true("Python" in lang_set, "mixed fixture: expected Python detection")
+    assert_true("JavaScript" in lang_set, "mixed fixture: expected JavaScript detection")
+
+
+def gate_external_review_rules(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "review-rules.toml").write_text(
+        (
+            "[[rule]]\n"
+            'id = "controller_sql_custom"\n'
+            'title = "Custom SQL Keyword in Controller"\n'
+            'severity = "high"\n'
+            'pattern = "SELECT|INSERT|UPDATE|DELETE"\n'
+            'path_includes = ["controller"]\n'
+            'explanation = "Controller includes SQL keyword via external rule."\n'
+            'recommendation = "Move SQL to repository/service."\n'
+        ),
+        encoding="utf-8",
+    )
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "src/controller.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    sections = payload.get("sections", {})
+    findings = sections.get("findings", [])
+    custom = [item for item in findings if isinstance(item, dict) and item.get("rule_id") == "controller_sql_custom"]
+    assert_true(custom, "external rules: expected custom rule finding with rule_id")
+    review_rules = sections.get("review_rules", {})
+    assert_true(review_rules.get("loaded") == 1, "external rules: expected loaded=1")
+    assert_true(review_rules.get("errors") == [], "external rules: expected no rule errors")
+
+
+def gate_external_review_rules_invalid(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "review-rules.toml").write_text(
+        (
+            "[[rule]]\n"
+            'id = "bad_regex"\n'
+            'title = "Invalid regex rule"\n'
+            'severity = "high"\n'
+            'pattern = "(unclosed"\n'
+            'explanation = "broken rule for gate"\n'
+        ),
+        encoding="utf-8",
+    )
+    doctor = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "doctor"],
+            cwd=ROOT,
+        ).stdout
+    )
+    checks = doctor.get("sections", {}).get("checks", [])
+    review_rule_checks = [item for item in checks if isinstance(item, dict) and item.get("key") == "review_rules"]
+    assert_true(review_rule_checks, "external rules invalid: expected review_rules doctor check")
+    status = review_rule_checks[0].get("status")
+    assert_true(status in {"warn", "fail"}, "external rules invalid: expected warn/fail status")
+
+    review_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "src/controller.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    review_rules = review_payload.get("sections", {}).get("review_rules", {})
+    errors = review_rules.get("errors", [])
+    assert_true(isinstance(errors, list) and len(errors) >= 1, "external rules invalid: expected surfaced rule error list")
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -741,17 +1004,31 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
 
 def run_all_gates() -> None:
     with tempfile.TemporaryDirectory(prefix="forge-gates-") as temp_dir:
-        temp_repo = Path(temp_dir) / "repo"
-        shutil.copytree(FIXTURE_SRC, temp_repo)
+        temp_repo = Path(temp_dir) / "repo-basic"
+        temp_repo_frontend = Path(temp_dir) / "repo-frontend"
+        temp_repo_mixed = Path(temp_dir) / "repo-mixed"
+        temp_repo_malformed = Path(temp_dir) / "repo-malformed"
+        temp_repo_promptfail = Path(temp_dir) / "repo-promptfail"
+        temp_repo_rules = Path(temp_dir) / "repo-rules"
+        temp_repo_rules_invalid = Path(temp_dir) / "repo-rules-invalid"
+        shutil.copytree(FIXTURE_BASIC_SRC, temp_repo)
+        shutil.copytree(FIXTURE_FRONTEND_SRC, temp_repo_frontend)
+        shutil.copytree(FIXTURE_MIXED_SRC, temp_repo_mixed)
+        shutil.copytree(FIXTURE_MALFORMED_SRC, temp_repo_malformed)
+        shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_promptfail)
+        shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules)
+        shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules_invalid)
 
         gate_behavior_smoke(temp_repo)
         gate_output_contract(temp_repo)
         gate_llm_path(temp_repo)
+        gate_llm_contract_parity(temp_repo)
         gate_openai_compatible_provider(temp_repo)
         gate_config_toml_fallback(temp_repo)
         gate_config_precedence(temp_repo)
         gate_env_file_autoload(temp_repo)
         gate_prompt_profile_policy(temp_repo)
+        gate_prompt_template_resolution_failure(temp_repo_promptfail)
         gate_run_history_and_views(temp_repo)
         gate_cross_lingual_query(temp_repo)
         gate_query_planner_success(temp_repo)
@@ -760,6 +1037,11 @@ def run_all_gates() -> None:
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
+        gate_frontend_fixture(temp_repo_frontend)
+        gate_mixed_fixture_describe(temp_repo_mixed)
+        gate_doctor_config_validate_matrix_malformed(temp_repo_malformed)
+        gate_external_review_rules(temp_repo_rules)
+        gate_external_review_rules_invalid(temp_repo_rules_invalid)
 
 
 def main() -> int:

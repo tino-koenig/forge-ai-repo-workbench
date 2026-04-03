@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+import json
 from pathlib import Path
 from typing import Any
 
@@ -28,24 +29,49 @@ def _summary_from_record(record: dict[str, Any]) -> str:
     return lines[0][:220]
 
 
+def _next_step_from_record(record: dict[str, Any]) -> str | None:
+    contract = record.get("output", {}).get("contract")
+    if not isinstance(contract, dict):
+        return None
+    next_step = contract.get("next_step")
+    if isinstance(next_step, str) and next_step.strip():
+        return next_step
+    return None
+
+
 def _print_record(record: dict[str, Any], view: str) -> None:
     rid = record.get("id")
     ts = record.get("timestamp")
     req = record.get("request", {})
     exe = record.get("execution", {})
     out = record.get("output", {})
-    print(f"Run #{rid} | {ts} | {req.get('capability')}:{req.get('profile')} | exit={exe.get('exit_code')}")
+    capability = req.get("capability")
+    profile = req.get("profile")
+    summary = _summary_from_record(record)
+
     if view == "compact":
-        print(_summary_from_record(record))
+        print(f"#{rid} | {capability}:{profile} | {summary}")
         return
+
+    print(f"Run #{rid} | {ts} | {capability}:{profile} | exit={exe.get('exit_code')}")
     print(f"Payload: {req.get('payload')}")
     print(f"Output format: {exe.get('output_format')}")
     print("\n--- Summary ---")
-    print(_summary_from_record(record))
-    if view == "full":
-        print("\n--- Full Output ---")
-        text = str(out.get("text", "")).rstrip()
-        print(text if text else "(empty)")
+    print(summary)
+    next_step = _next_step_from_record(record)
+    if next_step:
+        print("\n--- Next Step ---")
+        print(next_step)
+    if view != "full":
+        return
+
+    print("\n--- Full Output ---")
+    text = str(out.get("text", "")).rstrip()
+    print(text if text else "(empty)")
+    contract = out.get("contract")
+    if isinstance(contract, dict):
+        print("\n--- Stored Contract ---")
+        print(json.dumps(contract, ensure_ascii=False, indent=2))
 
 
 def _parse_runs_command(parts: list[str]) -> tuple[str, int | None, str]:

@@ -17,6 +17,7 @@ from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
 from core.output_views import is_compact, is_full, resolve_view
+from core.review_rules import ReviewRule, load_review_rules
 from core.repo_io import read_text_file
 
 
@@ -37,6 +38,7 @@ class Finding:
     explanation: str
     evidence: list[FindingEvidence]
     recommendation: str | None = None
+    rule_id: str | None = None
 
 
 def maybe_add(
@@ -220,6 +222,36 @@ def detect_inline_styles(target: ResolvedTarget) -> Finding | None:
     )
 
 
+def _path_allowed(path: Path, rule: ReviewRule) -> bool:
+    lowered = str(path).lower()
+    if rule.path_includes and not any(token.lower() in lowered for token in rule.path_includes):
+        return False
+    if rule.path_excludes and any(token.lower() in lowered for token in rule.path_excludes):
+        return False
+    return True
+
+
+def apply_external_rules(target: ResolvedTarget, rules: list[ReviewRule]) -> list[Finding]:
+    findings: list[Finding] = []
+    for rule in rules:
+        if not _path_allowed(target.path, rule):
+            continue
+        evidence = collect_line_evidence(target.path, target.content, rule.regex, limit=5)
+        if not evidence:
+            continue
+        findings.append(
+            Finding(
+                title=rule.title,
+                severity=rule.severity,
+                explanation=rule.explanation,
+                evidence=evidence,
+                recommendation=rule.recommendation,
+                rule_id=rule.rule_id,
+            )
+        )
+    return findings
+
+
 def gather_related_targets(
     repo_root: Path,
     primary: ResolvedTarget,
@@ -249,7 +281,7 @@ def gather_related_targets(
     return related
 
 
-def review_target(target: ResolvedTarget, profile: Profile) -> list[Finding]:
+def review_target(target: ResolvedTarget, profile: Profile, external_rules: list[ReviewRule]) -> list[Finding]:
     findings: list[Finding] = []
 
     large_file = detect_large_file(target)
@@ -272,6 +304,8 @@ def review_target(target: ResolvedTarget, profile: Profile) -> list[Finding]:
     if inline_style:
         findings.append(inline_style)
 
+    findings.extend(apply_external_rules(target, external_rules))
+
     findings.sort(
         key=lambda f: (
             SEVERITY_ORDER.get(f.severity, 0),
@@ -292,6 +326,8 @@ def print_findings(repo_root: Path, findings: list[Finding], view: str) -> None:
     finding_limit = 1 if is_compact(view) else 3 if view == "standard" else len(findings)
     for idx, finding in enumerate(findings[:finding_limit], start=1):
         print(f"{idx}. {finding.title} [{finding.severity}]")
+        if finding.rule_id and not is_compact(view):
+            print(f"   Rule: {finding.rule_id}")
         print(f"   Explanation: {finding.explanation}")
         print("   Evidence:")
         ev_limit = 1 if is_compact(view) else 2 if view == "standard" else len(finding.evidence)
@@ -317,6 +353,7 @@ def print_summary(target: ResolvedTarget, findings: list[Finding], related_count
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
     target = resolve_file_or_symbol_target(repo_root, request.payload, session)
+    external_rules, rule_errors = load_review_rules(repo_root)
     path_classes: dict[str, str] = {}
     is_json = args.output_format == "json"
     view = resolve_view(args)
@@ -325,6 +362,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print("=== FORGE REVIEW ===")
         print(f"Profile: {request.profile.value}")
         print(f"Target: {request.payload}")
+        if is_full(view) and rule_errors:
+            print("Review rules: invalid entries detected; invalid rules were skipped")
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         path_classes = load_index_path_class_map(repo_root, session)
         if not is_json:
@@ -348,7 +387,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 evidence=[],
                 uncertainty=uncertainty,
                 next_step=next_step,
-                sections={"findings": []},
+                sections={"findings": [], "review_rules": {"loaded": len(external_rules), "errors": rule_errors}},
             )
             emit_contract_json(contract)
             return 0
@@ -361,7 +400,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print(next_step)
         return 0
 
-    primary_findings = review_target(target, request.profile)
+    primary_findings = review_target(target, request.profile, external_rules)
     all_findings = list(primary_findings)
     related_count = 0
 
@@ -376,7 +415,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
         related_count = len(related_targets)
         for related in related_targets:
-            all_findings.extend(review_target(related, request.profile))
+            all_findings.extend(review_target(related, request.profile, external_rules))
 
     all_findings.sort(
         key=lambda f: (SEVERITY_ORDER.get(f.severity, 0), len(f.evidence)),
@@ -400,6 +439,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "severity": finding.severity,
             "explanation": finding.explanation,
             "recommendation": finding.recommendation,
+            "rule_id": finding.rule_id,
             "evidence": [
                 {
                     "path": str(e.path.relative_to(repo_root)),
@@ -441,6 +481,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             sections={
                 "findings": findings_payload,
                 "target_source": target.source,
+                "review_rules": {"loaded": len(external_rules), "errors": rule_errors},
                 "llm_usage": llm_outcome.usage,
                 "provenance": provenance_section(
                     llm_used=bool(llm_outcome.usage.get("used")),
@@ -470,8 +511,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     )
     uncertainty.extend(llm_outcome.uncertainty_notes)
 
-    print_summary(target, capped_findings, related_count)
-    print("\n--- Refined Summary ---")
+    if is_full(view):
+        print_summary(target, capped_findings, related_count)
+    print("\n--- Answer ---")
     print(llm_outcome.summary)
     print_findings(repo_root, capped_findings, view)
     if is_full(view):
@@ -494,6 +536,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     notes = uncertainty if is_full(view) else uncertainty[:1]
     for note in notes:
         print(f"- {note}")
+    if is_full(view):
+        print("\n--- Review Rules ---")
+        print(f"Loaded rules: {len(external_rules)}")
+        if rule_errors:
+            print("Errors:")
+            for item in rule_errors[:6]:
+                print(f"- {item}")
     print("\n--- Next Step ---")
     print(next_step)
 

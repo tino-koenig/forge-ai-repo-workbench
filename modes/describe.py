@@ -292,6 +292,7 @@ def print_repo_description(
     session: ExecutionSession,
     index_payload: dict[str, object] | None,
     summary: str,
+    view: str,
 ) -> str | None:
     languages = detect_languages(files)
     frameworks = detect_framework_hints(files, repo_root, session, limit=80 if request.profile != Profile.SIMPLE else 25)
@@ -304,7 +305,8 @@ def print_repo_description(
 
     print("\n--- Key Components ---")
     if directories:
-        for directory, count in directories[:6]:
+        component_limit = 3 if view == "standard" else 6
+        for directory, count in directories[:component_limit]:
             print(f"- {directory}: {count} files")
     else:
         print("- No major directories detected")
@@ -315,12 +317,13 @@ def print_repo_description(
 
     print("\n--- Important Files ---")
     if important:
-        for path in important:
+        important_limit = 3 if view == "standard" else len(important)
+        for path in important[:important_limit]:
             print(f"- {path}")
     else:
         print("- No obvious entry files detected")
 
-    if request.profile in {Profile.STANDARD, Profile.DETAILED}:
+    if request.profile in {Profile.STANDARD, Profile.DETAILED} and is_full(view):
         print("\n--- Architecture Notes ---")
         if any(path.relative_to(repo_root).parts and path.relative_to(repo_root).parts[0] == "cmd" for path in files):
             print("- CLI-oriented structure detected (`cmd/` present).")
@@ -329,7 +332,7 @@ def print_repo_description(
         if any(path.relative_to(repo_root).parts and path.relative_to(repo_root).parts[0] == "core" for path in files):
             print("- Shared core logic appears centralized in `core/`.")
 
-    if request.profile == Profile.DETAILED:
+    if request.profile == Profile.DETAILED and is_full(view):
         print("\n--- README Draft Snippet ---")
         print(
             "This repository provides a structured toolchain focused on explicit capabilities, "
@@ -345,6 +348,7 @@ def print_target_description(
     request: CommandRequest,
     session: ExecutionSession,
     summary: str,
+    view: str,
 ) -> None:
     rel = target.path.relative_to(repo_root)
     print("\n--- Summary ---")
@@ -369,7 +373,8 @@ def print_target_description(
         content = read_text_file(target.path, session) or ""
         defs = re.findall(r"^\s*(?:def|class)\s+([A-Za-z0-9_]+)", content, flags=re.MULTILINE)
         if defs:
-            for name in defs[:8]:
+            symbol_limit = 4 if view == "standard" else 8
+            for name in defs[:symbol_limit]:
                 print(f"- symbol: {name}")
         else:
             print("- No top-level definitions detected.")
@@ -382,14 +387,15 @@ def print_target_description(
         if target.kind == "directory":
             important = find_important_files(files, repo_root)
             if important:
-                for item in important[:8]:
+                important_limit = 3 if view == "standard" else 8
+                for item in important[:important_limit]:
                     print(f"- {item}")
             else:
                 print("- No conventional entry/config files found in target.")
         else:
             print(f"- {rel}")
 
-    if request.profile == Profile.DETAILED:
+    if request.profile == Profile.DETAILED and is_full(view):
         print("\n--- Architecture Notes ---")
         if target.kind == "symbol":
             print("- Target was resolved via symbol matching; verify semantic intent with `forge explain`.")
@@ -484,6 +490,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 session,
                 index,
                 llm_outcome.summary,
+                view,
             )
     else:
         files = list_directory_files(target.path, repo_root, session) if target.kind == "directory" else [target.path]
@@ -500,7 +507,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
         sections = collect_target_sections(target, repo_root, request, session)
         if not is_json:
-            print_target_description(target, repo_root, request, session, llm_outcome.summary)
+            print_target_description(target, repo_root, request, session, llm_outcome.summary, view)
 
     uncertainty: list[str] = []
     if target.kind == "symbol":

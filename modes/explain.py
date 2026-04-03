@@ -144,7 +144,7 @@ def print_explanation(
     print("\n--- Summary ---")
     print(summary)
 
-    if not is_compact(view):
+    if is_full(view):
         print("\n--- Role Classification ---")
         print(f"Role: {role}")
         print(f"Reason: {rationale}")
@@ -152,15 +152,15 @@ def print_explanation(
     print("\n--- Evidence ---")
     if not evidence:
         print("No concrete evidence extracted.")
-    evidence_limit = 3 if is_compact(view) else 5 if view == "standard" else len(evidence)
+    evidence_limit = 2 if is_compact(view) else 3 if view == "standard" else len(evidence)
     for item in evidence[:evidence_limit]:
         path_display = item.path.relative_to(repo_root)
         print(f"{path_display}:{item.line}: {item.text}")
 
-    if request.profile in {Profile.STANDARD, Profile.DETAILED} and not is_compact(view):
+    if request.profile in {Profile.STANDARD, Profile.DETAILED} and is_full(view):
         print("\n--- Related Files ---")
         if related:
-            related_limit = 3 if view == "standard" else len(related)
+            related_limit = len(related)
             for rel in related[:related_limit]:
                 print(rel)
         else:
