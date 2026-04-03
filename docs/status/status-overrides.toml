@@ -250,8 +250,10 @@ defined_on = "2026-04-03"
 
 [[feature]]
 id = "049"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Query orchestration now runs as a bounded iterative state machine with per-iteration trace and explicit done reasons."
 
 [[feature]]
 id = "050"

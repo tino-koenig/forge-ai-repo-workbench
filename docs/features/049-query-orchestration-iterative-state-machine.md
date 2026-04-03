@@ -34,9 +34,8 @@ Each iteration must follow:
 4. state update
 5. stop evaluation
 
-Source-aware execution policy:
-- start with `repo_only` search/rank by default
-- expand to framework sources only when repo evidence is below threshold or explicitly requested
+Source-aware execution policy is optional in this feature phase.  
+Initial implementation focuses on bounded iterative execution independent of source-expansion policy.
 
 ### Termination
 
@@ -51,7 +50,6 @@ Loop must terminate with one explicit `done_reason`:
 - max iterations must be enforced at runtime
 - no hidden extra iterations beyond configured bounds
 - invalid decisions must route to deterministic fallback and terminate safely
-- framework expansion must respect separate hard caps (`max_framework_candidates`, `max_framework_reads`)
 
 ## Design
 
@@ -70,3 +68,33 @@ Current orchestration quality is limited when only one decision cycle is execute
 - state transitions are explicit and logged per iteration
 - done reasons are deterministic and reproducible
 - budget and policy bounds are enforced in every iteration
+
+## Implemented Behavior (Current)
+
+- Query orchestration now runs as a bounded loop up to `llm.query_orchestrator.max_iterations`.
+- Each iteration evaluates decision -> validates -> executes action -> updates state -> checks stop conditions.
+- Runtime stop reasons are explicit and propagated:
+  - `sufficient_evidence`
+  - `budget_exhausted`
+  - `policy_blocked`
+  - `no_progress`
+- Runtime budgets are enforced per run/iteration:
+  - wall time (`max_wall_time_ms`)
+  - files read (`max_files`)
+  - token budget approximation (`max_tokens`)
+- Iteration traces are emitted in output contract under `sections.action_orchestration.iterations`.
+
+## How To Validate Quickly
+
+- Run full view query and inspect orchestration block:
+  - `forge --view full query "Where is X defined?"`
+- Run JSON query and inspect iterative trace:
+  - `forge --output-format json query "Where is X defined?"`
+  - verify `sections.action_orchestration.iterations[]` and `done_reason`
+- Tune bounds in `.forge/config.toml` (`llm.query_orchestrator.*`) and verify loop behavior changes accordingly.
+
+## Known Limits / Notes
+
+- Current loop executes a conservative subset of actions effectively (`read`, `explain`, `rank`, `summarize`).
+- `search` expansion remains intentionally minimal in this phase.
+- Token budget tracking is approximate (bounded estimator), not provider token accounting.

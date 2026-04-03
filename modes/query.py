@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+import time
 
 from core.analysis_primitives import load_index_entry_map, load_index_path_class_map, path_class_weight
 from core.capability_model import CommandRequest, Profile
@@ -239,6 +240,23 @@ class ExplainFeedback:
     linkage_confidence: str
     relevance_score: int
     rationale: list[str]
+
+
+@dataclass
+class QueryOrchestrationIteration:
+    iteration: int
+    decision: str
+    next_action: str | None
+    reason: str
+    confidence: str
+    done_reason: str
+    evidence_count_before: int
+    evidence_count_after: int
+    candidate_count_before: int
+    candidate_count_after: int
+    budget_tokens_used: int
+    budget_files_used: int
+    elapsed_ms: int
 
 
 FRAMEWORK_PATH_MARKERS = (
@@ -1162,48 +1180,221 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     "retrieval_source": item.source,
                 }
             )
-    orchestration = maybe_orchestrate_query_actions(
-        capability=request.capability,
-        profile=request.profile,
-        question=question,
-        candidate_paths=[str(item.path) for item in candidates[:12]],
-        evidence_count=len(evidence_payload),
-        settings=llm_settings,
-        repo_root=repo_root,
-    )
-    adaptive_continue = bool(top_feedback is not None and top_feedback.linkage_confidence == "low" and len(candidates) > 1)
-    if orchestration.decisions:
-        first_decision = orchestration.decisions[0]
-        if (
-            (first_decision.decision == "continue" and first_decision.next_action == "read")
-            or adaptive_continue
-        ) and candidates:
-            start_idx = 1 if adaptive_continue else 0
-            inspect_slice = candidates[start_idx : start_idx + max(1, min(len(candidates), llm_settings.query_orchestrator_max_files))]
-            bounded_details = enrich_detailed_context(
-                repo_root,
-                inspect_slice,
-                session,
-            )
-            extra_limit = min(len(bounded_details), llm_settings.query_orchestrator_max_tokens // 40)
-            for raw in bounded_details[:extra_limit]:
-                if raw.count(":") < 2:
-                    continue
-                path_part, line_part, text_part = raw.split(":", 2)
-                try:
-                    line_no = int(line_part)
-                except ValueError:
-                    continue
-                evidence_payload.append(
-                    {
-                        "path": path_part.strip(),
-                        "line": line_no,
-                        "text": text_part.strip(),
-                        "term": "orchestrator_read",
-                    }
+    orchestration_decisions = []
+    orchestration_iterations: list[QueryOrchestrationIteration] = []
+    orchestration_done_reason = "sufficient_evidence"
+    orchestration_usage: dict[str, object] = {}
+    orchestration_fallback_reason: str | None = None
+    adaptive_continue_triggered = False
+    no_progress_streak = 0
+    budget_tokens_used = 0
+    budget_files_used = 0
+    loop_started = time.perf_counter()
+
+    for iteration_idx in range(1, llm_settings.query_orchestrator_max_iterations + 1):
+        elapsed_ms = int((time.perf_counter() - loop_started) * 1000)
+        if elapsed_ms >= llm_settings.query_orchestrator_max_wall_time_ms:
+            orchestration_done_reason = "budget_exhausted"
+            break
+
+        candidate_count_before = len(candidates)
+        evidence_count_before = len(evidence_payload)
+        feedback_by_path = {str(item.path): item for item in explain_feedback}
+        top_feedback = feedback_by_path.get(str(candidates[0].path)) if candidates else None
+        adaptive_continue = bool(top_feedback is not None and top_feedback.linkage_confidence == "low" and len(candidates) > 1)
+        if adaptive_continue:
+            adaptive_continue_triggered = True
+
+        outcome = maybe_orchestrate_query_actions(
+            capability=request.capability,
+            profile=request.profile,
+            question=question,
+            candidate_paths=[str(item.path) for item in candidates[:12]],
+            evidence_count=len(evidence_payload),
+            iteration=iteration_idx,
+            settings=llm_settings,
+            repo_root=repo_root,
+        )
+        orchestration_usage = outcome.usage
+        if outcome.fallback_reason:
+            orchestration_fallback_reason = outcome.fallback_reason
+        if outcome.decisions:
+            orchestration_decisions.extend(outcome.decisions)
+
+        decision = outcome.decisions[0].decision if outcome.decisions else "stop"
+        next_action = outcome.decisions[0].next_action if outcome.decisions else None
+        reason = (
+            outcome.decisions[0].reason
+            if outcome.decisions
+            else str(outcome.fallback_reason or "no orchestration decision produced")
+        )
+        confidence = outcome.decisions[0].confidence if outcome.decisions else "medium"
+
+        if outcome.done_reason in {"policy_blocked", "budget_exhausted"} and not outcome.decisions:
+            orchestration_done_reason = outcome.done_reason
+            orchestration_iterations.append(
+                QueryOrchestrationIteration(
+                    iteration=iteration_idx,
+                    decision=decision,
+                    next_action=next_action,
+                    reason=reason,
+                    confidence=confidence,
+                    done_reason=orchestration_done_reason,
+                    evidence_count_before=evidence_count_before,
+                    evidence_count_after=len(evidence_payload),
+                    candidate_count_before=candidate_count_before,
+                    candidate_count_after=len(candidates),
+                    budget_tokens_used=budget_tokens_used,
+                    budget_files_used=budget_files_used,
+                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
                 )
-            if bounded_details:
-                detailed_lines.extend(bounded_details[:12])
+            )
+            break
+
+        if decision == "stop":
+            orchestration_done_reason = "sufficient_evidence"
+            orchestration_iterations.append(
+                QueryOrchestrationIteration(
+                    iteration=iteration_idx,
+                    decision=decision,
+                    next_action=next_action,
+                    reason=reason,
+                    confidence=confidence,
+                    done_reason=orchestration_done_reason,
+                    evidence_count_before=evidence_count_before,
+                    evidence_count_after=len(evidence_payload),
+                    candidate_count_before=candidate_count_before,
+                    candidate_count_after=len(candidates),
+                    budget_tokens_used=budget_tokens_used,
+                    budget_files_used=budget_files_used,
+                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                )
+            )
+            break
+
+        action_applied = False
+        if next_action == "read" and candidates:
+            remaining_files = max(0, llm_settings.query_orchestrator_max_files - budget_files_used)
+            remaining_tokens = max(0, llm_settings.query_orchestrator_max_tokens - budget_tokens_used)
+            if remaining_files <= 0 or remaining_tokens <= 0:
+                orchestration_done_reason = "budget_exhausted"
+            else:
+                start_idx = 1 if adaptive_continue else 0
+                inspect_size = max(1, min(len(candidates) - start_idx, remaining_files))
+                inspect_slice = candidates[start_idx : start_idx + inspect_size]
+                budget_files_used += len(inspect_slice)
+                bounded_details = enrich_detailed_context(repo_root, inspect_slice, session)
+                extra_limit = min(len(bounded_details), remaining_tokens // 40)
+                for raw in bounded_details[:extra_limit]:
+                    if raw.count(":") < 2:
+                        continue
+                    path_part, line_part, text_part = raw.split(":", 2)
+                    try:
+                        line_no = int(line_part)
+                    except ValueError:
+                        continue
+                    evidence_payload.append(
+                        {
+                            "path": path_part.strip(),
+                            "line": line_no,
+                            "text": text_part.strip(),
+                            "term": "orchestrator_read",
+                            "source": "content_match",
+                            "retrieval_source": "content_match",
+                        }
+                    )
+                    action_applied = True
+                budget_tokens_used += extra_limit * 40
+                if bounded_details:
+                    detailed_lines.extend(bounded_details[:12])
+        elif next_action == "explain" and candidates:
+            explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
+            candidates = rerank_with_explain_feedback(candidates, explain_feedback)
+            action_applied = True
+        elif next_action == "rank":
+            candidates = rerank_with_explain_feedback(candidates, explain_feedback)
+            action_applied = True
+        elif next_action == "summarize":
+            orchestration_done_reason = "sufficient_evidence"
+            action_applied = True
+        elif next_action == "search":
+            # Search expansion handler is intentionally conservative for now.
+            action_applied = False
+        else:
+            orchestration_done_reason = "policy_blocked"
+
+        if orchestration_done_reason in {"policy_blocked", "budget_exhausted", "sufficient_evidence"} and (
+            next_action in {"summarize"} or not action_applied and next_action not in {"search", "read", "explain", "rank"}
+        ):
+            orchestration_iterations.append(
+                QueryOrchestrationIteration(
+                    iteration=iteration_idx,
+                    decision=decision,
+                    next_action=next_action,
+                    reason=reason,
+                    confidence=confidence,
+                    done_reason=orchestration_done_reason,
+                    evidence_count_before=evidence_count_before,
+                    evidence_count_after=len(evidence_payload),
+                    candidate_count_before=candidate_count_before,
+                    candidate_count_after=len(candidates),
+                    budget_tokens_used=budget_tokens_used,
+                    budget_files_used=budget_files_used,
+                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                )
+            )
+            break
+
+        if len(evidence_payload) == evidence_count_before and len(candidates) == candidate_count_before:
+            no_progress_streak += 1
+        else:
+            no_progress_streak = 0
+
+        if no_progress_streak >= 2:
+            orchestration_done_reason = "no_progress"
+
+        elapsed_after_ms = int((time.perf_counter() - loop_started) * 1000)
+        if elapsed_after_ms >= llm_settings.query_orchestrator_max_wall_time_ms:
+            orchestration_done_reason = "budget_exhausted"
+        if budget_tokens_used >= llm_settings.query_orchestrator_max_tokens:
+            orchestration_done_reason = "budget_exhausted"
+        if budget_files_used >= llm_settings.query_orchestrator_max_files:
+            orchestration_done_reason = "budget_exhausted"
+
+        orchestration_iterations.append(
+            QueryOrchestrationIteration(
+                iteration=iteration_idx,
+                decision=decision,
+                next_action=next_action,
+                reason=reason,
+                confidence=confidence,
+                done_reason=orchestration_done_reason,
+                evidence_count_before=evidence_count_before,
+                evidence_count_after=len(evidence_payload),
+                candidate_count_before=candidate_count_before,
+                candidate_count_after=len(candidates),
+                budget_tokens_used=budget_tokens_used,
+                budget_files_used=budget_files_used,
+                elapsed_ms=elapsed_after_ms,
+            )
+        )
+
+        if orchestration_done_reason in {"budget_exhausted", "policy_blocked", "sufficient_evidence", "no_progress"}:
+            break
+    else:
+        orchestration_done_reason = "budget_exhausted"
+
+    if not orchestration_usage:
+        orchestration_usage = {
+            "enabled": llm_settings.query_orchestrator_enabled,
+            "mode": llm_settings.query_orchestrator_mode,
+            "fallback_reason": "query action orchestrator not attempted",
+        }
+    if orchestration_fallback_reason:
+        orchestration_usage["fallback_reason"] = orchestration_fallback_reason
+
+    feedback_by_path = {str(item.path): item for item in explain_feedback}
+    top_feedback = feedback_by_path.get(str(candidates[0].path)) if candidates else None
 
     summary = format_summary(question, candidates)
     uncertainty = ["Results are based on lexical matching and heuristic ranking."]
@@ -1224,10 +1415,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         uncertainty.append(
             "Mode boundary enforced: query is read-only; write request was blocked and analysis continued read-only."
         )
-    if orchestration.done_reason == "budget_exhausted":
+    if orchestration_done_reason == "budget_exhausted":
         uncertainty.append("Query action orchestration hit configured budget limits.")
-    if orchestration.done_reason == "policy_blocked":
+    if orchestration_done_reason == "policy_blocked":
         uncertainty.append("Query action orchestration decision was rejected; deterministic fallback was used.")
+    if orchestration_done_reason == "no_progress":
+        uncertainty.append("Query action orchestration stopped after repeated no-progress iterations.")
     next_step = (
         f"Run: forge explain {candidates[0].path}"
         if candidates
@@ -1337,11 +1530,29 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     "reason": d.reason,
                     "confidence": d.confidence,
                 }
-                for d in orchestration.decisions
+                for d in orchestration_decisions
             ],
-            "done_reason": orchestration.done_reason,
-            "usage": orchestration.usage,
-            "adaptive_continuation_triggered": adaptive_continue,
+            "iterations": [
+                {
+                    "iteration": item.iteration,
+                    "decision": item.decision,
+                    "next_action": item.next_action,
+                    "reason": item.reason,
+                    "confidence": item.confidence,
+                    "done_reason": item.done_reason,
+                    "evidence_count_before": item.evidence_count_before,
+                    "evidence_count_after": item.evidence_count_after,
+                    "candidate_count_before": item.candidate_count_before,
+                    "candidate_count_after": item.candidate_count_after,
+                    "budget_tokens_used": item.budget_tokens_used,
+                    "budget_files_used": item.budget_files_used,
+                    "elapsed_ms": item.elapsed_ms,
+                }
+                for item in orchestration_iterations
+            ],
+            "done_reason": orchestration_done_reason,
+            "usage": orchestration_usage,
+            "adaptive_continuation_triggered": adaptive_continue_triggered,
         },
     }
     if detailed_lines:
@@ -1429,17 +1640,26 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             print(f"Fallback: {planner_usage['fallback_reason']}")
 
         print("\n--- Action Orchestration ---")
-        print(f"Done reason: {orchestration.done_reason}")
-        if orchestration.decisions:
-            for idx, decision in enumerate(orchestration.decisions, start=1):
+        print(f"Done reason: {orchestration_done_reason}")
+        if orchestration_decisions:
+            for idx, decision in enumerate(orchestration_decisions, start=1):
                 print(
                     f"{idx}. decision={decision.decision} "
                     f"next_action={decision.next_action or '-'} "
                     f"confidence={decision.confidence}"
                 )
                 print(f"   reason: {decision.reason}")
-        if orchestration.usage.get("fallback_reason"):
-            print(f"Fallback: {orchestration.usage['fallback_reason']}")
+        if orchestration_iterations:
+            print("Iterations:")
+            for item in orchestration_iterations:
+                print(
+                    f"- #{item.iteration}: decision={item.decision} next_action={item.next_action or '-'} "
+                    f"done={item.done_reason} evidence={item.evidence_count_before}->{item.evidence_count_after} "
+                    f"candidates={item.candidate_count_before}->{item.candidate_count_after} "
+                    f"files={item.budget_files_used} tokens~={item.budget_tokens_used} elapsed_ms={item.elapsed_ms}"
+                )
+        if orchestration_usage.get("fallback_reason"):
+            print(f"Fallback: {orchestration_usage['fallback_reason']}")
 
         print("\n--- LLM Usage ---")
         print(f"Policy: {llm_outcome.usage['policy']}")

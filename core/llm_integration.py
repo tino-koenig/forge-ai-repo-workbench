@@ -672,6 +672,7 @@ def maybe_orchestrate_query_actions(
     question: str,
     candidate_paths: list[str],
     evidence_count: int,
+    iteration: int = 1,
     settings: ResolvedLLMConfig,
     repo_root: Path | None = None,
 ) -> QueryActionOrchestrationOutcome:
@@ -691,6 +692,7 @@ def maybe_orchestrate_query_actions(
         "max_tokens": settings.query_orchestrator_max_tokens,
         "max_wall_time_ms": settings.query_orchestrator_max_wall_time_ms,
         "catalog": action_catalog,
+        "iteration": iteration,
     }
     decisions: list[QueryActionDecision] = []
 
@@ -744,7 +746,7 @@ def maybe_orchestrate_query_actions(
                 question=question,
                 candidate_paths=candidate_paths,
                 evidence_count=evidence_count,
-                iteration=1,
+                iteration=iteration,
                 max_iterations=settings.query_orchestrator_max_iterations,
                 max_files=settings.query_orchestrator_max_files,
                 max_tokens=settings.query_orchestrator_max_tokens,
