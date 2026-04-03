@@ -55,9 +55,13 @@ Status values:
 | 043 | Repository Context Discovery via Forge Marker | 2026-04-03 | defined | - | [043-repository-context-discovery-via-forge-marker.md](/Users/tino/PhpstormProjects/forge/docs/features/043-repository-context-discovery-via-forge-marker.md) |
 | 044 | Forge Init Team Templates and Interactive Onboarding | 2026-04-03 | defined | - | [044-forge-init-team-templates-and-interactive-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/044-forge-init-team-templates-and-interactive-onboarding.md) |
 | 045 | Run History Always JSON Contract | 2026-04-03 | implemented | 2026-04-03 | [045-run-history-always-json-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/045-run-history-always-json-contract.md) |
-| 046 | Query Path And Symbol Signals | unknown | defined | - | [046-query-path-and-symbol-signals.md](/Users/tino/PhpstormProjects/forge/docs/features/046-query-path-and-symbol-signals.md) |
+| 046 | Query Path And Symbol Signals | 2026-04-03 | defined | - | [046-query-path-and-symbol-signals.md](/Users/tino/PhpstormProjects/forge/docs/features/046-query-path-and-symbol-signals.md) |
 | 047 | Explain Facets and Dependency Direction | 2026-04-03 | defined | - | [047-explain-facets-and-dependency-direction.md](/Users/tino/PhpstormProjects/forge/docs/features/047-explain-facets-and-dependency-direction.md) |
 | 048 | Graph JSON Edge Cache under .forge | 2026-04-03 | defined | - | [048-graph-json-edge-cache-under-forge.md](/Users/tino/PhpstormProjects/forge/docs/features/048-graph-json-edge-cache-under-forge.md) |
+| 049 | Query Orchestration Iterative State Machine | 2026-04-03 | defined | - | [049-query-orchestration-iterative-state-machine.md](/Users/tino/PhpstormProjects/forge/docs/features/049-query-orchestration-iterative-state-machine.md) |
+| 050 | Query Action Handler Execution Model | 2026-04-03 | defined | - | [050-query-action-handler-execution-model.md](/Users/tino/PhpstormProjects/forge/docs/features/050-query-action-handler-execution-model.md) |
+| 051 | Query Progress Scoring and Stop Criteria | 2026-04-03 | defined | - | [051-query-progress-scoring-and-stop-criteria.md](/Users/tino/PhpstormProjects/forge/docs/features/051-query-progress-scoring-and-stop-criteria.md) |
+| 052 | Query Orchestration Iteration Trace and Debug View | 2026-04-03 | defined | - | [052-query-orchestration-iteration-trace-and-debug-view.md](/Users/tino/PhpstormProjects/forge/docs/features/052-query-orchestration-iteration-trace-and-debug-view.md) |
 
 ## Notes
 - 001: Core CLI and capability model implemented.
