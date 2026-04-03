@@ -10,6 +10,7 @@ from core.analysis_primitives import ResolvedTarget, resolve_file_or_symbol_targ
 from core.analysis_primitives import load_index_path_class_map, prioritize_paths_by_index
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
+from core.llm_integration import maybe_refine_summary, resolve_settings
 from core.repo_io import iter_repo_files, read_text_file
 
 
@@ -242,6 +243,36 @@ def build_draft_skeleton(
     return f"# Draft tests for {target.path.name}\n\n{body or placeholder}"
 
 
+def collect_test_evidence(
+    target: ResolvedTarget,
+    repo_root: Path,
+    cases: list[str],
+) -> list[dict[str, object]]:
+    evidence: list[dict[str, object]] = []
+    for idx, line in enumerate(target.content.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        evidence.append(
+            {
+                "path": str(target.path.relative_to(repo_root)),
+                "line": idx,
+                "text": stripped,
+            }
+        )
+        if len(evidence) >= 6:
+            break
+    for case in cases[:4]:
+        evidence.append(
+            {
+                "path": str(target.path.relative_to(repo_root)),
+                "line": 0,
+                "text": f"proposed_case={case}",
+            }
+        )
+    return evidence
+
+
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
     raw_target, explicit_cases = parse_payload(request.payload)
@@ -270,10 +301,20 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     conventions = detect_conventions(repo_root, session, path_classes)
     test_location = likely_test_path(repo_root, target, conventions)
     cases = derive_cases(target, explicit_cases, request.profile)
+    resolved = target.path.relative_to(repo_root)
+    deterministic_summary = f"Drafted test plan for {resolved} ({target.source})."
+    evidence_payload = collect_test_evidence(target, repo_root, cases)
+    llm_outcome = maybe_refine_summary(
+        capability=request.capability,
+        profile=request.profile,
+        task=request.payload,
+        deterministic_summary=deterministic_summary,
+        evidence=evidence_payload,
+        settings=resolve_settings(args),
+    )
 
     print("\n--- Summary ---")
-    resolved = target.path.relative_to(repo_root)
-    print(f"Drafted test plan for {resolved} ({target.source}).")
+    print(llm_outcome.summary)
 
     print("\n--- Likely Test Location ---")
     print(test_location)
@@ -300,6 +341,23 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print("- Symbol target resolution is best-effort and may require manual confirmation.")
     else:
         print("- Proposed test cases are heuristic and should be reviewed before implementation.")
+    for note in llm_outcome.uncertainty_notes:
+        print(f"- {note}")
+
+    print("\n--- LLM Usage ---")
+    print(f"Policy: {llm_outcome.usage['policy']}")
+    print(f"Mode: {llm_outcome.usage['mode']}")
+    print(f"Used: {llm_outcome.usage['used']}")
+    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+    if llm_outcome.usage.get("fallback_reason"):
+        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+    print("\n--- Provenance ---")
+    print(f"Evidence items: {len(evidence_payload)}")
+    print(
+        "Inference source: "
+        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+    )
 
     print("\n--- Next Step ---")
     print(f"Run: forge explain {resolved}")

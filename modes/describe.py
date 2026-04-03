@@ -12,6 +12,7 @@ from core.analysis_primitives import (
 )
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
+from core.llm_integration import maybe_refine_summary, resolve_settings
 from core.repo_io import iter_repo_files, read_text_file
 
 
@@ -197,6 +198,7 @@ def print_repo_description(
     request: CommandRequest,
     session: ExecutionSession,
     index_payload: dict[str, object] | None,
+    summary: str,
 ) -> str | None:
     languages = detect_languages(files)
     frameworks = detect_framework_hints(files, repo_root, session, limit=80 if request.profile != Profile.SIMPLE else 25)
@@ -204,8 +206,6 @@ def print_repo_description(
     if not directories:
         directories = top_directories(files, repo_root)
     important = find_important_files(files, repo_root)
-    summary = infer_repo_summary(repo_root, files, languages, session)
-
     print("\n--- Summary ---")
     print(summary)
 
@@ -251,10 +251,11 @@ def print_target_description(
     repo_root: Path,
     request: CommandRequest,
     session: ExecutionSession,
+    summary: str,
 ) -> None:
     rel = target.path.relative_to(repo_root)
     print("\n--- Summary ---")
-    print(infer_target_summary(target, repo_root, session))
+    print(summary)
 
     files: list[Path]
     if target.kind == "directory":
@@ -305,6 +306,41 @@ def print_target_description(
             print("- File-level description is based on structural tokens and naming conventions.")
 
 
+def collect_describe_evidence(
+    *,
+    target: ResolvedTarget,
+    repo_root: Path,
+    files: list[Path],
+) -> list[dict[str, object]]:
+    evidence: list[dict[str, object]] = []
+    if target.kind in {"repo", "directory"}:
+        label = "visible repository file" if target.kind == "repo" else "file within described directory"
+        for path in files[:10]:
+            evidence.append(
+                {
+                    "path": str(path.relative_to(repo_root)),
+                    "line": 1,
+                    "text": label,
+                }
+            )
+        return evidence
+
+    for idx, line in enumerate(target.content.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        evidence.append(
+            {
+                "path": str(target.path.relative_to(repo_root)),
+                "line": idx,
+                "text": stripped,
+            }
+        )
+        if len(evidence) >= 8:
+            break
+    return evidence
+
+
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
     target = resolve_describe_target(repo_root, request.payload, session)
@@ -323,13 +359,44 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print("Index: not available, scanning repository directly")
 
     next_step: str | None = None
+    llm_settings = resolve_settings(args)
+    llm_outcome = None
+    evidence_payload: list[dict[str, object]] = []
     if target.kind == "repo":
         files = files_from_index_payload(repo_root, index)
         if not files:
             files = iter_repo_files(repo_root, session)
-        next_step = print_repo_description(repo_root, files, request, session, index)
+        deterministic_summary = infer_repo_summary(repo_root, files, detect_languages(files), session)
+        evidence_payload = collect_describe_evidence(target=target, repo_root=repo_root, files=files)
+        llm_outcome = maybe_refine_summary(
+            capability=request.capability,
+            profile=request.profile,
+            task=request.payload or "repository overview",
+            deterministic_summary=deterministic_summary,
+            evidence=evidence_payload,
+            settings=llm_settings,
+        )
+        next_step = print_repo_description(
+            repo_root,
+            files,
+            request,
+            session,
+            index,
+            llm_outcome.summary,
+        )
     else:
-        print_target_description(target, repo_root, request, session)
+        files = list_directory_files(target.path, repo_root, session) if target.kind == "directory" else [target.path]
+        deterministic_summary = infer_target_summary(target, repo_root, session)
+        evidence_payload = collect_describe_evidence(target=target, repo_root=repo_root, files=files)
+        llm_outcome = maybe_refine_summary(
+            capability=request.capability,
+            profile=request.profile,
+            task=request.payload,
+            deterministic_summary=deterministic_summary,
+            evidence=evidence_payload,
+            settings=llm_settings,
+        )
+        print_target_description(target, repo_root, request, session, llm_outcome.summary)
 
     print("\n--- Uncertainty ---")
     if target.kind == "symbol":
@@ -338,6 +405,25 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print("- Index not available; summary is based on direct repository scan.")
     else:
         print("- Summary is heuristic and based on visible structure/signals.")
+    if llm_outcome:
+        for note in llm_outcome.uncertainty_notes:
+            print(f"- {note}")
+
+    if llm_outcome:
+        print("\n--- LLM Usage ---")
+        print(f"Policy: {llm_outcome.usage['policy']}")
+        print(f"Mode: {llm_outcome.usage['mode']}")
+        print(f"Used: {llm_outcome.usage['used']}")
+        print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+        print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+        if llm_outcome.usage.get("fallback_reason"):
+            print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+        print("\n--- Provenance ---")
+        print(f"Evidence items: {len(evidence_payload)}")
+        print(
+            "Inference source: "
+            + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+        )
 
     print("\n--- Next Step ---")
     if target.kind == "repo":

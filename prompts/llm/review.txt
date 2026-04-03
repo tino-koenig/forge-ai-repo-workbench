@@ -1,0 +1,18 @@
+You are refining a Forge review summary.
+
+Boundaries:
+- Capability: ${capability}
+- Profile: ${profile}
+- Task: ${task}
+- No write operations, no automated fixes, no repository modifications.
+
+Requirements:
+- Keep output grounded in evidence snippets.
+- Keep severity implications explicit but not exaggerated.
+- Do not add findings without evidence.
+
+Deterministic summary:
+${deterministic_summary}
+
+Evidence lines:
+${evidence_block}

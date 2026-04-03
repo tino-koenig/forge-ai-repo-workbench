@@ -7,6 +7,7 @@ from pathlib import Path
 from core.analysis_primitives import load_index_path_class_map, path_class_weight
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
+from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
 from core.repo_io import iter_repo_files, read_text_file
 
@@ -158,9 +159,9 @@ def format_summary(question: str, candidates: list[Candidate]) -> str:
     )
 
 
-def print_output(question: str, candidates: list[Candidate]) -> None:
+def print_output(question: str, candidates: list[Candidate], summary: str) -> None:
     print("\n--- Summary ---")
-    print(format_summary(question, candidates))
+    print(summary)
 
     if not candidates:
         print("\n--- Likely Locations ---")
@@ -263,6 +264,18 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if candidates
         else "Try a narrower question with a concrete symbol or path fragment."
     )
+    llm_settings = resolve_settings(args)
+    llm_outcome = maybe_refine_summary(
+        capability=request.capability,
+        profile=request.profile,
+        task=question,
+        deterministic_summary=summary,
+        evidence=evidence_payload,
+        settings=llm_settings,
+    )
+    summary = llm_outcome.summary
+    uncertainty.extend(llm_outcome.uncertainty_notes)
+
     sections: dict[str, object] = {
         "likely_locations": [
             {
@@ -273,6 +286,11 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             }
             for candidate in candidates[:8]
         ],
+        "llm_usage": llm_outcome.usage,
+        "provenance": provenance_section(
+            llm_used=bool(llm_outcome.usage.get("used")),
+            evidence_count=len(evidence_payload),
+        ),
     }
     if detailed_lines:
         sections["detailed_context"] = detailed_lines[:20]
@@ -290,7 +308,21 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         emit_contract_json(contract)
         return 0
 
-    print_output(question, candidates)
+    print_output(question, candidates, summary)
+    print("\n--- LLM Usage ---")
+    print(f"Policy: {llm_outcome.usage['policy']}")
+    print(f"Mode: {llm_outcome.usage['mode']}")
+    print(f"Used: {llm_outcome.usage['used']}")
+    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+    if llm_outcome.usage.get("fallback_reason"):
+        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+    print("\n--- Provenance ---")
+    print(f"Evidence items: {len(evidence_payload)}")
+    print(
+        "Inference source: "
+        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+    )
     print("\n--- Uncertainty ---")
     for note in uncertainty:
         print(f"- {note}")

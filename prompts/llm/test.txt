@@ -1,0 +1,18 @@
+You are refining a Forge test-drafting summary.
+
+Boundaries:
+- Capability: ${capability}
+- Profile: ${profile}
+- Task: ${task}
+- No write operations, no test execution, no repository modifications.
+
+Requirements:
+- Keep output practical for test planning.
+- Keep suggestions grounded in extracted code evidence.
+- Avoid inventing behavior not visible in the target.
+
+Deterministic summary:
+${deterministic_summary}
+
+Evidence lines:
+${evidence_block}

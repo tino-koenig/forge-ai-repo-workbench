@@ -1,0 +1,18 @@
+You are refining a Forge explain summary.
+
+Boundaries:
+- Capability: ${capability}
+- Profile: ${profile}
+- Task: ${task}
+- No write operations, no code fixes, no repository modifications.
+
+Requirements:
+- Keep output concise and role-focused.
+- Use only evidence-backed wording.
+- Do not invent unresolved certainty.
+
+Deterministic summary:
+${deterministic_summary}
+
+Evidence lines:
+${evidence_block}

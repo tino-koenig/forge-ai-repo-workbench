@@ -14,6 +14,7 @@ from core.analysis_primitives import (
 )
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
+from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
 from core.repo_io import read_text_file
 
@@ -414,6 +415,17 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             f"Findings: {len(capped_findings)} "
             f"(high={high}, medium={medium}, low={low}); related files reviewed={related_count}."
         )
+        llm_settings = resolve_settings(args)
+        llm_outcome = maybe_refine_summary(
+            capability=request.capability,
+            profile=request.profile,
+            task=request.payload,
+            deterministic_summary=summary,
+            evidence=evidence_payload,
+            settings=llm_settings,
+        )
+        summary = llm_outcome.summary
+        uncertainty.extend(llm_outcome.uncertainty_notes)
         contract = build_contract(
             capability=request.capability.value,
             profile=request.profile.value,
@@ -421,13 +433,55 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             evidence=evidence_payload,
             uncertainty=uncertainty,
             next_step=next_step,
-            sections={"findings": findings_payload, "target_source": target.source},
+            sections={
+                "findings": findings_payload,
+                "target_source": target.source,
+                "llm_usage": llm_outcome.usage,
+                "provenance": provenance_section(
+                    llm_used=bool(llm_outcome.usage.get("used")),
+                    evidence_count=len(evidence_payload),
+                ),
+            },
         )
         emit_contract_json(contract)
         return 0
 
+    high = sum(1 for f in capped_findings if f.severity == "high")
+    medium = sum(1 for f in capped_findings if f.severity == "medium")
+    low = sum(1 for f in capped_findings if f.severity == "low")
+    summary = (
+        f"Findings: {len(capped_findings)} "
+        f"(high={high}, medium={medium}, low={low}); related files reviewed={related_count}."
+    )
+    llm_settings = resolve_settings(args)
+    llm_outcome = maybe_refine_summary(
+        capability=request.capability,
+        profile=request.profile,
+        task=request.payload,
+        deterministic_summary=summary,
+        evidence=evidence_payload,
+        settings=llm_settings,
+    )
+    uncertainty.extend(llm_outcome.uncertainty_notes)
+
     print_summary(target, capped_findings, related_count)
+    print("\n--- Refined Summary ---")
+    print(llm_outcome.summary)
     print_findings(repo_root, capped_findings)
+    print("\n--- LLM Usage ---")
+    print(f"Policy: {llm_outcome.usage['policy']}")
+    print(f"Mode: {llm_outcome.usage['mode']}")
+    print(f"Used: {llm_outcome.usage['used']}")
+    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+    if llm_outcome.usage.get("fallback_reason"):
+        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+    print("\n--- Provenance ---")
+    print(f"Evidence items: {len(evidence_payload)}")
+    print(
+        "Inference source: "
+        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+    )
     print("\n--- Uncertainty ---")
     for note in uncertainty:
         print(f"- {note}")

@@ -157,9 +157,36 @@ python3 scripts/run_quality_gates.py
 The suite checks:
 - behavior smoke coverage across index/query/explain/review/describe/test
 - output contract JSON shape for query/explain/review
+- LLM-assisted path coverage (mock provider) with provenance metadata
 - evidence quality expectations
 - read-only effect boundaries for analysis capabilities
 - fallback behavior with and without `.forge/index.json`
+
+## LLM Integration
+
+Forge supports controlled, optional LLM-assisted refinement for:
+- query
+- explain
+- review
+- describe
+- test
+
+Defaults remain conservative:
+- simple profile: LLM policy off
+- standard profile: optional
+- detailed profile: optional/preferred by capability
+
+Use explicit CLI controls:
+
+```bash
+forge --llm-mode auto --llm-provider mock query standard "where is compute_price"
+forge --llm-mode off review detailed src/controller.py
+```
+
+Notes:
+- deterministic evidence collection always runs first
+- LLM use never expands effect boundaries
+- if LLM is unavailable, Forge falls back explicitly to deterministic behavior
 
 ## Vision
 

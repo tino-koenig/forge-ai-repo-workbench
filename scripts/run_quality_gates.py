@@ -111,6 +111,79 @@ def gate_output_contract(repo_root: Path) -> None:
     ensure_output_contract(review_payload, "review")
 
 
+def gate_llm_path(repo_root: Path) -> None:
+    query_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "standard",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    explain_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "detailed",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    review_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "detailed",
+                "src/controller.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+
+    for capability, payload in (
+        ("query", query_payload),
+        ("explain", explain_payload),
+        ("review", review_payload),
+    ):
+        sections = payload.get("sections", {})
+        llm_usage = sections.get("llm_usage", {})
+        assert_true(bool(llm_usage), f"{capability}: expected llm_usage section")
+        assert_true(llm_usage.get("used") is True, f"{capability}: expected LLM to be used with mock provider")
+        provenance = sections.get("provenance", {})
+        assert_true(bool(provenance), f"{capability}: expected provenance section")
+        assert_true(
+            provenance.get("inference_source") == "deterministic_heuristics+llm",
+            f"{capability}: expected llm inference provenance marker",
+        )
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -185,6 +258,7 @@ def run_all_gates() -> None:
 
         gate_behavior_smoke(temp_repo)
         gate_output_contract(temp_repo)
+        gate_llm_path(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)

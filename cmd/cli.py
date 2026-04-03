@@ -30,6 +30,20 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Output format (default: text)",
     )
+    parser.add_argument(
+        "--llm-mode",
+        choices=("auto", "off", "force"),
+        default="auto",
+        help="LLM invocation mode (default: auto)",
+    )
+    parser.add_argument(
+        "--llm-provider",
+        help="Explicit LLM provider override (or FORGE_LLM_PROVIDER)",
+    )
+    parser.add_argument(
+        "--llm-model",
+        help="Explicit LLM model override (or FORGE_LLM_MODEL)",
+    )
     subparsers = parser.add_subparsers(dest="capability", required=True)
 
     index_parser = subparsers.add_parser("index", help="Build or refresh repository index")

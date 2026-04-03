@@ -1,0 +1,18 @@
+You are refining a Forge describe summary.
+
+Boundaries:
+- Capability: ${capability}
+- Profile: ${profile}
+- Task: ${task}
+- No write operations, no repository modifications.
+
+Requirements:
+- Keep output orientation-focused for repository understanding.
+- Use only visible structural evidence.
+- Do not claim architecture details that are not evidenced.
+
+Deterministic summary:
+${deterministic_summary}
+
+Evidence lines:
+${evidence_block}

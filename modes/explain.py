@@ -15,6 +15,7 @@ from core.analysis_primitives import (
 )
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
+from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
 from core.repo_io import read_text_file
 
@@ -123,6 +124,7 @@ def print_explanation(
     target: ResolvedTarget,
     role: str,
     rationale: str,
+    summary: str,
     evidence: list[Evidence],
     related: list[Path],
     uncertainties: list[str],
@@ -138,7 +140,7 @@ def print_explanation(
     print(f"Resolved target: {rel_target} ({target.source})")
 
     print("\n--- Summary ---")
-    print(f"{rel_target} is primarily {role}.")
+    print(summary)
 
     print("\n--- Role Classification ---")
     print(f"Role: {role}")
@@ -250,11 +252,29 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         "related_files": [str(path) for path in related],
         "resolved_target": str(rel_target),
     }
+    deterministic_summary = f"{rel_target} is primarily {role}."
+    llm_settings = resolve_settings(args)
+    llm_outcome = maybe_refine_summary(
+        capability=request.capability,
+        profile=request.profile,
+        task=request.payload,
+        deterministic_summary=deterministic_summary,
+        evidence=evidence_payload,
+        settings=llm_settings,
+    )
+    summary = llm_outcome.summary
+    uncertainties.extend(llm_outcome.uncertainty_notes)
+    sections["llm_usage"] = llm_outcome.usage
+    sections["provenance"] = provenance_section(
+        llm_used=bool(llm_outcome.usage.get("used")),
+        evidence_count=len(evidence_payload),
+    )
+
     if args.output_format == "json":
         contract = build_contract(
             capability=request.capability.value,
             profile=request.profile.value,
-            summary=f"{rel_target} is primarily {role}.",
+            summary=summary,
             evidence=evidence_payload,
             uncertainty=uncertainties,
             next_step=next_step,
@@ -269,10 +289,25 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         target=target,
         role=role,
         rationale=rationale,
+        summary=summary,
         evidence=evidence,
         related=related,
         uncertainties=uncertainties,
         index_status=index_status,
         next_step=next_step,
+    )
+    print("\n--- LLM Usage ---")
+    print(f"Policy: {llm_outcome.usage['policy']}")
+    print(f"Mode: {llm_outcome.usage['mode']}")
+    print(f"Used: {llm_outcome.usage['used']}")
+    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+    if llm_outcome.usage.get("fallback_reason"):
+        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+    print("\n--- Provenance ---")
+    print(f"Evidence items: {len(evidence_payload)}")
+    print(
+        "Inference source: "
+        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
     )
     return 0
