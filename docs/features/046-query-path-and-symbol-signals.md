@@ -86,3 +86,31 @@ Implemented in `modes/query.py` with deterministic scoring and metadata output:
 - source-aware ranking prefers `repo` candidates over `framework`/`external` when repo evidence exists
 - `source_type` is derived from index metadata when available, otherwise from bounded path heuristics
 - full-view text output and JSON contract expose both `retrieval_sources` and `source_type`
+
+## Implemented Behavior (Current)
+
+- Query term handling now prioritizes symbol-like and code-variant terms ahead of generic lexical terms.
+- Weak generic terms (for example `where`, `find`, `code`, `source`, `file`) are suppressed by default in planner-driven query search; `where` is retained only in SQL-like contexts.
+- Evidence scoring now uses weighted term classes across retrieval channels (`content_match`, `path_match`, `symbol_match`, `summary_match`).
+- Symbol exact/prefix scoring is substantially stronger, and explicit definition-signature lines receive additional deterministic boost during candidate scoring.
+- For symbol-like terms, path/summary retrieval now uses strict full-term matching instead of bag-of-token expansion to avoid false positives from partial tokens (for example `context` from `enrich_detailed_context`).
+- Base query ranking removed hardcoded intent-specific boosts/hints (`entrypoint`, `llm`, `api_call`) to keep core behavior neutral; specialization should be configuration-driven in later phases.
+- Planner-driven query term derivation now uses planner output directly as term input (search terms + code variants), followed by deterministic filtering/prioritization.
+- Planner-driven base retrieval now uses planner `search_terms` only. Planner `code_variants` remain visible in diagnostics but are excluded from base retrieval term injection.
+- `derive_search_terms` no longer performs term-class branching; it preserves filtered term order and leaves priority decisions to deterministic scoring.
+- Deterministic scoring now incorporates search-term position weights (earlier terms rank higher) and source-channel priority (index-derived signals higher, docs lower).
+
+## How To Validate Quickly
+
+- Run:
+  - `forge --output-format json --view full query "Wo ist enrich_detailed_context definiert?"`
+- Verify in output:
+  - `sections.query_planner.search_terms` is anchored on symbol/definition terms and omits weak generic terms where possible.
+  - `sections.likely_locations[0]` aligns better with symbol-bearing files for definition-style questions.
+  - `sections.action_orchestration.iterations[]` shows read/search progression without relying on weak-generic-only evidence.
+
+## Known Limits / Notes
+
+- Ranking remains lexical/deterministic (no embedding search).
+- Symbol confidence depends on index freshness and available `top_level_symbols`.
+- Planner output quality still influences recall; deterministic weighting reduces but does not fully remove planner noise.

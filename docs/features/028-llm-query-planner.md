@@ -26,6 +26,8 @@ Initial implementation uses one versioned planner prompt template in-repo.
 Planner output fields:
 - `normalized_question_en`
 - `intent`
+- `lead_terms`
+- `support_terms`
 - `search_terms`
 - `code_variants`
 - `dropped_filler_terms`
@@ -102,6 +104,11 @@ Planner quality is required for practical adoption.
 - Implementation status: implemented.
 - Traceability: `CHANGELOG.md` references feature 028; status and notes are indexed in `docs/status/features-index.md`.
 - This addendum summarizes runtime availability; the normative intent remains in the spec sections above.
+- Planner output now supports prioritized buckets:
+  - `lead_terms`: core anchor terms
+  - `support_terms`: qualifying/context terms
+- Runtime normalization demotes generic taxonomy/location terms (for example `code`, `location`, `file`, `module`) from `lead_terms` into `support_terms`.
+- Query retrieval consumes planner buckets in stable order (`lead_terms`, then `support_terms`, then `search_terms`) with deduplication.
 
 ## How To Validate Quickly
 
