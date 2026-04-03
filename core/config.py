@@ -87,7 +87,9 @@ def _default_system_template() -> Path:
 
 def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     config_path = repo_root / ".forge" / "config.toml"
+    local_config_path = repo_root / ".forge" / "config.local.toml"
     payload = _load_toml(config_path)
+    local_payload = _load_toml(local_config_path)
     if "_error" in payload:
         return ResolvedLLMConfig(
             mode=args.llm_mode,
@@ -105,12 +107,30 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             source={"config": "error"},
             validation_error=str(payload["_error"]),
         )
+    if "_error" in local_payload:
+        return ResolvedLLMConfig(
+            mode=args.llm_mode,
+            provider=None,
+            base_url=None,
+            model=None,
+            timeout_s=30.0,
+            api_key_env="FORGE_LLM_API_KEY",
+            api_key=None,
+            context_budget_tokens=12000,
+            max_output_tokens=700,
+            temperature=0.2,
+            prompt_profile="strict_read_only",
+            system_template_path=_default_system_template(),
+            source={"config.local": "error"},
+            validation_error=str(local_payload["_error"]),
+        )
 
     source: dict[str, str] = {}
     provider, source["provider"] = _first_non_none(
         [
             ("cli", getattr(args, "llm_provider", None)),
             ("env", os.environ.get("FORGE_LLM_PROVIDER")),
+            ("toml_local", _nested_get(local_payload, "llm.provider")),
             ("toml", _nested_get(payload, "llm.provider")),
         ]
     )
@@ -118,6 +138,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("cli", getattr(args, "llm_base_url", None)),
             ("env", os.environ.get("FORGE_LLM_BASE_URL")),
+            ("toml_local", _nested_get(local_payload, "llm.openai_compatible.base_url")),
             ("toml", _nested_get(payload, "llm.openai_compatible.base_url")),
         ]
     )
@@ -125,6 +146,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("cli", getattr(args, "llm_model", None)),
             ("env", os.environ.get("FORGE_LLM_MODEL")),
+            ("toml_local", _nested_get(local_payload, "llm.openai_compatible.model")),
             ("toml", _nested_get(payload, "llm.openai_compatible.model")),
         ]
     )
@@ -133,6 +155,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("cli", getattr(args, "llm_timeout_s", None)),
             ("env", os.environ.get("FORGE_LLM_TIMEOUT_S")),
+            ("toml_local", _nested_get(local_payload, "llm.openai_compatible.timeout_s")),
             ("toml", _nested_get(payload, "llm.openai_compatible.timeout_s")),
         ]
     )
@@ -141,6 +164,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     api_key_env_name, source["api_key_env"] = _first_non_none(
         [
             ("env", os.environ.get("FORGE_LLM_API_KEY_ENV")),
+            ("toml_local", _nested_get(local_payload, "llm.openai_compatible.api_key_env")),
             ("toml", _nested_get(payload, "llm.openai_compatible.api_key_env")),
             ("default", "FORGE_LLM_API_KEY"),
         ]
@@ -149,25 +173,41 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     api_key = os.environ.get(api_key_env)
 
     context_budget_raw, source["context_budget_tokens"] = _first_non_none(
-        [("toml", _nested_get(payload, "llm.request.context_budget_tokens"))]
+        [
+            ("toml_local", _nested_get(local_payload, "llm.request.context_budget_tokens")),
+            ("toml", _nested_get(payload, "llm.request.context_budget_tokens")),
+        ]
     )
     max_output_raw, source["max_output_tokens"] = _first_non_none(
-        [("toml", _nested_get(payload, "llm.request.max_output_tokens"))]
+        [
+            ("toml_local", _nested_get(local_payload, "llm.request.max_output_tokens")),
+            ("toml", _nested_get(payload, "llm.request.max_output_tokens")),
+        ]
     )
     temperature_raw, source["temperature"] = _first_non_none(
-        [("toml", _nested_get(payload, "llm.request.temperature"))]
+        [
+            ("toml_local", _nested_get(local_payload, "llm.request.temperature")),
+            ("toml", _nested_get(payload, "llm.request.temperature")),
+        ]
     )
     context_budget_tokens = _int_or_default(context_budget_raw, 12000)
     max_output_tokens = _int_or_default(max_output_raw, 700)
     temperature = _float_or_default(temperature_raw, 0.2)
 
     prompt_profile_raw, source["prompt_profile"] = _first_non_none(
-        [("toml", _nested_get(payload, "llm.prompt.profile")), ("default", "strict_read_only")]
+        [
+            ("toml_local", _nested_get(local_payload, "llm.prompt.profile")),
+            ("toml", _nested_get(payload, "llm.prompt.profile")),
+            ("default", "strict_read_only"),
+        ]
     )
     prompt_profile = str(prompt_profile_raw)
 
     system_template_raw, source["system_template"] = _first_non_none(
-        [("toml", _nested_get(payload, "llm.prompt.system_template"))]
+        [
+            ("toml_local", _nested_get(local_payload, "llm.prompt.system_template")),
+            ("toml", _nested_get(payload, "llm.prompt.system_template")),
+        ]
     )
     if isinstance(system_template_raw, str) and system_template_raw.strip():
         system_template = Path(system_template_raw.strip())
