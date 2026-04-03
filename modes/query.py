@@ -74,6 +74,49 @@ ENTRYPOINT_LINE_HINTS = (
     "raise systemexit(main(",
 )
 
+LANGUAGE_HINTS_DE = {
+    "wo",
+    "wie",
+    "welche",
+    "finde",
+    "finden",
+    "suche",
+    "eintrittspunkt",
+    "haupt",
+    "berechnet",
+    "berechnung",
+    "preis",
+    "datei",
+    "funktion",
+}
+
+DE_TO_EN_TERM_MAP = {
+    "eintrittspunkt": "entrypoint",
+    "haupt": "main",
+    "hauptpunkt": "main",
+    "preis": "price",
+    "berechnet": "calculate",
+    "berechnung": "calculation",
+    "funktion": "function",
+    "datei": "file",
+    "klasse": "class",
+    "test": "test",
+    "tests": "tests",
+    "wo": "where",
+    "finde": "find",
+    "finden": "find",
+}
+
+EN_TO_DE_TERM_MAP = {
+    "entrypoint": "eintrittspunkt",
+    "main": "haupt",
+    "price": "preis",
+    "calculate": "berechnet",
+    "function": "funktion",
+    "file": "datei",
+    "class": "klasse",
+}
+
 
 @dataclass
 class Evidence:
@@ -90,11 +133,67 @@ class Candidate:
     path_class: str
 
 
+@dataclass
+class CrossLingualExpansion:
+    source_language: str
+    mapped_terms: list[dict[str, str]]
+    expansion_mode: str
+
+
 def normalize_question(question: str) -> str:
     return " ".join(question.strip().split())
 
 
-def derive_search_terms(question: str, profile: Profile) -> list[str]:
+def detect_language(question: str) -> str:
+    lowered = normalize_question(question).lower()
+    if re.search(r"[äöüß]", lowered):
+        return "de"
+    tokens = re.findall(r"[A-Za-z0-9_./-]+", lowered)
+    if not tokens:
+        return "unknown"
+    de_hits = sum(1 for token in tokens if token in LANGUAGE_HINTS_DE)
+    if de_hits >= 2:
+        return "de"
+    return "en"
+
+
+def build_cross_lingual_expansion(question: str, profile: Profile) -> CrossLingualExpansion:
+    source_language = detect_language(question)
+    tokens = re.findall(r"[A-Za-z0-9_./-]+", normalize_question(question).lower())
+    mapped_terms: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    mapping = {}
+    if source_language == "de":
+        mapping = DE_TO_EN_TERM_MAP
+    elif source_language == "en":
+        mapping = EN_TO_DE_TERM_MAP
+
+    max_items = 2 if profile == Profile.SIMPLE else 4 if profile == Profile.STANDARD else 6
+    for token in tokens:
+        mapped = mapping.get(token)
+        if not mapped:
+            continue
+        pair = (token, mapped)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        mapped_terms.append({"source_term": token, "mapped_term": mapped})
+        if len(mapped_terms) >= max_items:
+            break
+
+    return CrossLingualExpansion(
+        source_language=source_language,
+        mapped_terms=mapped_terms,
+        expansion_mode="deterministic" if mapped_terms else "none",
+    )
+
+
+def derive_search_terms(
+    question: str,
+    profile: Profile,
+    cross_lingual: CrossLingualExpansion,
+) -> list[str]:
     quoted_phrases = re.findall(r'"([^"]+)"', question)
     word_tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
     filtered_words = [w for w in word_tokens if len(w) >= 3 and w not in STOP_WORDS]
@@ -105,6 +204,7 @@ def derive_search_terms(question: str, profile: Profile) -> list[str]:
         terms.append(normalized_question.lower())
     terms.extend([phrase.strip().lower() for phrase in quoted_phrases if phrase.strip()])
     terms.extend(filtered_words)
+    terms.extend(item["mapped_term"] for item in cross_lingual.mapped_terms)
 
     # Keep order but deduplicate.
     seen: set[str] = set()
@@ -232,14 +332,25 @@ def format_summary(question: str, candidates: list[Candidate]) -> str:
         return f"No strong locations found for: {question}"
     top = candidates[0]
     return (
-        f"Most likely entry point is '{top.path}' based on {len(top.evidences)} "
+        f"Most likely relevant location is '{top.path}' based on {len(top.evidences)} "
         f"direct match(es)."
     )
 
 
-def print_output(question: str, candidates: list[Candidate], summary: str, view: str) -> None:
+def print_output(
+    question: str,
+    candidates: list[Candidate],
+    summary: str,
+    view: str,
+    cross_lingual: CrossLingualExpansion,
+) -> None:
     print("\n--- Summary ---")
     print(summary)
+    if cross_lingual.mapped_terms and not is_compact(view):
+        mapped = ", ".join(
+            f"{item['source_term']}->{item['mapped_term']}" for item in cross_lingual.mapped_terms[:4]
+        )
+        print(f"Cross-lingual mapping ({cross_lingual.source_language}): {mapped}")
 
     if not candidates:
         if not is_compact(view):
@@ -302,7 +413,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
 
     repo_root = Path(args.repo_root).resolve()
     question = normalize_question(request.payload)
-    terms = derive_search_terms(question, request.profile)
+    cross_lingual = build_cross_lingual_expansion(question, request.profile)
+    terms = derive_search_terms(question, request.profile, cross_lingual)
 
     path_classes: dict[str, str] = {}
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
@@ -346,6 +458,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     uncertainty = ["Results are based on lexical matching and heuristic ranking."]
     if request.profile == Profile.SIMPLE:
         uncertainty.append("Simple profile does not use index-assisted prioritization.")
+    if cross_lingual.source_language == "unknown":
+        uncertainty.append("Source language could not be determined confidently for cross-lingual expansion.")
     if not candidates:
         uncertainty.append("No strong candidate files were detected.")
     next_step = (
@@ -380,6 +494,11 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             llm_used=bool(llm_outcome.usage.get("used")),
             evidence_count=len(evidence_payload),
         ),
+        "cross_lingual": {
+            "source_language": cross_lingual.source_language,
+            "mapped_terms": cross_lingual.mapped_terms,
+            "expansion_mode": cross_lingual.expansion_mode,
+        },
     }
     if detailed_lines:
         sections["detailed_context"] = detailed_lines[:20]
@@ -397,7 +516,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         emit_contract_json(contract)
         return 0
 
-    print_output(question, candidates, summary, view)
+    print_output(question, candidates, summary, view, cross_lingual)
     if is_full(view):
         print("\n--- LLM Usage ---")
         print(f"Policy: {llm_outcome.usage['policy']}")

@@ -458,6 +458,37 @@ def gate_run_history_and_views(repo_root: Path) -> None:
     assert_true(len(rerun_out.strip()) > 0, "runs rerun should emit execution output")
 
 
+def gate_cross_lingual_query(repo_root: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "wo",
+                "wird",
+                "preis",
+                "berechnet",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    cross = payload.get("sections", {}).get("cross_lingual", {})
+    assert_true(cross.get("source_language") == "de", "cross-lingual: expected german source language detection")
+    mapped_terms = cross.get("mapped_terms", [])
+    assert_true(isinstance(mapped_terms, list) and len(mapped_terms) > 0, "cross-lingual: expected mapped terms")
+    likely = payload.get("sections", {}).get("likely_locations", [])
+    likely_paths = [item.get("path") for item in likely if isinstance(item, dict)]
+    assert_true(
+        "src/service.py" in likely_paths[:5],
+        "cross-lingual: expected src/service.py in top likely locations for german query",
+    )
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -555,6 +586,7 @@ def run_all_gates() -> None:
         gate_env_file_autoload(temp_repo)
         gate_prompt_profile_policy(temp_repo)
         gate_run_history_and_views(temp_repo)
+        gate_cross_lingual_query(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
