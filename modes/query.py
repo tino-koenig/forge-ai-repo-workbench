@@ -259,6 +259,9 @@ class QueryOrchestrationIteration:
     elapsed_ms: int
     handler_status: str
     handler_detail: str
+    progress_score: float
+    progress_passed: bool
+    progress_components: dict[str, float]
 
 
 FRAMEWORK_PATH_MARKERS = (
@@ -928,6 +931,63 @@ def _expand_matches_with_search_action(
     return added
 
 
+def _confidence_numeric(level: str | None) -> int:
+    mapping = {"low": 0, "medium": 1, "high": 2}
+    return mapping.get((level or "").strip().lower(), 0)
+
+
+def _top_source_counts(candidates: list[Candidate], limit: int = 5) -> tuple[int, int]:
+    top = candidates[:limit]
+    repo_count = sum(1 for item in top if item.source_type == "repo")
+    framework_count = sum(1 for item in top if item.source_type == "framework")
+    return repo_count, framework_count
+
+
+def compute_progress_score(
+    *,
+    candidates_before: list[Candidate],
+    candidates_after: list[Candidate],
+    evidence_count_before: int,
+    evidence_count_after: int,
+    top_confidence_before: str | None,
+    top_confidence_after: str | None,
+    threshold: float = 1.5,
+) -> tuple[float, bool, dict[str, float]]:
+    before_top = [str(item.path) for item in candidates_before[:5]]
+    after_top = [str(item.path) for item in candidates_after[:5]]
+    new_top_paths = len(set(after_top) - set(before_top))
+
+    confidence_gain = max(
+        0,
+        _confidence_numeric(top_confidence_after) - _confidence_numeric(top_confidence_before),
+    )
+    evidence_gain = max(0, evidence_count_after - evidence_count_before)
+
+    repo_before, framework_before = _top_source_counts(candidates_before, limit=5)
+    repo_after, framework_after = _top_source_counts(candidates_after, limit=5)
+    repo_gain = max(0, repo_after - repo_before)
+    framework_gain = max(0, framework_after - framework_before)
+    framework_drift_penalty = framework_gain if repo_gain == 0 else 0
+
+    score = (
+        (new_top_paths * 2.5)
+        + (confidence_gain * 3.0)
+        + (min(evidence_gain, 6) * 0.5)
+        + (repo_gain * 2.0)
+        - (framework_drift_penalty * 1.5)
+    )
+    passed = score >= threshold
+    components = {
+        "new_top_paths": float(new_top_paths),
+        "confidence_gain": float(confidence_gain),
+        "evidence_gain": float(evidence_gain),
+        "repo_gain": float(repo_gain),
+        "framework_gain": float(framework_gain),
+        "framework_drift_penalty": float(framework_drift_penalty),
+    }
+    return round(score, 3), passed, components
+
+
 def _question_terms_for_intent(question: str) -> set[str]:
     tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
     terms: set[str] = set()
@@ -1253,6 +1313,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     orchestration_fallback_reason: str | None = None
     adaptive_continue_triggered = False
     no_progress_streak = 0
+    no_progress_streak_limit = 2
+    progress_threshold = 1.5
     budget_tokens_used = 0
     budget_files_used = 0
     loop_started = time.perf_counter()
@@ -1265,8 +1327,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
 
         candidate_count_before = len(candidates)
         evidence_count_before = len(evidence_payload)
+        candidates_before_snapshot = list(candidates)
         feedback_by_path = {str(item.path): item for item in explain_feedback}
         top_feedback = feedback_by_path.get(str(candidates[0].path)) if candidates else None
+        top_confidence_before = top_feedback.linkage_confidence if top_feedback is not None else None
         adaptive_continue = bool(top_feedback is not None and top_feedback.linkage_confidence == "low" and len(candidates) > 1)
         if adaptive_continue:
             adaptive_continue_triggered = True
@@ -1315,6 +1379,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
                     handler_status="blocked",
                     handler_detail="decision not executable due to policy/budget block before handler stage",
+                    progress_score=0.0,
+                    progress_passed=False,
+                    progress_components={},
                 )
             )
             break
@@ -1338,6 +1405,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
                     handler_status="stop",
                     handler_detail="decision requested stop before handler stage",
+                    progress_score=0.0,
+                    progress_passed=True,
+                    progress_components={},
                 )
             )
             break
@@ -1455,6 +1525,23 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             handler_status = "invalid_action"
             handler_detail = f"unsupported action '{next_action}'"
 
+        feedback_after = {str(item.path): item for item in explain_feedback}
+        top_feedback_after = feedback_after.get(str(candidates[0].path)) if candidates else None
+        top_confidence_after = top_feedback_after.linkage_confidence if top_feedback_after is not None else None
+        progress_score, progress_passed, progress_components = compute_progress_score(
+            candidates_before=candidates_before_snapshot,
+            candidates_after=candidates,
+            evidence_count_before=evidence_count_before,
+            evidence_count_after=len(evidence_payload),
+            top_confidence_before=top_confidence_before,
+            top_confidence_after=top_confidence_after,
+            threshold=progress_threshold,
+        )
+        if progress_passed:
+            no_progress_streak = 0
+        else:
+            no_progress_streak += 1
+
         if orchestration_done_reason in {"policy_blocked", "budget_exhausted", "sufficient_evidence"} and (
             next_action in {"summarize"} or not action_applied and next_action not in {"search", "read", "explain", "rank"}
         ):
@@ -1475,16 +1562,14 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
                     handler_status=handler_status,
                     handler_detail=handler_detail,
+                    progress_score=progress_score,
+                    progress_passed=progress_passed,
+                    progress_components=progress_components,
                 )
             )
             break
 
-        if len(evidence_payload) == evidence_count_before and len(candidates) == candidate_count_before:
-            no_progress_streak += 1
-        else:
-            no_progress_streak = 0
-
-        if no_progress_streak >= 2:
+        if no_progress_streak >= no_progress_streak_limit:
             orchestration_done_reason = "no_progress"
 
         elapsed_after_ms = int((time.perf_counter() - loop_started) * 1000)
@@ -1512,6 +1597,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 elapsed_ms=elapsed_after_ms,
                 handler_status=handler_status,
                 handler_detail=handler_detail,
+                progress_score=progress_score,
+                progress_passed=progress_passed,
+                progress_components=progress_components,
             )
         )
 
@@ -1659,6 +1747,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 "max_tokens": llm_settings.query_orchestrator_max_tokens,
                 "max_wall_time_ms": llm_settings.query_orchestrator_max_wall_time_ms,
             },
+            "progress_policy": {
+                "threshold": progress_threshold,
+                "no_progress_streak_limit": no_progress_streak_limit,
+            },
             "decisions": [
                 {
                     "decision": d.decision,
@@ -1685,6 +1777,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     "elapsed_ms": item.elapsed_ms,
                     "handler_status": item.handler_status,
                     "handler_detail": item.handler_detail,
+                    "progress_score": item.progress_score,
+                    "progress_passed": item.progress_passed,
+                    "progress_components": item.progress_components,
                 }
                 for item in orchestration_iterations
             ],
@@ -1795,9 +1890,14 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     f"done={item.done_reason} evidence={item.evidence_count_before}->{item.evidence_count_after} "
                     f"candidates={item.candidate_count_before}->{item.candidate_count_after} "
                     f"files={item.budget_files_used} tokens~={item.budget_tokens_used} elapsed_ms={item.elapsed_ms} "
-                    f"handler={item.handler_status}"
+                    f"handler={item.handler_status} progress={item.progress_score:.2f}"
                 )
                 print(f"  detail: {item.handler_detail}")
+                if item.progress_components:
+                    comps = ", ".join(
+                        f"{k}={v:g}" for k, v in item.progress_components.items()
+                    )
+                    print(f"  progress_components: {comps}")
         if orchestration_usage.get("fallback_reason"):
             print(f"Fallback: {orchestration_usage['fallback_reason']}")
 

@@ -264,8 +264,10 @@ notes = "Query orchestration now executes explicit handlers for search/read/expl
 
 [[feature]]
 id = "051"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Query orchestration now computes deterministic per-iteration progress scoring with source-aware penalties and no-progress stop criteria."
 
 [[feature]]
 id = "052"
