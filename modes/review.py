@@ -427,6 +427,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             deterministic_summary=summary,
             evidence=evidence_payload,
             settings=llm_settings,
+            repo_root=repo_root,
         )
         summary = llm_outcome.summary
         uncertainty.extend(llm_outcome.uncertainty_notes)
@@ -465,6 +466,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         deterministic_summary=summary,
         evidence=evidence_payload,
         settings=llm_settings,
+        repo_root=repo_root,
     )
     uncertainty.extend(llm_outcome.uncertainty_notes)
 

@@ -12,6 +12,7 @@ from urllib import error, request
 
 from core.capability_model import Capability, Profile
 from core.config import ResolvedLLMConfig, resolve_llm_config
+from core.llm_observability import log_llm_event
 from core.prompt_profiles import (
     default_prompt_profile,
     default_system_template_path,
@@ -88,6 +89,10 @@ def resolve_settings(args, repo_root: Path) -> ResolvedLLMConfig:
             query_planner_max_terms=config.query_planner_max_terms,
             query_planner_max_code_variants=config.query_planner_max_code_variants,
             query_planner_max_latency_ms=config.query_planner_max_latency_ms,
+            observability_enabled=config.observability_enabled,
+            observability_level=config.observability_level,
+            observability_retention_count=config.observability_retention_count,
+            observability_max_file_mb=config.observability_max_file_mb,
             source=config.source,
             validation_error=config.validation_error,
         )
@@ -381,10 +386,13 @@ def _mock_plan_query(question: str, deterministic_terms: list[str]) -> dict[str,
 
 def maybe_plan_query_terms(
     *,
+    capability: Capability,
+    profile: Profile,
     question: str,
     source_language: str,
     deterministic_terms: list[str],
     settings: ResolvedLLMConfig,
+    repo_root: Path | None = None,
 ) -> QueryPlannerOutcome:
     usage: dict[str, object] = {
         "enabled": settings.query_planner_enabled,
@@ -398,9 +406,47 @@ def maybe_plan_query_terms(
         "latency_ms": None,
         "source_language": source_language,
     }
+
+    def _finish(
+        *,
+        search_terms: list[str],
+        code_variants: list[str],
+        normalized_question_en: str | None,
+        intent: str | None,
+        target_scope: str | None,
+        entity_types: list[str],
+        dropped_filler_terms: list[str],
+    ) -> QueryPlannerOutcome:
+        outcome = QueryPlannerOutcome(
+            search_terms=search_terms,
+            code_variants=code_variants,
+            normalized_question_en=normalized_question_en,
+            intent=intent,
+            target_scope=target_scope,
+            entity_types=entity_types,
+            dropped_filler_terms=dropped_filler_terms,
+            usage=usage,
+        )
+        log_llm_event(
+            repo_root=repo_root,
+            settings=settings,
+            capability=capability,
+            profile=profile,
+            stage="query_planner",
+            task=question,
+            usage=usage,
+            extra={
+                "source_language": source_language,
+                "search_terms_count": len(search_terms),
+                "code_variants_count": len(code_variants),
+                "target_scope": target_scope,
+                "entity_types": entity_types,
+            },
+        )
+        return outcome
     if not settings.query_planner_enabled or settings.query_planner_mode == "off":
         usage["fallback_reason"] = "query planner disabled by config"
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -408,11 +454,10 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
     if settings.mode == "off":
         usage["fallback_reason"] = "llm disabled by cli mode"
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -420,11 +465,10 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
     if settings.provider is None:
         usage["fallback_reason"] = "no llm provider configured"
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -432,11 +476,10 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
     if settings.validation_error:
         usage["fallback_reason"] = f"config validation error: {settings.validation_error}"
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -444,7 +487,6 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
 
     usage["attempted"] = True
@@ -456,7 +498,7 @@ def maybe_plan_query_terms(
     )
     if prompt_error:
         usage["fallback_reason"] = prompt_error
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -464,7 +506,6 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
     assert prompt is not None
 
@@ -496,13 +537,14 @@ def maybe_plan_query_terms(
             usage["fallback_reason"] = (
                 f"planner latency {latency_ms}ms exceeds max {settings.query_planner_max_latency_ms}ms"
             )
-            return QueryPlannerOutcome(
+            return _finish(
                 search_terms=[],
                 code_variants=[],
                 normalized_question_en=None,
                 intent=None,
+                target_scope=None,
+                entity_types=[],
                 dropped_filler_terms=[],
-                usage=usage,
             )
 
         normalized_question_en = raw_result.get("normalized_question_en")
@@ -524,7 +566,7 @@ def maybe_plan_query_terms(
 
         if not search_terms and not code_variants:
             usage["fallback_reason"] = "planner output did not contain usable terms"
-            return QueryPlannerOutcome(
+            return _finish(
                 search_terms=[],
                 code_variants=[],
                 normalized_question_en=normalized_question_en,
@@ -532,10 +574,9 @@ def maybe_plan_query_terms(
                 target_scope=target_scope,
                 entity_types=entity_types,
                 dropped_filler_terms=dropped_filler_terms,
-                usage=usage,
             )
         usage["used"] = True
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=search_terms,
             code_variants=code_variants,
             normalized_question_en=normalized_question_en,
@@ -543,12 +584,11 @@ def maybe_plan_query_terms(
             target_scope=target_scope,
             entity_types=entity_types,
             dropped_filler_terms=dropped_filler_terms,
-            usage=usage,
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
         usage["latency_ms"] = int((time.perf_counter() - started) * 1000)
         usage["fallback_reason"] = f"planner failure: {exc}"
-        return QueryPlannerOutcome(
+        return _finish(
             search_terms=[],
             code_variants=[],
             normalized_question_en=None,
@@ -556,7 +596,6 @@ def maybe_plan_query_terms(
             target_scope=None,
             entity_types=[],
             dropped_filler_terms=[],
-            usage=usage,
         )
 
 
@@ -568,6 +607,7 @@ def maybe_refine_summary(
     deterministic_summary: str,
     evidence: list[dict[str, object]],
     settings: ResolvedLLMConfig,
+    repo_root: Path | None = None,
 ) -> LLMOutcome:
     policy = policy_for(capability, profile)
     usage: dict[str, object] = {
@@ -589,20 +629,37 @@ def maybe_refine_summary(
     }
     uncertainty_notes: list[str] = []
 
+    def _finish(summary: str) -> LLMOutcome:
+        outcome = LLMOutcome(summary=summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        log_llm_event(
+            repo_root=repo_root,
+            settings=settings,
+            capability=capability,
+            profile=profile,
+            stage="summary_refinement",
+            task=task,
+            usage=usage,
+            extra={
+                "evidence_count": len(evidence),
+                "policy": policy,
+            },
+        )
+        return outcome
+
     if policy == LLMInvocationPolicy.OFF:
         usage["fallback_reason"] = "llm policy is off for this capability/profile"
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
 
     if settings.mode == "off":
         usage["fallback_reason"] = "llm disabled by cli mode"
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
 
     if settings.provider is None:
         usage["fallback_reason"] = "no llm provider configured"
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
     if settings.validation_error:
         usage["fallback_reason"] = f"config validation error: {settings.validation_error}"
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
 
     effective_profile = settings.prompt_profile
     effective_system_template = settings.system_template_path
@@ -616,7 +673,7 @@ def maybe_refine_summary(
             f"prompt profile '{effective_profile}' not allowed for capability '{capability.value}'"
         )
         usage["config_source"] = config_source
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
 
     if settings.source.get("system_template") == "default":
         effective_system_template = default_system_template_path(effective_profile)
@@ -637,11 +694,11 @@ def maybe_refine_summary(
     )
     if prompt_error:
         usage["fallback_reason"] = prompt_error
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
     system_prompt, system_error = _load_system_prompt(effective_system_template)
     if system_error:
         usage["fallback_reason"] = system_error
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
     assert system_prompt is not None
 
     try:
@@ -661,10 +718,10 @@ def maybe_refine_summary(
             raise RuntimeError(f"provider '{settings.provider}' is not supported")
         usage["used"] = True
         uncertainty_notes.append("Summary includes assistive LLM wording; verify nuanced interpretation manually.")
-        return LLMOutcome(summary=refined, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(refined)
     except Exception as exc:  # pragma: no cover - defensive fallback
         usage["fallback_reason"] = f"llm failure: {exc}"
-        return LLMOutcome(summary=deterministic_summary, usage=usage, uncertainty_notes=uncertainty_notes)
+        return _finish(deterministic_summary)
 
 
 def provenance_section(*, llm_used: bool, evidence_count: int) -> dict[str, object]:

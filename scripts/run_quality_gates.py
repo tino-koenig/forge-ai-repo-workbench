@@ -603,6 +603,46 @@ def gate_query_planner_fallback(repo_root: Path) -> None:
     )
 
 
+def gate_llm_observability_redaction(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'provider = "mock"\n'
+            "[llm.observability]\n"
+            "enabled = true\n"
+            'level = "debug"\n'
+            "retention_count = 200\n"
+            "max_file_mb = 2\n"
+        ),
+        encoding="utf-8",
+    )
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "standard",
+            "compute_price",
+        ],
+        cwd=ROOT,
+    )
+    log_file = repo_root / ".forge" / "logs" / "llm_observability.jsonl"
+    assert_true(log_file.exists(), "observability: expected .forge/logs/llm_observability.jsonl to exist")
+    content = log_file.read_text(encoding="utf-8")
+    assert_true("Authorization" not in content, "observability: log must not contain Authorization headers")
+    assert_true("Bearer " not in content, "observability: log must not contain bearer tokens")
+    assert_true('"api_key"' not in content, "observability: log must not contain raw api_key field")
+    assert_true("deterministic_summary" not in content, "observability: log must not contain raw prompt payload")
+    lines = [line for line in content.splitlines() if line.strip()]
+    assert_true(len(lines) > 0, "observability: expected at least one log event")
+    first = json.loads(lines[0])
+    assert_true("capability" in first and "stage" in first, "observability: expected structured event metadata")
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -716,6 +756,7 @@ def run_all_gates() -> None:
         gate_cross_lingual_query(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
+        gate_llm_observability_redaction(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)

@@ -246,6 +246,12 @@ mode = "optional" # off | optional | preferred
 max_terms = 12
 max_code_variants = 8
 max_latency_ms = 2500
+
+[llm.observability]
+enabled = false
+level = "minimal" # minimal | standard | debug
+retention_count = 1000
+max_file_mb = 20
 ```
 
 Precedence:
@@ -265,6 +271,7 @@ Notes:
 - query planner is optional and bounded; deterministic retrieval remains authoritative
 - LLM use never expands effect boundaries
 - if LLM is unavailable, Forge falls back explicitly to deterministic behavior
+- optional redacted diagnostics log can be enabled at `.forge/logs/llm_observability.jsonl`
 
 ## Vision
 

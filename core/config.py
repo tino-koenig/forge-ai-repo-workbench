@@ -30,6 +30,10 @@ class ResolvedLLMConfig:
     query_planner_max_terms: int
     query_planner_max_code_variants: int
     query_planner_max_latency_ms: int
+    observability_enabled: bool
+    observability_level: str
+    observability_retention_count: int
+    observability_max_file_mb: int
     source: dict[str, str]
     validation_error: str | None = None
 
@@ -122,6 +126,10 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             query_planner_max_terms=12,
             query_planner_max_code_variants=8,
             query_planner_max_latency_ms=2500,
+            observability_enabled=False,
+            observability_level="minimal",
+            observability_retention_count=1000,
+            observability_max_file_mb=20,
             source={"config": "error"},
             validation_error=str(payload["_error"]),
         )
@@ -144,6 +152,10 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             query_planner_max_terms=12,
             query_planner_max_code_variants=8,
             query_planner_max_latency_ms=2500,
+            observability_enabled=False,
+            observability_level="minimal",
+            observability_retention_count=1000,
+            observability_max_file_mb=20,
             source={"config.local": "error"},
             validation_error=str(local_payload["_error"]),
         )
@@ -281,6 +293,39 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     query_planner_max_code_variants = _int_or_default(planner_max_code_variants_raw, 8)
     query_planner_max_latency_ms = _int_or_default(planner_max_latency_ms_raw, 2500)
 
+    observability_enabled_raw, source["observability_enabled"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.observability.enabled")),
+            ("toml", _nested_get(payload, "llm.observability.enabled")),
+            ("default", False),
+        ]
+    )
+    observability_level_raw, source["observability_level"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.observability.level")),
+            ("toml", _nested_get(payload, "llm.observability.level")),
+            ("default", "minimal"),
+        ]
+    )
+    observability_retention_count_raw, source["observability_retention_count"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.observability.retention_count")),
+            ("toml", _nested_get(payload, "llm.observability.retention_count")),
+            ("default", 1000),
+        ]
+    )
+    observability_max_file_mb_raw, source["observability_max_file_mb"] = _first_non_none(
+        [
+            ("toml_local", _nested_get(local_payload, "llm.observability.max_file_mb")),
+            ("toml", _nested_get(payload, "llm.observability.max_file_mb")),
+            ("default", 20),
+        ]
+    )
+    observability_enabled = _bool_or_default(observability_enabled_raw, False)
+    observability_level = str(observability_level_raw).strip().lower()
+    observability_retention_count = _int_or_default(observability_retention_count_raw, 1000)
+    observability_max_file_mb = _int_or_default(observability_max_file_mb_raw, 20)
+
     validation_errors: list[str] = []
     if provider is not None and provider not in {"openai_compatible", "mock"}:
         validation_errors.append(f"unknown provider '{provider}'")
@@ -304,6 +349,12 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         validation_errors.append("query_planner.max_code_variants must be within [0, 64]")
     if query_planner_max_latency_ms < 200 or query_planner_max_latency_ms > 120000:
         validation_errors.append("query_planner.max_latency_ms must be within [200, 120000]")
+    if observability_level not in {"minimal", "standard", "debug"}:
+        validation_errors.append("observability.level must be one of: minimal, standard, debug")
+    if observability_retention_count < 100 or observability_retention_count > 100000:
+        validation_errors.append("observability.retention_count must be within [100, 100000]")
+    if observability_max_file_mb < 1 or observability_max_file_mb > 1024:
+        validation_errors.append("observability.max_file_mb must be within [1, 1024]")
     if not system_template_path.exists():
         validation_errors.append(f"missing system template: {system_template_path}")
     elif not system_template_path.is_file():
@@ -331,6 +382,10 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         query_planner_max_terms=query_planner_max_terms,
         query_planner_max_code_variants=query_planner_max_code_variants,
         query_planner_max_latency_ms=query_planner_max_latency_ms,
+        observability_enabled=observability_enabled,
+        observability_level=observability_level,
+        observability_retention_count=observability_retention_count,
+        observability_max_file_mb=observability_max_file_mb,
         source=source,
         validation_error=validation_error,
     )

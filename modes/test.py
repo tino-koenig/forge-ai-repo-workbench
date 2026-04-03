@@ -344,6 +344,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         deterministic_summary=deterministic_summary,
         evidence=evidence_payload,
         settings=resolve_settings(args, repo_root),
+        repo_root=repo_root,
     )
     uncertainty = []
     if target.source == "symbol":

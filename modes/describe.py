@@ -473,6 +473,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             deterministic_summary=deterministic_summary,
             evidence=evidence_payload,
             settings=llm_settings,
+            repo_root=repo_root,
         )
         sections, next_step = collect_repo_sections(repo_root, files, request, session, index)
         if not is_json:
@@ -495,6 +496,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             deterministic_summary=deterministic_summary,
             evidence=evidence_payload,
             settings=llm_settings,
+            repo_root=repo_root,
         )
         sections = collect_target_sections(target, repo_root, request, session)
         if not is_json:

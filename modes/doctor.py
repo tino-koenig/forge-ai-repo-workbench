@@ -234,6 +234,23 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 )
             )
 
+    obs_status = "pass" if config.observability_enabled else "warn"
+    checks.append(
+        CheckResult(
+            key="llm_observability",
+            status=obs_status,
+            detail=(
+                f"enabled={config.observability_enabled}; level={config.observability_level}; "
+                f"retention_count={config.observability_retention_count}; max_file_mb={config.observability_max_file_mb}"
+            ),
+            recommendation=(
+                None
+                if config.observability_enabled
+                else "Optional: enable [llm.observability] in .forge/config.toml for local diagnostics logging."
+            ),
+        )
+    )
+
     overall = _overall_status(checks)
     uncertainty = [
         "Doctor checks are point-in-time and environment-dependent.",

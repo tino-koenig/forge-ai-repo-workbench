@@ -605,10 +605,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     if query_input_mode == "planner":
         baseline_terms = []
         planner = maybe_plan_query_terms(
+            capability=request.capability,
+            profile=request.profile,
             question=question,
             source_language=cross_lingual.source_language,
             deterministic_terms=baseline_terms,
             settings=llm_settings,
+            repo_root=repo_root,
         )
 
     if planner is not None and planner.usage.get("used"):
@@ -705,6 +708,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         deterministic_summary=summary,
         evidence=evidence_payload,
         settings=llm_settings,
+        repo_root=repo_root,
     )
     summary = llm_outcome.summary
     uncertainty.extend(llm_outcome.uncertainty_notes)
