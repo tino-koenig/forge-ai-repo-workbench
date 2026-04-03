@@ -64,6 +64,9 @@ Status values:
 | 052 | Query Orchestration Iteration Trace and Debug View | 2026-04-03 | implemented | 2026-04-03 | [052-query-orchestration-iteration-trace-and-debug-view.md](/Users/tino/PhpstormProjects/forge/docs/features/052-query-orchestration-iteration-trace-and-debug-view.md) |
 | 053 | Framework Profiles and Local Path Sources | 2026-04-03 | implemented | 2026-04-04 | [053-framework-profiles-and-local-path-sources.md](/Users/tino/PhpstormProjects/forge/docs/features/053-framework-profiles-and-local-path-sources.md) |
 | 054 | Ask Mode with User-Friendly Source Presets | 2026-04-04 | implemented | 2026-04-04 | [054-ask-mode-user-friendly-source-presets.md](/Users/tino/PhpstormProjects/forge/docs/features/054-ask-mode-user-friendly-source-presets.md) |
+| 055 | Web Search Foundation | unknown | defined | - | [055-web-search-foundation.md](/Users/tino/PhpstormProjects/forge/docs/features/055-web-search-foundation.md) |
+| 056 | Web Retrieval Foundation | unknown | defined | - | [056-web-retrieval-foundation.md](/Users/tino/PhpstormProjects/forge/docs/features/056-web-retrieval-foundation.md) |
+| 057 | LLM Foundation | unknown | defined | - | [057-llm-foundation.md](/Users/tino/PhpstormProjects/forge/docs/features/057-llm-foundation.md) |
 
 ## Notes
 - 001: Core CLI and capability model implemented.

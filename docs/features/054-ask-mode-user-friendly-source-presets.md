@@ -20,9 +20,9 @@ Add simplified ask command forms:
 - `forge ask:latest "question"`
 
 Preset intent:
-- `ask:repo` -> repository-focused retrieval
-- `ask:docs` -> framework/docs-focused retrieval (optionally profile-aware)
-- `ask:latest` -> web retrieval with freshness checks and citations
+- `ask:repo` -> repository-focused intent
+- `ask:docs` -> framework/docs-focused intent
+- `ask:latest` -> freshness-focused intent
 
 ### Relationship to query/orchestration
 
@@ -31,7 +31,8 @@ Preset intent:
 Rules:
 - `ask` does not perform repository file search by default
 - `query` remains the deterministic, repository-grounded retrieval mode
-- ask presets provide lightweight context intent, not hidden retrieval automation
+- ask presets provide lightweight context intent
+- web search and web retrieval are separate foundation features consumed by ask when enabled
 
 ### Profile integration
 
@@ -57,7 +58,7 @@ JSON output should preserve full output contract compatibility.
 This feature targets a phased delivery:
 1. source preset aliases (`ask:repo|docs|latest`)
 2. optional guided clarification mode (`--guided`)
-3. later automation-assisted source selection
+3. integration with independent web-search/retrieval foundations
 
 ## Design
 
@@ -70,6 +71,7 @@ Users should be able to ask a free question quickly without entering retrieval m
 - no removal of existing `query` command
 - no hidden mandatory automation in first phase
 - no loss of inspectability or source provenance
+- no coupling ask UX spec to a specific retrieval backend implementation
 
 ## Definition of Done
 
@@ -95,6 +97,9 @@ Users should be able to ask a free question quickly without entering retrieval m
   - `ask:repo` -> repository-oriented answer intent hint (no file search)
   - `ask:docs` -> docs/framework-oriented answer intent hint (no file search)
   - `ask:latest` -> freshness-oriented answer intent hint with explicit staged warning
+- Web foundations are intentionally separate:
+  - Feature 055 (`Web Search Foundation`)
+  - Feature 056 (`Web Retrieval Foundation`)
 - Ask provenance and diagnostics:
   - ask JSON includes `sections.ask` with preset/guided/profile metadata
   - ask output includes explicit uncertainty that no repository evidence anchors were used
