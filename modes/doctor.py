@@ -11,6 +11,7 @@ from core.config import resolve_llm_config
 from core.effects import ExecutionSession
 from core.output_contracts import build_contract, emit_contract_json
 from core.prompt_profiles import default_prompt_profile, is_prompt_profile_allowed
+from core.output_views import is_compact, is_full, resolve_view
 
 
 @dataclass
@@ -67,6 +68,7 @@ def _next_step(overall: str) -> str:
 
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
+    view = resolve_view(args)
     config = resolve_llm_config(args, repo_root)
     checks: list[CheckResult] = []
 
@@ -269,12 +271,18 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     print("\n--- Summary ---")
     print(summary)
     print("\n--- Checks ---")
-    for item in checks:
+    visible_checks = checks
+    if is_compact(view):
+        visible_checks = [item for item in checks if item.status in {"fail", "warn"}][:6]
+    elif not is_full(view):
+        visible_checks = checks[:8]
+    for item in visible_checks:
         print(f"- [{item.status}] {item.key}: {item.detail}")
-        if item.recommendation:
+        if item.recommendation and not is_compact(view):
             print(f"  Recommendation: {item.recommendation}")
     print("\n--- Uncertainty ---")
-    for note in uncertainty:
+    notes = uncertainty if is_full(view) else uncertainty[:1]
+    for note in notes:
         print(f"- {note}")
     print("\n--- Next Step ---")
     print(next_step)

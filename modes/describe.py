@@ -15,6 +15,7 @@ from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, resolve_settings
 from core.llm_integration import provenance_section
 from core.output_contracts import build_contract, emit_contract_json
+from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import iter_repo_files, read_text_file
 
 
@@ -437,6 +438,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
     target = resolve_describe_target(repo_root, request.payload, session)
     is_json = args.output_format == "json"
+    view = resolve_view(args)
 
     if not is_json:
         print("=== FORGE DESCRIBE ===")
@@ -537,9 +539,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         return 0
 
     print("\n--- Uncertainty ---")
-    for note in uncertainty:
+    notes = uncertainty if is_full(view) else uncertainty[:1]
+    for note in notes:
         print(f"- {note}")
-    if llm_outcome:
+    if llm_outcome and is_full(view):
         print("\n--- LLM Usage ---")
         print(f"Policy: {llm_outcome.usage['policy']}")
         print(f"Mode: {llm_outcome.usage['mode']}")

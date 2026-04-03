@@ -124,7 +124,19 @@ forge describe
 forge doctor --check-llm-endpoint
 forge config validate --check-llm-endpoint
 forge runs 12 show full
+forge --view compact query "find main entry point"
+forge --details review src/service.py
 ```
+
+## Human-First Output Views
+
+Text output supports explicit view modes:
+- `--view compact`
+- `--view standard` (default)
+- `--view full`
+
+Use `--details` as shorthand for full diagnostic output in text mode.
+JSON output (`--output-format json`) remains full machine-readable contract data.
 
 
 ## Design goals

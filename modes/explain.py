@@ -17,6 +17,7 @@ from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
+from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import read_text_file
 
 
@@ -130,6 +131,7 @@ def print_explanation(
     uncertainties: list[str],
     index_status: str | None,
     next_step: str,
+    view: str,
 ) -> None:
     rel_target = target.path.relative_to(repo_root)
     print("=== FORGE EXPLAIN ===")
@@ -142,28 +144,32 @@ def print_explanation(
     print("\n--- Summary ---")
     print(summary)
 
-    print("\n--- Role Classification ---")
-    print(f"Role: {role}")
-    print(f"Reason: {rationale}")
+    if not is_compact(view):
+        print("\n--- Role Classification ---")
+        print(f"Role: {role}")
+        print(f"Reason: {rationale}")
 
     print("\n--- Evidence ---")
     if not evidence:
         print("No concrete evidence extracted.")
-    for item in evidence:
+    evidence_limit = 3 if is_compact(view) else 5 if view == "standard" else len(evidence)
+    for item in evidence[:evidence_limit]:
         path_display = item.path.relative_to(repo_root)
         print(f"{path_display}:{item.line}: {item.text}")
 
-    if request.profile in {Profile.STANDARD, Profile.DETAILED}:
+    if request.profile in {Profile.STANDARD, Profile.DETAILED} and not is_compact(view):
         print("\n--- Related Files ---")
         if related:
-            for rel in related:
+            related_limit = 3 if view == "standard" else len(related)
+            for rel in related[:related_limit]:
                 print(rel)
         else:
             print("No related files found.")
 
     print("\n--- Uncertainty ---")
     if uncertainties:
-        for note in uncertainties:
+        notes = uncertainties if is_full(view) else uncertainties[:1]
+        for note in notes:
             print(f"- {note}")
     else:
         print("No major uncertainty flags from current read pass.")
@@ -173,6 +179,7 @@ def print_explanation(
 
 
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
+    view = resolve_view(args)
     repo_root = Path(args.repo_root).resolve()
     raw_target = request.payload.strip()
 
@@ -295,20 +302,22 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         uncertainties=uncertainties,
         index_status=index_status,
         next_step=next_step,
+        view=view,
     )
-    print("\n--- LLM Usage ---")
-    print(f"Policy: {llm_outcome.usage['policy']}")
-    print(f"Mode: {llm_outcome.usage['mode']}")
-    print(f"Used: {llm_outcome.usage['used']}")
-    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
-    print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
-    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
-    if llm_outcome.usage.get("fallback_reason"):
-        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
-    print("\n--- Provenance ---")
-    print(f"Evidence items: {len(evidence_payload)}")
-    print(
-        "Inference source: "
-        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
-    )
+    if is_full(view):
+        print("\n--- LLM Usage ---")
+        print(f"Policy: {llm_outcome.usage['policy']}")
+        print(f"Mode: {llm_outcome.usage['mode']}")
+        print(f"Used: {llm_outcome.usage['used']}")
+        print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+        print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
+        print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+        if llm_outcome.usage.get("fallback_reason"):
+            print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+        print("\n--- Provenance ---")
+        print(f"Evidence items: {len(evidence_payload)}")
+        print(
+            "Inference source: "
+            + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+        )
     return 0

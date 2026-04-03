@@ -13,6 +13,7 @@ from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, resolve_settings
 from core.llm_integration import provenance_section
 from core.output_contracts import build_contract, emit_contract_json
+from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import iter_repo_files, read_text_file
 
 
@@ -281,6 +282,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     target = resolve_file_or_symbol_target(repo_root, raw_target, session)
     path_classes: dict[str, str] = {}
     is_json = args.output_format == "json"
+    view = resolve_view(args)
     index_status: str | None = None
 
     if not is_json:
@@ -400,34 +402,37 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     print(f"Primary test dir: {conventions.likely_test_dir}")
 
     print("\n--- Proposed Test Cases ---")
-    for idx, case in enumerate(cases, start=1):
+    case_limit = 3 if is_compact(view) else 6 if view == "standard" else len(cases)
+    for idx, case in enumerate(cases[:case_limit], start=1):
         print(f"{idx}. {case}")
 
-    if skeleton:
+    if skeleton and not is_compact(view):
         print("\n--- Draft Test Skeleton ---")
         print("```python")
         print(skeleton)
         print("```")
 
     print("\n--- Uncertainty ---")
-    for note in uncertainty:
+    notes = uncertainty if is_full(view) else uncertainty[:1]
+    for note in notes:
         print(f"- {note}")
 
-    print("\n--- LLM Usage ---")
-    print(f"Policy: {llm_outcome.usage['policy']}")
-    print(f"Mode: {llm_outcome.usage['mode']}")
-    print(f"Used: {llm_outcome.usage['used']}")
-    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
-    print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
-    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
-    if llm_outcome.usage.get("fallback_reason"):
-        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
-    print("\n--- Provenance ---")
-    print(f"Evidence items: {len(evidence_payload)}")
-    print(
-        "Inference source: "
-        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
-    )
+    if is_full(view):
+        print("\n--- LLM Usage ---")
+        print(f"Policy: {llm_outcome.usage['policy']}")
+        print(f"Mode: {llm_outcome.usage['mode']}")
+        print(f"Used: {llm_outcome.usage['used']}")
+        print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+        print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
+        print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+        if llm_outcome.usage.get("fallback_reason"):
+            print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+        print("\n--- Provenance ---")
+        print(f"Evidence items: {len(evidence_payload)}")
+        print(
+            "Inference source: "
+            + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+        )
 
     print("\n--- Next Step ---")
     print(next_step)

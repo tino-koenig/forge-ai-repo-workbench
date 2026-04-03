@@ -43,6 +43,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format (default: text)",
     )
     parser.add_argument(
+        "--view",
+        choices=("compact", "standard", "full"),
+        default="standard",
+        help="Text output view mode (default: standard)",
+    )
+    parser.add_argument(
+        "--details",
+        action="store_true",
+        help="Show full diagnostic details in text output (equivalent to --view full)",
+    )
+    parser.add_argument(
         "--llm-mode",
         choices=("auto", "off", "force"),
         default="auto",

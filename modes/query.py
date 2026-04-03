@@ -9,6 +9,7 @@ from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
+from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import iter_repo_files, read_text_file
 
 
@@ -236,30 +237,36 @@ def format_summary(question: str, candidates: list[Candidate]) -> str:
     )
 
 
-def print_output(question: str, candidates: list[Candidate], summary: str) -> None:
+def print_output(question: str, candidates: list[Candidate], summary: str, view: str) -> None:
     print("\n--- Summary ---")
     print(summary)
 
     if not candidates:
-        print("\n--- Likely Locations ---")
-        print("No likely locations found.")
-        print("\n--- Evidence ---")
-        print("No evidence found.")
+        if not is_compact(view):
+            print("\n--- Likely Locations ---")
+            print("No likely locations found.")
+            if is_full(view):
+                print("\n--- Evidence ---")
+                print("No evidence found.")
         print("\n--- Next Step ---")
         print("Try a narrower question with a concrete symbol or path fragment.")
         return
 
     print("\n--- Likely Locations ---")
-    for idx, candidate in enumerate(candidates[:8], start=1):
+    location_limit = 1 if is_compact(view) else 3 if view == "standard" else 8
+    for idx, candidate in enumerate(candidates[:location_limit], start=1):
         print(
             f"{idx}. {candidate.path} "
             f"(score={candidate.score}, class={candidate.path_class}, matches={len(candidate.evidences)})"
         )
 
-    print("\n--- Evidence ---")
-    for candidate in candidates[:5]:
-        for evidence in candidate.evidences[:3]:
-            print(f"{candidate.path}:{evidence.line}: {evidence.text} [term={evidence.term}]")
+    if not is_compact(view):
+        print("\n--- Evidence ---")
+        evidence_candidate_limit = 2 if view == "standard" else 5
+        evidence_line_limit = 2 if view == "standard" else 3
+        for candidate in candidates[:evidence_candidate_limit]:
+            for evidence in candidate.evidences[:evidence_line_limit]:
+                print(f"{candidate.path}:{evidence.line}: {evidence.text} [term={evidence.term}]")
 
     print("\n--- Next Step ---")
     print(f"Run: forge explain {candidates[0].path}")
@@ -287,6 +294,7 @@ def enrich_detailed_context(
 
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     is_json = args.output_format == "json"
+    view = resolve_view(args)
     if not is_json:
         print("=== FORGE QUERY ===")
         print(f"Profile: {request.profile.value}")
@@ -389,24 +397,26 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         emit_contract_json(contract)
         return 0
 
-    print_output(question, candidates, summary)
-    print("\n--- LLM Usage ---")
-    print(f"Policy: {llm_outcome.usage['policy']}")
-    print(f"Mode: {llm_outcome.usage['mode']}")
-    print(f"Used: {llm_outcome.usage['used']}")
-    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
-    print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
-    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
-    if llm_outcome.usage.get("fallback_reason"):
-        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
-    print("\n--- Provenance ---")
-    print(f"Evidence items: {len(evidence_payload)}")
-    print(
-        "Inference source: "
-        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
-    )
+    print_output(question, candidates, summary, view)
+    if is_full(view):
+        print("\n--- LLM Usage ---")
+        print(f"Policy: {llm_outcome.usage['policy']}")
+        print(f"Mode: {llm_outcome.usage['mode']}")
+        print(f"Used: {llm_outcome.usage['used']}")
+        print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+        print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
+        print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+        if llm_outcome.usage.get("fallback_reason"):
+            print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+        print("\n--- Provenance ---")
+        print(f"Evidence items: {len(evidence_payload)}")
+        print(
+            "Inference source: "
+            + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+        )
     print("\n--- Uncertainty ---")
-    for note in uncertainty:
+    notes = uncertainty if is_full(view) else uncertainty[:1]
+    for note in notes:
         print(f"- {note}")
 
     if detailed_lines:

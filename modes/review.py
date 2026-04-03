@@ -16,6 +16,7 @@ from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.output_contracts import build_contract, emit_contract_json
+from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import read_text_file
 
 
@@ -281,18 +282,20 @@ def review_target(target: ResolvedTarget, profile: Profile) -> list[Finding]:
     return findings
 
 
-def print_findings(repo_root: Path, findings: list[Finding]) -> None:
+def print_findings(repo_root: Path, findings: list[Finding], view: str) -> None:
     if not findings:
         print("\n--- Findings ---")
         print("No concrete findings from active heuristics.")
         return
 
     print("\n--- Findings ---")
-    for idx, finding in enumerate(findings, start=1):
+    finding_limit = 1 if is_compact(view) else 3 if view == "standard" else len(findings)
+    for idx, finding in enumerate(findings[:finding_limit], start=1):
         print(f"{idx}. {finding.title} [{finding.severity}]")
         print(f"   Explanation: {finding.explanation}")
         print("   Evidence:")
-        for item in finding.evidence:
+        ev_limit = 1 if is_compact(view) else 2 if view == "standard" else len(finding.evidence)
+        for item in finding.evidence[:ev_limit]:
             rel = item.path.relative_to(repo_root)
             print(f"   - {rel}:{item.line}: {item.text}")
         if finding.recommendation:
@@ -316,6 +319,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     target = resolve_file_or_symbol_target(repo_root, request.payload, session)
     path_classes: dict[str, str] = {}
     is_json = args.output_format == "json"
+    view = resolve_view(args)
 
     if not is_json:
         print("=== FORGE REVIEW ===")
@@ -467,24 +471,26 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     print_summary(target, capped_findings, related_count)
     print("\n--- Refined Summary ---")
     print(llm_outcome.summary)
-    print_findings(repo_root, capped_findings)
-    print("\n--- LLM Usage ---")
-    print(f"Policy: {llm_outcome.usage['policy']}")
-    print(f"Mode: {llm_outcome.usage['mode']}")
-    print(f"Used: {llm_outcome.usage['used']}")
-    print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
-    print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
-    print(f"Model: {llm_outcome.usage['model'] or 'none'}")
-    if llm_outcome.usage.get("fallback_reason"):
-        print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
-    print("\n--- Provenance ---")
-    print(f"Evidence items: {len(evidence_payload)}")
-    print(
-        "Inference source: "
-        + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
-    )
+    print_findings(repo_root, capped_findings, view)
+    if is_full(view):
+        print("\n--- LLM Usage ---")
+        print(f"Policy: {llm_outcome.usage['policy']}")
+        print(f"Mode: {llm_outcome.usage['mode']}")
+        print(f"Used: {llm_outcome.usage['used']}")
+        print(f"Provider: {llm_outcome.usage['provider'] or 'none'}")
+        print(f"Base URL: {llm_outcome.usage['base_url'] or 'none'}")
+        print(f"Model: {llm_outcome.usage['model'] or 'none'}")
+        if llm_outcome.usage.get("fallback_reason"):
+            print(f"Fallback: {llm_outcome.usage['fallback_reason']}")
+        print("\n--- Provenance ---")
+        print(f"Evidence items: {len(evidence_payload)}")
+        print(
+            "Inference source: "
+            + ("deterministic heuristics + LLM" if llm_outcome.usage["used"] else "deterministic heuristics")
+        )
     print("\n--- Uncertainty ---")
-    for note in uncertainty:
+    notes = uncertainty if is_full(view) else uncertainty[:1]
+    for note in notes:
         print(f"- {note}")
     print("\n--- Next Step ---")
     print(next_step)
