@@ -226,8 +226,10 @@ defined_on = "2026-04-03"
 
 [[feature]]
 id = "043"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "CLI now resolves repo context via nearest ancestor .forge marker, with explicit init guidance when missing."
 
 [[feature]]
 id = "044"

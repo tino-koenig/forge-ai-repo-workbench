@@ -30,12 +30,38 @@ REQUIRES_PAYLOAD = {
 FROM_RUN_CAPABILITIES = {"explain", "review", "describe", "test"}
 
 
+def _nearest_forge_marker_root(start: Path) -> Path | None:
+    current = start if start.is_dir() else start.parent
+    for candidate in (current, *current.parents):
+        marker = candidate / ".forge"
+        if marker.is_dir():
+            return candidate
+    return None
+
+
+def resolve_repo_root(raw_repo_root: str | None) -> Path:
+    if raw_repo_root and raw_repo_root.strip():
+        requested = Path(raw_repo_root).expanduser()
+        candidate = requested.resolve() if requested.is_absolute() else (Path.cwd() / requested).resolve()
+        if not candidate.exists():
+            raise ValueError(f"--repo-root path does not exist: {candidate}")
+    else:
+        candidate = Path.cwd().resolve()
+    resolved = _nearest_forge_marker_root(candidate)
+    if resolved is not None:
+        return resolved
+    raise ValueError(
+        "No initialized Forge repository found (nearest .forge/ marker missing). "
+        f"Searched upward from: {candidate}. Run `forge init` in your repository root."
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="forge", description="Forge CLI")
     parser.add_argument(
         "--repo-root",
-        default=".",
-        help="Repository root to analyze (default: current directory)",
+        default=None,
+        help="Optional start path; Forge auto-detects nearest ancestor with .forge/",
     )
     parser.add_argument(
         "--env-file",
@@ -238,7 +264,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    repo_root = Path(args.repo_root).resolve()
+    try:
+        repo_root = resolve_repo_root(args.repo_root)
+    except ValueError as exc:
+        parser.error(str(exc))
+        return 2
+    args.repo_root = str(repo_root)
     env_file_path = Path(args.env_file).resolve() if args.env_file else (repo_root / ".env")
     load_env_file(env_file_path)
     parts = getattr(args, "parts", []) or []
