@@ -1045,16 +1045,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     if detailed_lines:
         sections["detailed_context"] = detailed_lines[:20]
 
+    contract = build_contract(
+        capability=request.capability.value,
+        profile=request.profile.value,
+        summary=summary,
+        evidence=evidence_payload,
+        uncertainty=uncertainty,
+        next_step=next_step,
+        sections=sections,
+    )
     if is_json:
-        contract = build_contract(
-            capability=request.capability.value,
-            profile=request.profile.value,
-            summary=summary,
-            evidence=evidence_payload,
-            uncertainty=uncertainty,
-            next_step=next_step,
-            sections=sections,
-        )
         emit_contract_json(contract)
         return 0
 

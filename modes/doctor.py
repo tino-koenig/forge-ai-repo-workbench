@@ -278,29 +278,29 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     ]
     summary = f"Doctor status: {overall}. checks={len(checks)}"
     next_step = _next_step(overall)
+    contract = build_contract(
+        capability=request.capability.value,
+        profile=request.profile.value,
+        summary=summary,
+        evidence=[],
+        uncertainty=uncertainty,
+        next_step=next_step,
+        sections={
+            "status": overall,
+            "checks": [
+                {
+                    "key": item.key,
+                    "status": item.status,
+                    "detail": item.detail,
+                    "recommendation": item.recommendation,
+                }
+                for item in checks
+            ],
+            "review_rules": {"loaded": len(loaded_rules), "errors": rule_errors},
+        },
+    )
 
     if args.output_format == "json":
-        contract = build_contract(
-            capability=request.capability.value,
-            profile=request.profile.value,
-            summary=summary,
-            evidence=[],
-            uncertainty=uncertainty,
-            next_step=next_step,
-            sections={
-                "status": overall,
-                "checks": [
-                    {
-                        "key": item.key,
-                        "status": item.status,
-                        "detail": item.detail,
-                        "recommendation": item.recommendation,
-                    }
-                    for item in checks
-                ],
-                "review_rules": {"loaded": len(loaded_rules), "errors": rule_errors},
-            },
-        )
         emit_contract_json(contract)
         return 0
 

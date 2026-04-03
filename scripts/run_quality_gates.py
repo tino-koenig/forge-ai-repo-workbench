@@ -1148,6 +1148,61 @@ def gate_from_run_references(repo_root: Path) -> None:
     )
 
 
+def gate_run_history_contract_always_persisted(repo_root: Path) -> None:
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--llm-provider",
+            "mock",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "compute_price",
+        ],
+        cwd=ROOT,
+    )
+    records = load_runs_json(repo_root)
+    assert_true(records, "history contract: expected at least one run record")
+    last = records[-1]
+    output = last.get("output", {})
+    contract = output.get("contract") if isinstance(output, dict) else None
+    assert_true(isinstance(contract, dict), "history contract: expected output.contract for text-mode query run")
+    assert_true(contract.get("capability") == "query", "history contract: expected query capability in contract")
+    sections = contract.get("sections", {})
+    assert_true(isinstance(sections, dict), "history contract: expected sections object in stored contract")
+    likely = sections.get("likely_locations", [])
+    assert_true(isinstance(likely, list), "history contract: expected likely_locations list")
+
+    run_id = int(last.get("id", 0))
+    assert_true(run_id > 0, "history contract: expected valid run id")
+    explain_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "--from-run",
+                str(run_id),
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    explain_sections = explain_payload.get("sections", {})
+    assert_true(
+        explain_sections.get("source_run_id") == run_id,
+        "history contract: expected explain --from-run to resolve from text-mode run",
+    )
+    assert_true(
+        explain_sections.get("source_run_capability") == "query",
+        "history contract: expected source_run_capability=query",
+    )
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -1768,6 +1823,7 @@ def run_all_gates() -> None:
         gate_external_review_rules(temp_repo_rules)
         gate_external_review_rules_invalid(temp_repo_rules_invalid)
         gate_from_run_references(temp_repo)
+        gate_run_history_contract_always_persisted(temp_repo)
 
 
 def main() -> int:

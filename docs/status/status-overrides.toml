@@ -234,8 +234,10 @@ defined_on = "2026-04-03"
 
 [[feature]]
 id = "045"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Run history now persists structured output.contract for every non-runs capability execution (text and json modes)."
 
 # Issue examples:
 # [[issue]]

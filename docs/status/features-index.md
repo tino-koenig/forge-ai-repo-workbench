@@ -54,7 +54,7 @@ Status values:
 | 042 | Workstation Installation and Pipx Distribution | 2026-04-03 | defined | - | [042-workstation-installation-and-pipx-distribution.md](/Users/tino/PhpstormProjects/forge/docs/features/042-workstation-installation-and-pipx-distribution.md) |
 | 043 | Repository Context Discovery via Forge Marker | 2026-04-03 | defined | - | [043-repository-context-discovery-via-forge-marker.md](/Users/tino/PhpstormProjects/forge/docs/features/043-repository-context-discovery-via-forge-marker.md) |
 | 044 | Forge Init Team Templates and Interactive Onboarding | 2026-04-03 | defined | - | [044-forge-init-team-templates-and-interactive-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/044-forge-init-team-templates-and-interactive-onboarding.md) |
-| 045 | Run History Always JSON Contract | 2026-04-03 | defined | - | [045-run-history-always-json-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/045-run-history-always-json-contract.md) |
+| 045 | Run History Always JSON Contract | 2026-04-03 | implemented | 2026-04-03 | [045-run-history-always-json-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/045-run-history-always-json-contract.md) |
 
 ## Notes
 - 001: Core CLI and capability model implemented.
@@ -68,3 +68,4 @@ Status values:
 - 038: Query now applies explain-derived relevance signals for reranking and bounded continuation on low confidence.
 - 039: Index now stores optional explain summary metadata with incremental recomputation; query consumes summaries read-only.
 - 040: Added explicit transition policy graph and gate enforcement for --from-run workflows with traceable transition metadata and confirmation policy.
+- 045: Run history now persists structured output.contract for every non-runs capability execution (text and json modes).

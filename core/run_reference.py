@@ -110,7 +110,8 @@ def resolve_from_run_payload(
     if not isinstance(contract, dict):
         raise RunReferenceError(
             f"Run {from_run_id} has no structured contract output. "
-            f"Inspect with: forge runs {from_run_id} show full"
+            f"This is a legacy/text-only run record. Re-run the source capability to persist a contract, "
+            f"then retry --from-run. Inspect with: forge runs {from_run_id} show full"
         )
 
     transition = evaluate_mode_transition(

@@ -314,16 +314,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             confirm_transition=bool(getattr(args, "confirm_transition", False)),
         )
     except RunReferenceError as exc:
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary="Run reference could not be resolved.",
+            evidence=[],
+            uncertainty=[str(exc)],
+            next_step="Run: forge runs list",
+            sections={"status": "from_run_resolution_failed"},
+        )
         if args.output_format == "json":
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary="Run reference could not be resolved.",
-                evidence=[],
-                uncertainty=[str(exc)],
-                next_step="Run: forge runs list",
-                sections={"status": "from_run_resolution_failed"},
-            )
             emit_contract_json(contract)
             return 1
         print(f"Run reference error: {exc}")
@@ -341,16 +341,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "no symbol-like match found in readable text files",
         ]
         next_step = 'Run: forge query "where is this symbol defined?"'
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary=summary,
+            evidence=[],
+            uncertainty=uncertainty,
+            next_step=next_step,
+            sections={"role_classification": None, "related_files": []},
+        )
         if args.output_format == "json":
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary=summary,
-                evidence=[],
-                uncertainty=uncertainty,
-                next_step=next_step,
-                sections={"role_classification": None, "related_files": []},
-            )
             emit_contract_json(contract)
             return 0
         print("=== FORGE EXPLAIN ===")
@@ -461,16 +461,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         evidence_count=len(evidence_payload),
     )
 
+    contract = build_contract(
+        capability=request.capability.value,
+        profile=request.profile.value,
+        summary=summary,
+        evidence=evidence_payload,
+        uncertainty=uncertainties,
+        next_step=next_step,
+        sections=sections,
+    )
     if args.output_format == "json":
-        contract = build_contract(
-            capability=request.capability.value,
-            profile=request.profile.value,
-            summary=summary,
-            evidence=evidence_payload,
-            uncertainty=uncertainties,
-            next_step=next_step,
-            sections=sections,
-        )
         emit_contract_json(contract)
         return 0
 

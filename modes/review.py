@@ -362,16 +362,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             confirm_transition=bool(getattr(args, "confirm_transition", False)),
         )
     except RunReferenceError as exc:
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary="Run reference could not be resolved.",
+            evidence=[],
+            uncertainty=[str(exc)],
+            next_step="Run: forge runs list",
+            sections={"status": "from_run_resolution_failed"},
+        )
         if args.output_format == "json":
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary="Run reference could not be resolved.",
-                evidence=[],
-                uncertainty=[str(exc)],
-                next_step="Run: forge runs list",
-                sections={"status": "from_run_resolution_failed"},
-            )
             emit_contract_json(contract)
             return 1
         print(f"Run reference error: {exc}")
@@ -404,16 +404,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "no symbol-like match found in readable text files",
         ]
         next_step = 'Run: forge query "where is the relevant logic implemented?"'
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary=summary,
+            evidence=[],
+            uncertainty=uncertainty,
+            next_step=next_step,
+            sections={"findings": [], "review_rules": {"loaded": len(external_rules), "errors": rule_errors}},
+        )
         if is_json:
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary=summary,
-                evidence=[],
-                uncertainty=uncertainty,
-                next_step=next_step,
-                sections={"findings": [], "review_rules": {"loaded": len(external_rules), "errors": rule_errors}},
-            )
             if from_run_meta:
                 contract["sections"].update(from_run_meta)
             emit_contract_json(contract)
@@ -478,53 +478,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         }
         findings_payload.append(item)
         evidence_payload.extend(item["evidence"])
-    if is_json:
-        high = sum(1 for f in capped_findings if f.severity == "high")
-        medium = sum(1 for f in capped_findings if f.severity == "medium")
-        low = sum(1 for f in capped_findings if f.severity == "low")
-        summary = (
-            f"Findings: {len(capped_findings)} "
-            f"(high={high}, medium={medium}, low={low}); related files reviewed={related_count}."
-        )
-        llm_settings = resolve_settings(args, repo_root)
-        llm_outcome = maybe_refine_summary(
-            capability=request.capability,
-            profile=request.profile,
-            task=request.payload,
-            deterministic_summary=summary,
-            evidence=evidence_payload,
-            settings=llm_settings,
-            repo_root=repo_root,
-        )
-        summary = llm_outcome.summary
-        uncertainty.extend(llm_outcome.uncertainty_notes)
-        contract = build_contract(
-            capability=request.capability.value,
-            profile=request.profile.value,
-            summary=summary,
-            evidence=evidence_payload,
-            uncertainty=uncertainty,
-            next_step=next_step,
-            sections={
-                "findings": findings_payload,
-                "target_source": target.source,
-                "review_rules": {"loaded": len(external_rules), "errors": rule_errors},
-                "llm_usage": llm_outcome.usage,
-                "provenance": provenance_section(
-                    llm_used=bool(llm_outcome.usage.get("used")),
-                    evidence_count=len(evidence_payload),
-                ),
-            },
-        )
-        if from_run_meta:
-            contract["sections"].update(from_run_meta)
-        emit_contract_json(contract)
-        return 0
-
     high = sum(1 for f in capped_findings if f.severity == "high")
     medium = sum(1 for f in capped_findings if f.severity == "medium")
     low = sum(1 for f in capped_findings if f.severity == "low")
-    summary = (
+    deterministic_summary = (
         f"Findings: {len(capped_findings)} "
         f"(high={high}, medium={medium}, low={low}); related files reviewed={related_count}."
     )
@@ -533,12 +490,36 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         capability=request.capability,
         profile=request.profile,
         task=request.payload,
-        deterministic_summary=summary,
+        deterministic_summary=deterministic_summary,
         evidence=evidence_payload,
         settings=llm_settings,
         repo_root=repo_root,
     )
+    summary = llm_outcome.summary
     uncertainty.extend(llm_outcome.uncertainty_notes)
+    contract = build_contract(
+        capability=request.capability.value,
+        profile=request.profile.value,
+        summary=summary,
+        evidence=evidence_payload,
+        uncertainty=uncertainty,
+        next_step=next_step,
+        sections={
+            "findings": findings_payload,
+            "target_source": target.source,
+            "review_rules": {"loaded": len(external_rules), "errors": rule_errors},
+            "llm_usage": llm_outcome.usage,
+            "provenance": provenance_section(
+                llm_used=bool(llm_outcome.usage.get("used")),
+                evidence_count=len(evidence_payload),
+            ),
+        },
+    )
+    if from_run_meta:
+        contract["sections"].update(from_run_meta)
+    if is_json:
+        emit_contract_json(contract)
+        return 0
 
     if is_full(view):
         print_summary(target, capped_findings, related_count)

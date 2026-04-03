@@ -100,6 +100,7 @@ Examples:
 
 ### `forge runs`
 Inspect previous Forge executions and replay them by ID.
+Run history records are persisted as JSONL with a structured `output.contract` for every capability run.
 
 Examples:
 - `forge runs list`

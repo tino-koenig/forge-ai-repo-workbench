@@ -10,6 +10,7 @@ import sys
 
 from core.capability_model import build_request
 from core.env_loader import load_env_file
+from core.output_contracts import consume_last_contract, reset_last_contract
 from core.run_history import append_run
 from core.runtime import execute
 
@@ -261,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     stdout_capture = io.StringIO()
     original_stdout = sys.stdout
+    reset_last_contract()
 
     class _Tee:
         def write(self, data: str) -> int:
@@ -279,14 +281,26 @@ def main(argv: list[str] | None = None) -> int:
 
     if capability_name != "runs":
         text_output = stdout_capture.getvalue()
-        contract_payload = None
+        contract_payload = consume_last_contract()
         if args.output_format == "json":
             try:
                 parsed = json.loads(text_output)
                 if isinstance(parsed, dict):
                     contract_payload = parsed
             except json.JSONDecodeError:
-                contract_payload = None
+                pass
+        if not isinstance(contract_payload, dict):
+            contract_payload = {
+                "capability": request.capability.value,
+                "profile": request.profile.value,
+                "summary": "Run completed without structured contract; fallback contract recorded.",
+                "evidence": [],
+                "uncertainty": [
+                    "Capability did not emit a structured output contract in this code path."
+                ],
+                "next_step": "Re-run capability with --output-format json for full structured payload.",
+                "sections": {"status": "fallback_contract"},
+            }
         append_run(
             repo_root=repo_root,
             request={

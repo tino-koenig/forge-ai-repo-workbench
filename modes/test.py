@@ -288,16 +288,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             confirm_transition=bool(getattr(args, "confirm_transition", False)),
         )
     except RunReferenceError as exc:
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary="Run reference could not be resolved.",
+            evidence=[],
+            uncertainty=[str(exc)],
+            next_step="Run: forge runs list",
+            sections={"status": "from_run_resolution_failed"},
+        )
         if args.output_format == "json":
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary="Run reference could not be resolved.",
-                evidence=[],
-                uncertainty=[str(exc)],
-                next_step="Run: forge runs list",
-                sections={"status": "from_run_resolution_failed"},
-            )
             emit_contract_json(contract)
             return 1
         print(f"Run reference error: {exc}")
@@ -332,19 +332,19 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "no symbol-like match found in readable text files",
         ]
         next_step = 'Run: forge query "where is the relevant logic implemented?"'
+        sections: dict[str, object] = {"resolved_target": None, "proposed_cases": []}
+        if index_status:
+            sections["index_status"] = index_status
+        contract = build_contract(
+            capability=request.capability.value,
+            profile=request.profile.value,
+            summary=summary,
+            evidence=[],
+            uncertainty=uncertainty,
+            next_step=next_step,
+            sections=sections,
+        )
         if is_json:
-            sections: dict[str, object] = {"resolved_target": None, "proposed_cases": []}
-            if index_status:
-                sections["index_status"] = index_status
-            contract = build_contract(
-                capability=request.capability.value,
-                profile=request.profile.value,
-                summary=summary,
-                evidence=[],
-                uncertainty=uncertainty,
-                next_step=next_step,
-                sections=sections,
-            )
             if from_run_meta:
                 contract["sections"].update(from_run_meta)
             emit_contract_json(contract)
@@ -406,16 +406,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         evidence_count=len(evidence_payload),
     )
 
+    contract = build_contract(
+        capability=request.capability.value,
+        profile=request.profile.value,
+        summary=llm_outcome.summary,
+        evidence=evidence_payload,
+        uncertainty=uncertainty,
+        next_step=next_step,
+        sections=sections,
+    )
     if is_json:
-        contract = build_contract(
-            capability=request.capability.value,
-            profile=request.profile.value,
-            summary=llm_outcome.summary,
-            evidence=evidence_payload,
-            uncertainty=uncertainty,
-            next_step=next_step,
-            sections=sections,
-        )
         emit_contract_json(contract)
         return 0
 
