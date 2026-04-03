@@ -193,16 +193,47 @@ defined_on = "2026-04-03"
 
 [[feature]]
 id = "038"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-03"
+notes = "Query now applies explain-derived relevance signals for reranking and bounded continuation on low confidence."
 defined_on = "2026-04-03"
 
 [[feature]]
 id = "039"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-03"
+notes = "Index now stores optional explain summary metadata with incremental recomputation; query consumes summaries read-only."
 defined_on = "2026-04-03"
 
 [[feature]]
 id = "040"
+status = "implemented"
+defined_on = "2026-04-03"
+implemented_on = "2026-04-03"
+notes = "Added explicit transition policy graph and gate enforcement for --from-run workflows with traceable transition metadata and confirmation policy."
+
+[[feature]]
+id = "041"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "042"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "043"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "044"
+status = "defined"
+defined_on = "2026-04-03"
+
+[[feature]]
+id = "045"
 status = "defined"
 defined_on = "2026-04-03"
 

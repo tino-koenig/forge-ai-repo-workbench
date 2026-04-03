@@ -13,6 +13,9 @@ All notable changes to Forge should be documented in this file.
 - feature 021: structured explain synthesis with `evidence_facts`, `inference_points`, `confidence`, and detailed `role_hypothesis_alternatives`
 - feature 036: central mode capability contract with query read-only boundary enforcement and visible policy-violation events
 - feature 037: bounded LLM query action orchestration with allowed action catalog, decision contract, budget limits, and explicit done reasons
+- feature 038: adaptive query retrieval with explain-derived reranking signals, low-confidence continuation, and explicit rationale output
+- feature 039: index explain-summary enrichment metadata with incremental recomputation and query-side read-only consumption
+- feature 040: explicit mode-transition policy graph with transition gates, confirmation control, and traceable from-run transition metadata
 
 ### Changed
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change

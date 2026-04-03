@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.analysis_primitives import load_index_path_class_map, path_class_weight
+from core.analysis_primitives import load_index_entry_map, load_index_path_class_map, path_class_weight
 from core.capability_model import CommandRequest, Profile
 from core.effects import ExecutionSession
 from core.llm_integration import (
@@ -227,6 +227,16 @@ class CrossLingualExpansion:
     expansion_mode: str
 
 
+@dataclass
+class ExplainFeedback:
+    path: Path
+    intent_match: bool
+    evidence_density: float
+    linkage_confidence: str
+    relevance_score: int
+    rationale: list[str]
+
+
 def normalize_question(question: str) -> str:
     return " ".join(question.strip().split())
 
@@ -445,6 +455,8 @@ def score_candidate(
     llm_call_intent: bool,
     target_scope: str | None,
     entity_types: list[str],
+    index_explain_summary: str | None,
+    question_terms: set[str],
 ) -> int:
     unique_terms = {e.term for e in evidences}
     base = len(evidences) + (len(unique_terms) * 2)
@@ -498,6 +510,11 @@ def score_candidate(
                 score += 2
                 break
 
+    if index_explain_summary:
+        lowered = index_explain_summary.lower()
+        overlap = sum(1 for term in question_terms if term in lowered)
+        score += min(overlap, 4)
+
     return score
 
 
@@ -509,6 +526,8 @@ def rank_candidates(
     llm_call_intent: bool,
     target_scope: str | None,
     entity_types: list[str],
+    index_entry_map: dict[str, dict[str, object]],
+    question_terms: set[str],
 ) -> list[Candidate]:
     ranked: list[Candidate] = []
     for rel_path, evidences in matches.items():
@@ -525,12 +544,97 @@ def rank_candidates(
                     llm_call_intent=llm_call_intent,
                     target_scope=target_scope,
                     entity_types=entity_types,
+                    index_explain_summary=(
+                        str(index_entry_map.get(rel_path, {}).get("explain_summary"))
+                        if isinstance(index_entry_map.get(rel_path, {}).get("explain_summary"), str)
+                        else None
+                    ),
+                    question_terms=question_terms,
                 ),
                 path_class=path_class,
             )
         )
     ranked.sort(key=lambda c: (c.score, len(c.evidences)), reverse=True)
     return ranked
+
+
+def _question_terms_for_intent(question: str) -> set[str]:
+    tokens = re.findall(r"[A-Za-z0-9_./-]+", question.lower())
+    terms: set[str] = set()
+    for token in tokens:
+        for part in [token, *[p for p in re.split(r"[-_/]", token) if p]]:
+            if len(part) < 3:
+                continue
+            if part in STOP_WORDS or part in STOP_WORDS_DE:
+                continue
+            terms.add(part)
+    return terms
+
+
+def build_explain_feedback(
+    *,
+    question: str,
+    candidates: list[Candidate],
+) -> list[ExplainFeedback]:
+    question_terms = _question_terms_for_intent(question)
+    feedback: list[ExplainFeedback] = []
+    for candidate in candidates:
+        rel = str(candidate.path).lower()
+        path_tokens = set(re.findall(r"[A-Za-z0-9_./-]+", rel))
+        evidence_terms = {e.term.lower() for e in candidate.evidences}
+        intent_overlap = len(question_terms.intersection(path_tokens | evidence_terms))
+        intent_match = intent_overlap > 0
+        evidence_density = min(1.0, len(candidate.evidences) / 8.0)
+        rationale: list[str] = []
+        if intent_match:
+            rationale.append(f"intent term overlap={intent_overlap}")
+        else:
+            rationale.append("no direct intent-term overlap")
+        rationale.append(f"evidence density={evidence_density:.2f}")
+
+        score = candidate.score
+        if intent_match:
+            score += 4 + min(intent_overlap, 3)
+        if evidence_density >= 0.75:
+            score += 4
+        elif evidence_density >= 0.4:
+            score += 2
+        if rel.startswith("docs/") and any(term in question_terms for term in {"function", "class", "api", "llm"}):
+            score -= 3
+            rationale.append("docs penalty for code-oriented intent")
+
+        if evidence_density >= 0.75 and intent_match:
+            linkage_confidence = "high"
+        elif evidence_density >= 0.4 or intent_match:
+            linkage_confidence = "medium"
+        else:
+            linkage_confidence = "low"
+
+        feedback.append(
+            ExplainFeedback(
+                path=candidate.path,
+                intent_match=intent_match,
+                evidence_density=round(evidence_density, 3),
+                linkage_confidence=linkage_confidence,
+                relevance_score=score,
+                rationale=rationale,
+            )
+        )
+    return feedback
+
+
+def rerank_with_explain_feedback(candidates: list[Candidate], feedback: list[ExplainFeedback]) -> list[Candidate]:
+    score_by_path = {str(item.path): item.relevance_score for item in feedback}
+    reranked = list(candidates)
+    reranked.sort(
+        key=lambda c: (
+            score_by_path.get(str(c.path), c.score),
+            len(c.evidences),
+            c.score,
+        ),
+        reverse=True,
+    )
+    return reranked
 
 
 def format_summary(question: str, candidates: list[Candidate]) -> str:
@@ -706,8 +810,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
 
     path_classes: dict[str, str] = {}
+    index_entry_map: dict[str, dict[str, object]] = {}
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         path_classes = load_index_path_class_map(repo_root, session)
+        index_entry_map = load_index_entry_map(repo_root, session)
         if not is_json:
             if path_classes:
                 print("Index: loaded .forge/index.json")
@@ -734,7 +840,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         llm_call_intent=llm_call_intent,
         target_scope=planner.target_scope if planner is not None else None,
         entity_types=planner.entity_types if planner is not None else [],
+        index_entry_map=index_entry_map,
+        question_terms=_question_terms_for_intent(question),
     )
+    explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
+    candidates = rerank_with_explain_feedback(candidates, explain_feedback)
+    feedback_by_path = {str(item.path): item for item in explain_feedback}
+    top_feedback = feedback_by_path.get(str(candidates[0].path)) if candidates else None
     detailed_lines: list[str] = []
     if request.profile == Profile.DETAILED and candidates:
         detailed_lines = enrich_detailed_context(repo_root, candidates, session)
@@ -759,12 +871,18 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         settings=llm_settings,
         repo_root=repo_root,
     )
+    adaptive_continue = bool(top_feedback is not None and top_feedback.linkage_confidence == "low" and len(candidates) > 1)
     if orchestration.decisions:
         first_decision = orchestration.decisions[0]
-        if first_decision.decision == "continue" and first_decision.next_action == "read" and candidates:
+        if (
+            (first_decision.decision == "continue" and first_decision.next_action == "read")
+            or adaptive_continue
+        ) and candidates:
+            start_idx = 1 if adaptive_continue else 0
+            inspect_slice = candidates[start_idx : start_idx + max(1, min(len(candidates), llm_settings.query_orchestrator_max_files))]
             bounded_details = enrich_detailed_context(
                 repo_root,
-                candidates[: max(1, min(len(candidates), llm_settings.query_orchestrator_max_files))],
+                inspect_slice,
                 session,
             )
             extra_limit = min(len(bounded_details), llm_settings.query_orchestrator_max_tokens // 40)
@@ -800,6 +918,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
     if not candidates:
         uncertainty.append("No strong candidate files were detected.")
+    if top_feedback and top_feedback.linkage_confidence == "low":
+        uncertainty.append("Top match confidence is low; query performed bounded additional inspection.")
     if policy_violations:
         uncertainty.append(
             "Mode boundary enforced: query is read-only; write request was blocked and analysis continued read-only."
@@ -834,6 +954,34 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 "matches": len(candidate.evidences),
             }
             for candidate in candidates[:8]
+        ],
+        "explain_feedback": [
+            {
+                "path": str(item.path),
+                "intent_match": item.intent_match,
+                "evidence_density": item.evidence_density,
+                "linkage_confidence": item.linkage_confidence,
+                "relevance_score": item.relevance_score,
+                "rationale": item.rationale,
+            }
+            for item in explain_feedback[:8]
+        ],
+        "index_explain_summaries": [
+            {
+                "path": str(candidate.path),
+                "explain_summary": (
+                    index_entry_map.get(str(candidate.path), {}).get("explain_summary")
+                    if isinstance(index_entry_map.get(str(candidate.path), {}).get("explain_summary"), str)
+                    else None
+                ),
+                "summary_version": (
+                    index_entry_map.get(str(candidate.path), {}).get("summary_version")
+                    if isinstance(index_entry_map.get(str(candidate.path), {}).get("summary_version"), int)
+                    else None
+                ),
+            }
+            for candidate in candidates[:5]
+            if str(candidate.path) in index_entry_map
         ],
         "llm_usage": llm_outcome.usage,
         "provenance": provenance_section(
@@ -891,6 +1039,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             ],
             "done_reason": orchestration.done_reason,
             "usage": orchestration.usage,
+            "adaptive_continuation_triggered": adaptive_continue,
         },
     }
     if detailed_lines:
@@ -928,6 +1077,23 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             if isinstance(detail, str) and detail:
                 print(f"Reason: {detail}")
     if is_full(view):
+        print("\n--- Index Summary Hints ---")
+        for candidate in candidates[:5]:
+            entry = index_entry_map.get(str(candidate.path), {})
+            explain_summary = entry.get("explain_summary")
+            if isinstance(explain_summary, str) and explain_summary.strip():
+                version = entry.get("summary_version")
+                print(f"{candidate.path} (v{version if isinstance(version, int) else '-'})")
+                print(f"  {explain_summary[:180]}")
+
+        print("\n--- Explain Feedback ---")
+        for item in explain_feedback[:5]:
+            print(
+                f"{item.path}: confidence={item.linkage_confidence} "
+                f"intent_match={item.intent_match} density={item.evidence_density:.2f} score={item.relevance_score}"
+            )
+            print(f"  why: {', '.join(item.rationale[:2])}")
+
         print("\n--- Query Planner ---")
         planner_usage = (
             planner.usage

@@ -4,8 +4,10 @@ import hashlib
 import json
 import os
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
+import tomli
 from core.capability_model import CommandRequest, EffectClass
 from core.effects import ExecutionSession
 from core.repo_io import write_forge_file
@@ -29,6 +31,8 @@ HARD_IGNORE = {
 INDEX_EXCLUDE = {"vendor"}
 LOW_PRIORITY = {"docs", "scripts", "examples"}
 PREFERRED = {"src", "tests", "configuration"}
+DEFAULT_SUMMARY_VERSION = 1
+DEFAULT_MAX_SUMMARY_CHARS = 220
 
 
 def classify_relative_path(relative: Path) -> tuple[str, str]:
@@ -71,25 +75,125 @@ def optional_file_hash(path: Path) -> str | None:
         return None
 
 
+def load_existing_index(repo_root: Path) -> dict[str, object] | None:
+    path = repo_root / ".forge" / "index.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def load_index_enrichment_config(repo_root: Path) -> tuple[bool, int, int]:
+    config_path = repo_root / ".forge" / "config.toml"
+    enabled = True
+    summary_version = DEFAULT_SUMMARY_VERSION
+    max_chars = DEFAULT_MAX_SUMMARY_CHARS
+    if not config_path.exists():
+        return enabled, summary_version, max_chars
+    try:
+        payload = tomli.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomli.TOMLDecodeError):
+        return enabled, summary_version, max_chars
+    index_cfg = payload.get("index")
+    enrichment = index_cfg.get("enrichment") if isinstance(index_cfg, dict) else None
+    if not isinstance(enrichment, dict):
+        return enabled, summary_version, max_chars
+    if isinstance(enrichment.get("enabled"), bool):
+        enabled = enrichment["enabled"]
+    if isinstance(enrichment.get("summary_version"), int) and enrichment["summary_version"] > 0:
+        summary_version = enrichment["summary_version"]
+    if isinstance(enrichment.get("max_summary_chars"), int) and 80 <= enrichment["max_summary_chars"] <= 1000:
+        max_chars = enrichment["max_summary_chars"]
+    return enabled, summary_version, max_chars
+
+
+def _first_non_empty_line(text: str) -> str | None:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return None
+
+
+def generate_explain_summary(path: Path, *, max_chars: int) -> str:
+    extension = path.suffix.lower() or "none"
+    symbols = extract_python_symbols(path)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        raw = ""
+    first_line = _first_non_empty_line(raw) or ""
+    line_count = len(raw.splitlines()) if raw else 0
+    symbol_hint = ", ".join(symbols[:3]) if symbols else "no top-level python symbols"
+    basis = (
+        f"{path.name}: {extension} file with {line_count} lines; "
+        f"symbols={symbol_hint}; first_line={first_line[:90]}."
+    )
+    return basis[:max_chars].strip()
+
+
 def extension_guess(path: Path) -> str:
     return path.suffix.lower().lstrip(".") if path.suffix else "none"
 
 
-def build_file_entry(root: Path, path: Path) -> dict[str, object]:
+def build_file_entry(
+    root: Path,
+    path: Path,
+    *,
+    enrichment_enabled: bool,
+    summary_version: int,
+    max_summary_chars: int,
+    existing_file_entry: dict[str, object] | None,
+    force_refresh: bool,
+    enrichment_errors: list[str],
+) -> dict[str, object]:
     rel_path = path.relative_to(root)
     path_class, state = classify_relative_path(rel_path)
     stat = path.stat()
-    return {
+    content_hash = optional_file_hash(path)
+    entry = {
         "path": str(rel_path),
         "kind": "file",
         "extension": extension_guess(path),
         "size": stat.st_size,
         "mtime": int(stat.st_mtime),
-        "hash": optional_file_hash(path),
+        "hash": content_hash,
+        "content_hash": content_hash,
         "top_level_symbols": extract_python_symbols(path),
         "path_class": path_class,
         "index_participation_state": state,
     }
+    if not enrichment_enabled:
+        return entry
+
+    try:
+        reuse_existing = False
+        if not force_refresh and existing_file_entry:
+            prev_hash = existing_file_entry.get("content_hash")
+            prev_version = existing_file_entry.get("summary_version")
+            prev_summary = existing_file_entry.get("explain_summary")
+            prev_updated = existing_file_entry.get("summary_updated_at")
+            if (
+                isinstance(prev_summary, str)
+                and prev_summary.strip()
+                and prev_hash == content_hash
+                and prev_version == summary_version
+                and isinstance(prev_updated, str)
+            ):
+                reuse_existing = True
+                entry["explain_summary"] = prev_summary
+                entry["summary_version"] = prev_version
+                entry["summary_updated_at"] = prev_updated
+        if not reuse_existing:
+            entry["explain_summary"] = generate_explain_summary(path, max_chars=max_summary_chars)
+            entry["summary_version"] = summary_version
+            entry["summary_updated_at"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # pragma: no cover - defensive
+        enrichment_errors.append(f"{rel_path}: {exc}")
+    return entry
 
 
 def build_directory_entry(root: Path, path: Path) -> dict[str, object]:
@@ -134,7 +238,25 @@ def should_index(path: Path, root: Path) -> bool:
 
 def build_index(repo_root: Path, request: CommandRequest, session: ExecutionSession) -> dict[str, object]:
     session.record_effect(EffectClass.READ_ONLY, "scan repository for index")
+    enrichment_enabled, summary_version, max_summary_chars = load_index_enrichment_config(repo_root)
+    force_refresh = request.payload.strip().lower() in {"refresh", "rebuild", "enrich-refresh", "full-refresh"}
+    existing_index = load_existing_index(repo_root)
+    existing_files = (
+        existing_index.get("entries", {}).get("files", [])
+        if isinstance(existing_index, dict)
+        else []
+    )
+    existing_by_path: dict[str, dict[str, object]] = {}
+    if isinstance(existing_files, list):
+        for item in existing_files:
+            if not isinstance(item, dict):
+                continue
+            p = item.get("path")
+            if isinstance(p, str):
+                existing_by_path[p] = item
+
     files: list[dict[str, object]] = []
+    enrichment_errors: list[str] = []
     directories: list[dict[str, object]] = [build_directory_entry(repo_root, repo_root)]
     for current_root, dir_names, file_names in os.walk(repo_root, topdown=True):
         current_path = Path(current_root)
@@ -156,7 +278,19 @@ def build_index(repo_root: Path, request: CommandRequest, session: ExecutionSess
         for file_name in file_names:
             file_path = current_path / file_name
             if should_index(file_path, repo_root):
-                files.append(build_file_entry(repo_root, file_path))
+                rel_str = str(file_path.relative_to(repo_root))
+                files.append(
+                    build_file_entry(
+                        repo_root,
+                        file_path,
+                        enrichment_enabled=enrichment_enabled,
+                        summary_version=summary_version,
+                        max_summary_chars=max_summary_chars,
+                        existing_file_entry=existing_by_path.get(rel_str),
+                        force_refresh=force_refresh,
+                        enrichment_errors=enrichment_errors,
+                    )
+                )
 
     return {
         "version": 1,
@@ -170,6 +304,14 @@ def build_index(repo_root: Path, request: CommandRequest, session: ExecutionSess
         "counts": {
             "directories": len(directories),
             "files": len(files),
+        },
+        "enrichment": {
+            "enabled": enrichment_enabled,
+            "summary_version": summary_version,
+            "max_summary_chars": max_summary_chars,
+            "force_refresh": force_refresh,
+            "errors": enrichment_errors[:50],
+            "error_count": len(enrichment_errors),
         },
     }
 
@@ -194,4 +336,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         "Indexed entries: "
         f"{data['counts']['directories']} directories, {data['counts']['files']} files"
     )
+    enrichment = data.get("enrichment", {})
+    if isinstance(enrichment, dict):
+        print(
+            "Enrichment: "
+            f"enabled={enrichment.get('enabled')} "
+            f"summary_version={enrichment.get('summary_version')} "
+            f"errors={enrichment.get('error_count')}"
+        )
     return 0

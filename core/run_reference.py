@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from core.capability_model import Capability
+from core.mode_transitions import evaluate_mode_transition
 from core.run_history import get_run
 
 
@@ -72,6 +73,7 @@ def resolve_from_run_payload(
     requested_capability: Capability,
     explicit_payload: str,
     from_run_id: int | None,
+    confirm_transition: bool = False,
 ) -> tuple[str, dict[str, object] | None]:
     if from_run_id is None:
         return explicit_payload, None
@@ -96,10 +98,10 @@ def resolve_from_run_payload(
             f"Inspect with: forge runs {from_run_id} show full"
         )
 
-    if source_capability not in {"query", "review", "describe", "test"}:
+    if source_capability not in {"query", "review", "describe", "test", "fix"}:
         raise RunReferenceError(
             f"Run {from_run_id} capability '{source_capability}' is not supported for --from-run. "
-            f"Supported source runs: query, review, describe, test. "
+            f"Supported source runs: query, review, describe, test, fix. "
             f"Inspect with: forge runs {from_run_id} show full"
         )
 
@@ -110,6 +112,32 @@ def resolve_from_run_payload(
             f"Run {from_run_id} has no structured contract output. "
             f"Inspect with: forge runs {from_run_id} show full"
         )
+
+    transition = evaluate_mode_transition(
+        repo_root=repo_root,
+        source_mode=source_capability,
+        target_mode=requested_capability.value,
+        source_record=record,
+        explicit_confirmation=bool(confirm_transition),
+    )
+    if not transition.allowed:
+        gate_details = ", ".join(
+            f"{item.gate}:{item.status}"
+            for item in transition.gate_decisions
+            if item.status == "fail"
+        )
+        base = (
+            f"Transition {source_capability}->{requested_capability.value} blocked by policy "
+            f"({transition.reason})."
+        )
+        if gate_details:
+            base = f"{base} Failing gates: {gate_details}."
+        if transition.reason == "confirmation_required":
+            base = (
+                f"{base} Re-run with --confirm-transition to allow explicitly "
+                f"(if this transition is intended)."
+            )
+        raise RunReferenceError(base)
 
     resolved_payload: str | None
     strategy: str
@@ -132,5 +160,11 @@ def resolve_from_run_payload(
         "resolved_from_run_strategy": strategy,
         "resolved_from_run_payload": resolved_payload,
         "resolved_for_capability": requested_capability.value,
+        "transition_source_mode": source_capability,
+        "transition_target_mode": requested_capability.value,
+        "transition_reason": "from_run_reference",
+        "transition_policy_reason": transition.reason,
+        "transition_gate_decisions": [item.to_dict() for item in transition.gate_decisions],
+        "transition_policy": transition.policy,
     }
     return resolved_payload, metadata

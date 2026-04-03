@@ -47,9 +47,14 @@ Status values:
 | 035 | LLM Output Language Control | 2026-04-03 | implemented | 2026-04-03 | [035-llm-output-language-control.md](/Users/tino/PhpstormProjects/forge/docs/features/035-llm-output-language-control.md) |
 | 036 | Mode Capability Contract and Read-Only Enforcement | 2026-04-03 | implemented | 2026-04-03 | [036-mode-capability-contract-and-read-only-enforcement.md](/Users/tino/PhpstormProjects/forge/docs/features/036-mode-capability-contract-and-read-only-enforcement.md) |
 | 037 | Bounded LLM Action Orchestration | 2026-04-03 | implemented | 2026-04-03 | [037-bounded-llm-action-orchestration.md](/Users/tino/PhpstormProjects/forge/docs/features/037-bounded-llm-action-orchestration.md) |
-| 038 | Adaptive Query Retrieval with Explain Feedback | 2026-04-03 | defined | - | [038-adaptive-query-retrieval-with-explain-feedback.md](/Users/tino/PhpstormProjects/forge/docs/features/038-adaptive-query-retrieval-with-explain-feedback.md) |
-| 039 | Index Explain Summary Enrichment | 2026-04-03 | defined | - | [039-index-explain-summary-enrichment.md](/Users/tino/PhpstormProjects/forge/docs/features/039-index-explain-summary-enrichment.md) |
-| 040 | Explicit Mode Transition Workflows | 2026-04-03 | defined | - | [040-explicit-mode-transition-workflows.md](/Users/tino/PhpstormProjects/forge/docs/features/040-explicit-mode-transition-workflows.md) |
+| 038 | Adaptive Query Retrieval with Explain Feedback | 2026-04-03 | implemented | 2026-04-03 | [038-adaptive-query-retrieval-with-explain-feedback.md](/Users/tino/PhpstormProjects/forge/docs/features/038-adaptive-query-retrieval-with-explain-feedback.md) |
+| 039 | Index Explain Summary Enrichment | 2026-04-03 | implemented | 2026-04-03 | [039-index-explain-summary-enrichment.md](/Users/tino/PhpstormProjects/forge/docs/features/039-index-explain-summary-enrichment.md) |
+| 040 | Explicit Mode Transition Workflows | 2026-04-03 | implemented | 2026-04-03 | [040-explicit-mode-transition-workflows.md](/Users/tino/PhpstormProjects/forge/docs/features/040-explicit-mode-transition-workflows.md) |
+| 041 | Development Installation and Invocation Model | 2026-04-03 | defined | - | [041-development-installation-and-invocation-model.md](/Users/tino/PhpstormProjects/forge/docs/features/041-development-installation-and-invocation-model.md) |
+| 042 | Workstation Installation and Pipx Distribution | 2026-04-03 | defined | - | [042-workstation-installation-and-pipx-distribution.md](/Users/tino/PhpstormProjects/forge/docs/features/042-workstation-installation-and-pipx-distribution.md) |
+| 043 | Repository Context Discovery via Forge Marker | 2026-04-03 | defined | - | [043-repository-context-discovery-via-forge-marker.md](/Users/tino/PhpstormProjects/forge/docs/features/043-repository-context-discovery-via-forge-marker.md) |
+| 044 | Forge Init Team Templates and Interactive Onboarding | 2026-04-03 | defined | - | [044-forge-init-team-templates-and-interactive-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/044-forge-init-team-templates-and-interactive-onboarding.md) |
+| 045 | Run History Always JSON Contract | 2026-04-03 | defined | - | [045-run-history-always-json-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/045-run-history-always-json-contract.md) |
 
 ## Notes
 - 001: Core CLI and capability model implemented.
@@ -60,3 +65,6 @@ Status values:
 - 035: LLM output language control via CLI/env/TOML and prompt propagation.
 - 036: Added central mode-action contract, executor enforcement wiring, and query planner boundary notes for blocked write intent.
 - 037: Added bounded query action orchestration with catalog decisions, budgets, fallback handling, and done_reason.
+- 038: Query now applies explain-derived relevance signals for reranking and bounded continuation on low confidence.
+- 039: Index now stores optional explain summary metadata with incremental recomputation; query consumes summaries read-only.
+- 040: Added explicit transition policy graph and gate enforcement for --from-run workflows with traceable transition metadata and confirmation policy.

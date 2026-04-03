@@ -170,6 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolve explain target from a previous run id",
     )
     explain_parser.add_argument(
+        "--confirm-transition",
+        action="store_true",
+        help="Explicitly confirm mode transition when using --from-run and transition policy requires it",
+    )
+    explain_parser.add_argument(
         "parts",
         nargs="*",
         help="Target; optional profile prefix: simple|standard|detailed (or use --from-run)",
@@ -180,6 +185,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--from-run",
         type=int,
         help="Resolve review target from a previous run id",
+    )
+    review_parser.add_argument(
+        "--confirm-transition",
+        action="store_true",
+        help="Explicitly confirm mode transition when using --from-run and transition policy requires it",
     )
     review_parser.add_argument(
         "parts",
@@ -194,6 +204,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolve describe target from a previous run id",
     )
     describe_parser.add_argument(
+        "--confirm-transition",
+        action="store_true",
+        help="Explicitly confirm mode transition when using --from-run and transition policy requires it",
+    )
+    describe_parser.add_argument(
         "parts",
         nargs="*",
         help="Optional target; optional profile prefix: simple|standard|detailed",
@@ -204,6 +219,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--from-run",
         type=int,
         help="Resolve test target from a previous run id",
+    )
+    test_parser.add_argument(
+        "--confirm-transition",
+        action="store_true",
+        help="Explicitly confirm mode transition when using --from-run and transition policy requires it",
     )
     test_parser.add_argument(
         "parts",

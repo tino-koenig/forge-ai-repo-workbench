@@ -285,6 +285,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             requested_capability=request.capability,
             explicit_payload=request.payload,
             from_run_id=getattr(args, "from_run", None),
+            confirm_transition=bool(getattr(args, "confirm_transition", False)),
         )
     except RunReferenceError as exc:
         if args.output_format == "json":
@@ -453,6 +454,19 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print(f"Source capability: {from_run_meta['source_run_capability']}")
         print(f"Strategy: {from_run_meta['resolved_from_run_strategy']}")
         print(f"Resolved payload: {from_run_meta['resolved_from_run_payload']}")
+        if "transition_source_mode" in from_run_meta and "transition_target_mode" in from_run_meta:
+            print(f"Transition: {from_run_meta['transition_source_mode']} -> {from_run_meta['transition_target_mode']}")
+            print(f"Transition policy: {from_run_meta.get('transition_policy_reason', 'n/a')}")
+        gate_decisions = from_run_meta.get("transition_gate_decisions", [])
+        if is_full(view) and isinstance(gate_decisions, list):
+            print("Transition gates:")
+            for item in gate_decisions:
+                if not isinstance(item, dict):
+                    continue
+                print(
+                    f"- {item.get('gate', '?')}: {item.get('status', '?')} "
+                    f"({item.get('detail', 'no detail')})"
+                )
     if is_full(view):
         print("\n--- LLM Usage ---")
         print(f"Policy: {llm_outcome.usage['policy']}")

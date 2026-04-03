@@ -115,6 +115,7 @@ Cross-capability reuse from history:
 - `forge review --from-run 12`
 - `forge test --from-run 12`
 - `forge describe --from-run 12`
+- `forge review --from-run 12 --confirm-transition` (when transition policy requires explicit confirmation)
 
 ### Later modes
 - `forge fix`
@@ -271,6 +272,18 @@ enabled = false
 level = "minimal" # minimal | standard | debug
 retention_count = 1000
 max_file_mb = 20
+
+[index.enrichment]
+enabled = true
+summary_version = 1
+max_summary_chars = 220
+
+[transitions]
+require_confirmation = false
+
+[transitions.gates]
+review_to_test_min_severity = "low" # none | low | medium | high
+test_to_fix_require_failure = true
 ```
 
 Precedence:

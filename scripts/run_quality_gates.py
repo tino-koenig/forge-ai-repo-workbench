@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -74,6 +75,32 @@ def snapshot_repo_files(repo_root: Path) -> dict[str, str]:
             continue
         snapshot[str(rel)] = file_hash(path)
     return snapshot
+
+
+def append_history_record(repo_root: Path, record: dict[str, object]) -> None:
+    path = repo_root / ".forge" / "runs.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, sort_keys=True))
+        fh.write("\n")
+
+
+def load_runs_json(repo_root: Path) -> list[dict]:
+    path = repo_root / ".forge" / "runs.jsonl"
+    if not path.exists():
+        return []
+    records: list[dict] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict):
+            records.append(item)
+    return records
 
 
 def ensure_output_contract(payload: dict, capability: str) -> None:
@@ -1309,6 +1336,349 @@ def gate_query_action_orchestration(repo_root: Path) -> None:
         assert_true(first.get("confidence") in {"low", "medium", "high"}, "orchestration: invalid confidence value")
 
 
+def gate_adaptive_query_explain_feedback(repo_root: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "In",
+                "welchen",
+                "Dateien",
+                "wird",
+                "ein",
+                "LLM",
+                "eingesetzt?",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    sections = payload.get("sections", {})
+    feedback = sections.get("explain_feedback", [])
+    assert_true(isinstance(feedback, list) and feedback, "adaptive query: expected explain_feedback section")
+    first = feedback[0]
+    assert_true(isinstance(first, dict), "adaptive query: feedback entry must be object")
+    assert_true(
+        first.get("linkage_confidence") in {"low", "medium", "high"},
+        "adaptive query: invalid linkage_confidence value",
+    )
+    assert_true(isinstance(first.get("rationale"), list), "adaptive query: expected rationale list")
+    likely = sections.get("likely_locations", [])
+    assert_true(isinstance(likely, list) and likely, "adaptive query: expected likely_locations")
+    assert_true("action_orchestration" in sections, "adaptive query: expected action_orchestration section")
+    orchestration = sections.get("action_orchestration", {})
+    assert_true(isinstance(orchestration, dict), "adaptive query: action_orchestration should be object")
+    assert_true(
+        orchestration.get("done_reason") in {"sufficient_evidence", "budget_exhausted", "policy_blocked"},
+        "adaptive query: invalid done_reason",
+    )
+    assert_true(
+        all(
+            isinstance(item, dict) and item.get("linkage_confidence") in {"low", "medium", "high"}
+            for item in feedback[:5]
+        ),
+        "adaptive query: expected valid linkage_confidence values",
+    )
+
+
+def gate_index_explain_summary_enrichment(repo_root: Path) -> None:
+    run_cmd(
+        ["python3", str(FORGE), "--repo-root", str(repo_root), "index"],
+        cwd=ROOT,
+    )
+    index_path = repo_root / ".forge" / "index.json"
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+    enrichment = payload.get("enrichment", {})
+    assert_true(isinstance(enrichment, dict), "index enrichment: expected enrichment object")
+    assert_true(enrichment.get("enabled") is True, "index enrichment: expected enabled=true by default")
+    files = payload.get("entries", {}).get("files", [])
+    assert_true(isinstance(files, list) and files, "index enrichment: expected file entries")
+
+    first = files[0]
+    assert_true(isinstance(first, dict), "index enrichment: first file entry should be object")
+    assert_true("content_hash" in first, "index enrichment: expected content_hash field")
+    assert_true("explain_summary" in first, "index enrichment: expected explain_summary field")
+    assert_true("summary_version" in first, "index enrichment: expected summary_version field")
+    assert_true("summary_updated_at" in first, "index enrichment: expected summary_updated_at field")
+
+    first_path = first.get("path")
+    assert_true(isinstance(first_path, str), "index enrichment: first file path should be string")
+    first_updated_at = first.get("summary_updated_at")
+
+    run_cmd(
+        ["python3", str(FORGE), "--repo-root", str(repo_root), "index"],
+        cwd=ROOT,
+    )
+    payload_again = json.loads(index_path.read_text(encoding="utf-8"))
+    files_again = payload_again.get("entries", {}).get("files", [])
+    first_again = next((item for item in files_again if isinstance(item, dict) and item.get("path") == first_path), None)
+    assert_true(isinstance(first_again, dict), "index enrichment: expected same file on rebuild")
+    assert_true(
+        first_again.get("summary_updated_at") == first_updated_at,
+        "index enrichment: summary timestamp should be reused when hash/version unchanged",
+    )
+
+    target_file = repo_root / str(first_path)
+    original = target_file.read_text(encoding="utf-8")
+    target_file.write_text(original + "\n# feature039-touch\n", encoding="utf-8")
+    try:
+        run_cmd(
+            ["python3", str(FORGE), "--repo-root", str(repo_root), "index"],
+            cwd=ROOT,
+        )
+    finally:
+        target_file.write_text(original, encoding="utf-8")
+
+    payload_changed = json.loads(index_path.read_text(encoding="utf-8"))
+    files_changed = payload_changed.get("entries", {}).get("files", [])
+    first_changed = next((item for item in files_changed if isinstance(item, dict) and item.get("path") == first_path), None)
+    assert_true(isinstance(first_changed, dict), "index enrichment: changed file should still be indexed")
+    assert_true(
+        first_changed.get("summary_updated_at") != first_updated_at,
+        "index enrichment: changed file should trigger summary recomputation",
+    )
+
+    query_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    index_summaries = query_payload.get("sections", {}).get("index_explain_summaries", [])
+    assert_true(isinstance(index_summaries, list), "index enrichment: query should expose index_explain_summaries list")
+
+
+def gate_explicit_mode_transition_workflows(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        "\n".join(
+            [
+                "[transitions]",
+                "require_confirmation = true",
+                "",
+                "[transitions.gates]",
+                'review_to_test_min_severity = "medium"',
+                "test_to_fix_require_failure = true",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    existing = load_runs_json(repo_root)
+    next_id = (max((int(item.get("id", 0)) for item in existing), default=0) + 1) if existing else 1
+
+    fix_record = {
+        "id": next_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request": {"capability": "fix", "profile": "standard", "payload": "src/controller.py", "argv": []},
+        "execution": {"exit_code": 0, "output_format": "json"},
+        "output": {
+            "text": "",
+            "contract": {
+                "capability": "fix",
+                "profile": "standard",
+                "summary": "Seeded fix run for transition gate tests.",
+                "evidence": [],
+                "uncertainty": [],
+                "next_step": "Run: forge review --from-run <id>",
+                "sections": {"resolved_target": {"path": "src/controller.py", "source": "path"}},
+            },
+        },
+    }
+    append_history_record(repo_root, fix_record)
+
+    blocked_missing_confirm = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "--from-run",
+                str(next_id),
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    assert_true(
+        blocked_missing_confirm.get("sections", {}).get("status") == "from_run_resolution_failed",
+        "mode transitions: expected failure without explicit confirmation",
+    )
+    assert_true(
+        any("confirmation" in str(item).lower() for item in blocked_missing_confirm.get("uncertainty", [])),
+        "mode transitions: expected explicit confirmation hint",
+    )
+
+    review_from_fix = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "--from-run",
+                str(next_id),
+                "--confirm-transition",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    review_sections = review_from_fix.get("sections", {})
+    assert_true(review_sections.get("transition_source_mode") == "fix", "mode transitions: expected source_mode=fix")
+    assert_true(review_sections.get("transition_target_mode") == "review", "mode transitions: expected target_mode=review")
+    assert_true(review_sections.get("transition_policy_reason") == "transition_allowed", "mode transitions: expected transition_allowed")
+    decisions = review_sections.get("transition_gate_decisions", [])
+    assert_true(isinstance(decisions, list) and decisions, "mode transitions: expected transition_gate_decisions")
+
+    review_run = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "runs", "last"],
+            cwd=ROOT,
+        ).stdout
+    )
+    review_run_id = int(review_run.get("id", 0))
+    assert_true(review_run_id > 0, "mode transitions: expected review run id after fix->review")
+
+    test_from_review = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "test",
+                "--from-run",
+                str(review_run_id),
+                "--confirm-transition",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    test_sections = test_from_review.get("sections", {})
+    assert_true(test_sections.get("transition_source_mode") == "review", "mode transitions: expected source_mode=review")
+    assert_true(test_sections.get("transition_target_mode") == "test", "mode transitions: expected target_mode=test")
+    test_decisions = test_sections.get("transition_gate_decisions", [])
+    assert_true(isinstance(test_decisions, list) and test_decisions, "mode transitions: expected test transition decisions")
+    threshold_gates = [item for item in test_decisions if isinstance(item, dict) and item.get("gate") == "review_findings_threshold"]
+    assert_true(threshold_gates, "mode transitions: expected review_findings_threshold gate")
+    assert_true(
+        threshold_gates[0].get("status") == "pass",
+        "mode transitions: expected review_findings_threshold gate to pass",
+    )
+
+    blocked_disallowed = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+                "--from-run",
+                str(next_id),
+                "--confirm-transition",
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    assert_true(
+        blocked_disallowed.get("sections", {}).get("status") == "from_run_resolution_failed",
+        "mode transitions: expected disallowed transition to fail",
+    )
+    assert_true(
+        any("blocked by policy" in str(item).lower() for item in blocked_disallowed.get("uncertainty", [])),
+        "mode transitions: expected policy block reason",
+    )
+
+    low_review_record = {
+        "id": next_id + 1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request": {"capability": "review", "profile": "standard", "payload": "src/controller.py", "argv": []},
+        "execution": {"exit_code": 0, "output_format": "json"},
+        "output": {
+            "text": "",
+            "contract": {
+                "capability": "review",
+                "profile": "standard",
+                "summary": "Seeded low-severity review run for transition gate tests.",
+                "evidence": [],
+                "uncertainty": [],
+                "next_step": "Run: forge test --from-run <id>",
+                "sections": {
+                    "findings": [
+                        {
+                            "title": "low-severity-only",
+                            "severity": "low",
+                            "explanation": "seeded",
+                            "recommendation": "seeded",
+                            "rule_id": "seed.low",
+                            "evidence": [{"path": "src/controller.py", "line": 1, "text": "seed"}],
+                        }
+                    ]
+                },
+            },
+        },
+    }
+    append_history_record(repo_root, low_review_record)
+
+    blocked_threshold = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "test",
+                "--from-run",
+                str(next_id + 1),
+                "--confirm-transition",
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    assert_true(
+        blocked_threshold.get("sections", {}).get("status") == "from_run_resolution_failed",
+        "mode transitions: expected threshold gate failure for low-only review",
+    )
+    assert_true(
+        any("threshold" in str(item).lower() for item in blocked_threshold.get("uncertainty", [])),
+        "mode transitions: expected threshold failure reason",
+    )
+
+
 def gate_effect_boundaries(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     read_only_commands = [
@@ -1387,6 +1757,9 @@ def run_all_gates() -> None:
         gate_explain_structured_synthesis(temp_repo)
         gate_mode_capability_contract_query_read_only(temp_repo)
         gate_query_action_orchestration(temp_repo)
+        gate_adaptive_query_explain_feedback(temp_repo)
+        gate_index_explain_summary_enrichment(temp_repo)
+        gate_explicit_mode_transition_workflows(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
         gate_frontend_fixture(temp_repo_frontend)
