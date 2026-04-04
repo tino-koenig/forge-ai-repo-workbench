@@ -54,3 +54,24 @@ Without validation, malformed graph payloads are silently treated as loaded, cau
 - Consumers only use validated graph payloads.
 - JSON/full outputs expose validation warnings and acceptance state.
 - Regression gates cover malformed dict payloads and incompatible versions.
+
+## Implemented Behavior (Current)
+
+- Added deterministic repo-graph validator at load time with required field/type checks and explicit supported-version enforcement.
+- Repo graph loading now returns warnings for invalid schema/version and rejects invalid payloads as unusable.
+- Query and explain now expose repo-graph validation status in `sections.graph_usage`:
+  - `repo_graph_loaded`
+  - `repo_graph_validation` (`valid|invalid|missing`)
+  - `repo_graph_warnings`
+- Added regression gate `gate_graph_schema_validation_and_compatibility`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_graph_schema_validation_and_compatibility` passes.
+
+## Known Limits / Notes
+
+- This increment hardens repo graph schema/version loading first; framework-ref payload validation is extended in a follow-up increment.

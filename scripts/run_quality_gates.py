@@ -5209,6 +5209,100 @@ def gate_graph_cache_and_consumption(repo_root: Path) -> None:
     assert_true(query_graph_usage.get("repo_graph_loaded") is True, "graph cache: query should report repo graph loaded")
 
 
+def gate_graph_schema_validation_and_compatibility(repo_root: Path) -> None:
+    run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "index"], cwd=ROOT)
+    graph_path = repo_root / ".forge" / "graph.json"
+    assert_true(graph_path.exists(), "graph schema: expected .forge/graph.json after index")
+    original_graph = graph_path.read_text(encoding="utf-8")
+
+    # Invalid schema payload (dict but missing required fields).
+    graph_path.write_text(json.dumps({"foo": 1}), encoding="utf-8")
+    explain_invalid = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain:dependencies",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    explain_usage = explain_invalid.get("sections", {}).get("graph_usage", {})
+    assert_true(explain_usage.get("repo_graph_loaded") is False, "graph schema: invalid schema should not be loaded")
+    assert_true(
+        explain_usage.get("repo_graph_validation") == "invalid",
+        "graph schema: expected repo_graph_validation=invalid for malformed schema",
+    )
+    explain_uncertainty = explain_invalid.get("uncertainty", [])
+    assert_true(
+        any("repo graph invalid:" in str(item).lower() for item in explain_uncertainty),
+        "graph schema: expected explicit repo graph invalid warning in explain uncertainty",
+    )
+
+    # Incompatible graph_version payload should be rejected.
+    restored_payload = parse_json_output(original_graph)
+    if isinstance(restored_payload, dict):
+        restored_payload["graph_version"] = 999
+    graph_path.write_text(json.dumps(restored_payload), encoding="utf-8")
+    query_invalid = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    query_usage = query_invalid.get("sections", {}).get("graph_usage", {})
+    assert_true(query_usage.get("repo_graph_loaded") is False, "graph schema: incompatible version should not be loaded")
+    assert_true(
+        query_usage.get("repo_graph_validation") == "invalid",
+        "graph schema: expected repo_graph_validation=invalid for incompatible graph_version",
+    )
+    repo_graph_warnings = query_usage.get("repo_graph_warnings", [])
+    assert_true(
+        isinstance(repo_graph_warnings, list)
+        and any("unsupported graph_version" in str(item) for item in repo_graph_warnings),
+        "graph schema: expected unsupported graph_version warning in query graph_usage",
+    )
+
+    # Restore valid graph and ensure status returns to valid.
+    graph_path.write_text(original_graph, encoding="utf-8")
+    query_restored = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    restored_usage = query_restored.get("sections", {}).get("graph_usage", {})
+    assert_true(restored_usage.get("repo_graph_loaded") is True, "graph schema: restored graph should load")
+    assert_true(restored_usage.get("repo_graph_validation") == "valid", "graph schema: expected repo_graph_validation=valid")
+
+
 def gate_explicit_mode_transition_workflows(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -5544,6 +5638,7 @@ def run_all_gates() -> None:
         gate_adaptive_query_explain_feedback(temp_repo)
         gate_index_explain_summary_enrichment(temp_repo)
         gate_graph_cache_and_consumption(temp_repo)
+        gate_graph_schema_validation_and_compatibility(temp_repo)
         gate_explicit_mode_transition_workflows(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)

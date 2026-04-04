@@ -609,6 +609,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Added integrated describe quality-gate matrix covering unresolved-target, symbol-anchor, ranking-noise, runtime-policy, and orchestrator-trace regressions."
 
+[[feature]]
+id = "070"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Repo graph loading now enforces schema/version validation with explicit graph_usage validation state and warnings."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -826,6 +833,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe regression suite now includes an integrated quality-gate matrix for unresolved-target and symbol-anchor correctness plus policy/orchestrator compatibility."
+
+[[issue]]
+id = "12"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Repo graph schema/version is now validated at load; invalid/incompatible payloads are rejected with explicit validation warnings."
 
 [[issue]]
 id = "6"

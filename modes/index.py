@@ -10,7 +10,7 @@ from pathlib import Path
 import tomli
 from core.capability_model import CommandRequest, EffectClass
 from core.effects import ExecutionSession
-from core.graph_cache import build_repo_graph, load_repo_graph
+from core.graph_cache import build_repo_graph, load_repo_graph_with_warnings
 from core.repo_io import write_forge_file
 
 
@@ -404,7 +404,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         )
     graph_warning: str | None = None
     try:
-        existing_graph = load_repo_graph(repo_root, session)
+        existing_graph, graph_load_warnings = load_repo_graph_with_warnings(repo_root, session)
+        if graph_load_warnings:
+            print(f"Graph cache: existing graph ignored ({graph_load_warnings[0]})")
         files_payload = data.get("entries", {}).get("files", [])
         file_entries = files_payload if isinstance(files_payload, list) else []
         graph_payload, graph_warnings = build_repo_graph(

@@ -14,6 +14,7 @@ from core.capability_model import EffectClass
 from core.effects import ExecutionSession
 
 GRAPH_VERSION = 1
+SUPPORTED_GRAPH_VERSIONS = {GRAPH_VERSION}
 
 _CODE_EXTENSIONS = {
     ".py",
@@ -70,17 +71,50 @@ def _node_id_for_external(raw: str) -> str:
 
 
 def load_repo_graph(repo_root: Path, session: ExecutionSession) -> dict[str, object] | None:
+    payload, _warnings = load_repo_graph_with_warnings(repo_root, session)
+    return payload
+
+
+def _validate_graph_payload(payload: object, *, label: str) -> tuple[dict[str, object] | None, str | None]:
+    if not isinstance(payload, dict):
+        return None, f"{label}: payload is not an object"
+    graph_version = payload.get("graph_version")
+    if not isinstance(graph_version, int):
+        return None, f"{label}: missing or invalid graph_version"
+    if graph_version not in SUPPORTED_GRAPH_VERSIONS:
+        supported = ", ".join(str(item) for item in sorted(SUPPORTED_GRAPH_VERSIONS))
+        return None, f"{label}: unsupported graph_version={graph_version} (supported: {supported})"
+    source_type = payload.get("source_type")
+    if not isinstance(source_type, str) or not source_type.strip():
+        return None, f"{label}: missing or invalid source_type"
+    source_id = payload.get("source_id")
+    if not isinstance(source_id, str) or not source_id.strip():
+        return None, f"{label}: missing or invalid source_id"
+    nodes = payload.get("nodes")
+    if not isinstance(nodes, list):
+        return None, f"{label}: missing or invalid nodes list"
+    edges = payload.get("edges")
+    if not isinstance(edges, list):
+        return None, f"{label}: missing or invalid edges list"
+    stats = payload.get("stats")
+    if not isinstance(stats, dict):
+        return None, f"{label}: missing or invalid stats object"
+    return payload, None
+
+
+def load_repo_graph_with_warnings(repo_root: Path, session: ExecutionSession) -> tuple[dict[str, object] | None, list[str]]:
     graph_path = repo_root / ".forge" / "graph.json"
     if not graph_path.exists():
-        return None
+        return None, []
     session.record_effect(EffectClass.READ_ONLY, f"read graph cache {graph_path}")
     try:
         payload = json.loads(graph_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
+        return None, [f"repo graph invalid: unreadable graph artifact at {graph_path}"]
+    validated, warning = _validate_graph_payload(payload, label=f"repo graph {graph_path}")
+    if validated is None:
+        return None, [f"repo graph invalid: {warning}"]
+    return validated, []
 
 
 def load_framework_graph_references(

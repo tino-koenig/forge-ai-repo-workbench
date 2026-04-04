@@ -31,7 +31,7 @@ from core.explain_analysis_foundation import (
     extract_symbol_facts,
 )
 from core.framework_profiles import load_framework_registry, select_framework_profile
-from core.graph_cache import load_framework_graph_references, load_repo_graph
+from core.graph_cache import load_framework_graph_references, load_repo_graph_with_warnings
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
 from core.mode_orchestrator import iter_bounded_cycles
 from core.output_contracts import build_contract, emit_contract_json
@@ -1188,8 +1188,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     ]
     evidence_facts = build_evidence_facts(repo_root, evidence)
     behavior_signals = build_behavior_signals(target, request)
-    repo_graph = load_repo_graph(repo_root, session)
+    repo_graph, repo_graph_warnings = load_repo_graph_with_warnings(repo_root, session)
     framework_graphs, framework_graph_warnings = load_framework_graph_references(repo_root, session)
+    uncertainties.extend(repo_graph_warnings[:3])
     if framework_graph_warnings and is_full(view):
         uncertainties.extend(framework_graph_warnings[:3])
     framework_roots: list[Path] = []
@@ -1377,6 +1378,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         },
         "graph_usage": {
             "repo_graph_loaded": repo_graph is not None,
+            "repo_graph_validation": "valid" if repo_graph is not None else ("invalid" if repo_graph_warnings else "missing"),
+            "repo_graph_warnings": repo_graph_warnings,
             "framework_graph_refs_loaded": sorted(framework_graphs.keys()),
         },
         "role_classification": {"role": role, "reason": rationale},

@@ -9,7 +9,7 @@ from core.analysis_primitives import index_allows_path, load_index_entry_map, lo
 from core.capability_model import CommandRequest, EffectClass, Profile
 from core.effects import ExecutionSession
 from core.framework_profiles import FrameworkProfile, load_framework_registry, select_framework_profile
-from core.graph_cache import load_framework_graph_references, load_repo_graph
+from core.graph_cache import load_framework_graph_references, load_repo_graph_with_warnings
 from core.llm_integration import (
     maybe_orchestrate_query_actions,
     maybe_plan_query_terms,
@@ -1786,9 +1786,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         elif framework_registry.exists:
             print("Framework profile: none selected")
 
-    repo_graph = load_repo_graph(repo_root, session)
+    repo_graph, repo_graph_warnings = load_repo_graph_with_warnings(repo_root, session)
     framework_graphs, framework_graph_warnings = load_framework_graph_references(repo_root, session)
     framework_warnings.extend(framework_graph_warnings)
+    framework_warnings.extend(repo_graph_warnings)
     if repo_graph is None:
         if request.profile in {Profile.STANDARD, Profile.DETAILED}:
             framework_warnings.append("graph cache missing (.forge/graph.json); continuing with lexical/index retrieval")
@@ -2512,6 +2513,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         },
         "graph_usage": {
             "repo_graph_loaded": repo_graph is not None,
+            "repo_graph_validation": "valid" if repo_graph is not None else ("invalid" if repo_graph_warnings else "missing"),
+            "repo_graph_warnings": repo_graph_warnings,
             "framework_graph_refs_loaded": sorted(framework_graphs.keys()),
         },
         "cross_lingual": {

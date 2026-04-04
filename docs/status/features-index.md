@@ -79,7 +79,7 @@ Status values:
 | 067 | Index-Aware Retrieval Scope Contract | 2026-04-04 | implemented | 2026-04-04 | [067-index-aware-retrieval-scope-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/067-index-aware-retrieval-scope-contract.md) |
 | 068 | Query Deterministic Symbol-First Resolution | 2026-04-04 | implemented | 2026-04-04 | [068-query-deterministic-symbol-first-resolution.md](/Users/tino/PhpstormProjects/forge/docs/features/068-query-deterministic-symbol-first-resolution.md) |
 | 069 | Index Contract and Observability Doctor | 2026-04-04 | defined | - | [069-index-contract-and-observability-doctor.md](/Users/tino/PhpstormProjects/forge/docs/features/069-index-contract-and-observability-doctor.md) |
-| 070 | Graph Schema Validation and Compatibility Contract | 2026-04-04 | defined | - | [070-graph-schema-validation-and-compatibility-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/070-graph-schema-validation-and-compatibility-contract.md) |
+| 070 | Graph Schema Validation and Compatibility Contract | 2026-04-04 | implemented | 2026-04-04 | [070-graph-schema-validation-and-compatibility-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/070-graph-schema-validation-and-compatibility-contract.md) |
 | 071 | Graph Health and Debug Surface | 2026-04-04 | defined | - | [071-graph-health-and-debug-surface.md](/Users/tino/PhpstormProjects/forge/docs/features/071-graph-health-and-debug-surface.md) |
 | 072 | Ask Web Access Policy and Settings Integration | 2026-04-04 | implemented | 2026-04-04 | [072-ask-web-access-policy-and-settings-integration.md](/Users/tino/PhpstormProjects/forge/docs/features/072-ask-web-access-policy-and-settings-integration.md) |
 | 073 | Ask Latest Freshness Policy | 2026-04-04 | implemented | 2026-04-04 | [073-ask-latest-freshness-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/073-ask-latest-freshness-policy.md) |
@@ -172,6 +172,7 @@ Status values:
 - 063: Added named repo-local session store with TTL, auto-create on runtime-consuming commands, session command group, revive flow, bounded context retention, and resolver source integration (`session:<name>`).
 - 067: Query now enforces index participation state in default content retrieval and exposes the effective retrieval scope in structured output.
 - 068: Query now runs deterministic symbol-first resolution for definition/location intents with explicit symbol-stage evidence and output metadata.
+- 070: Repo graph loading now enforces schema/version validation with explicit graph_usage validation state and warnings.
 - 072: Ask web presets now enforce runtime access.web gating with explicit policy-block metadata and regression coverage.
 - 073: ask:latest now applies distinct freshness-mode query strategy and exposes freshness signals in output contracts.
 - 074: Provenance helper is now source-aware; ask emits correct web/none evidence-source categories.
