@@ -420,6 +420,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Query content retrieval now uses boundary-aware token matching instead of naive substring checks, with regression coverage for identifier-location queries."
 
+[[feature]]
+id = "078"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Planner lead/support priority is now transparently transferred to deterministic retrieval order with observable effective terms and weights in query output."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -448,3 +455,10 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Replaced substring content matching in query retrieval with bounded token-aware matching to prevent false positives from short terms."
+
+[[issue]]
+id = "21"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Made planner priority transfer auditable and deterministic by exposing effective retrieval term order and weights, ensuring lead anchors stay first."

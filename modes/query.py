@@ -1641,6 +1641,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     if not is_json and is_full(view):
         print(f"Search terms: {', '.join(terms[:8])}" if terms else "Search terms: none")
     term_weights = build_term_weight_map(terms)
+    effective_weighted_terms = [
+        {"term": term, "weight": term_weights.get(term, 1)}
+        for term in terms
+    ]
     matches, source_meta_map, source_warnings = collect_matches(
         repo_root,
         terms,
@@ -2303,6 +2307,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "lead_terms": planner.lead_terms if planner is not None else [],
             "support_terms": planner.support_terms if planner is not None else [],
             "search_terms": planner.search_terms if planner is not None else [],
+            "effective_retrieval_terms": terms,
+            "effective_term_weights": effective_weighted_terms,
             "code_variants": planner.code_variants if planner is not None else [],
             "dropped_filler_terms": planner.dropped_filler_terms if planner is not None else [],
             "usage": (
@@ -2465,6 +2471,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             print(f"Entity types: {', '.join(planner.entity_types)}")
         if planner is not None and planner.search_terms:
             print(f"Planner terms: {', '.join(planner.search_terms[:8])}")
+        if terms:
+            print(f"Effective retrieval terms: {', '.join(terms[:8])}")
         if planner is not None and planner.lead_terms:
             print(f"Lead terms: {', '.join(planner.lead_terms[:8])}")
         if planner is not None and planner.support_terms:

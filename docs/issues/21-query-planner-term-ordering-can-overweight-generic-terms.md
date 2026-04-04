@@ -32,3 +32,21 @@ Observed example:
 ## Linked Features
 
 - [Feature 078 - Query Planner-to-Retrieval Priority Contract](/Users/tino/PhpstormProjects/forge/docs/features/078-query-planner-to-retrieval-priority-contract.md)
+
+## Implemented Behavior (Current)
+
+- Query now publishes effective retrieval order and weights in `sections.query_planner`.
+- Planner lead terms are deterministically transferred ahead of generic terms for retrieval weighting.
+- Locate-definition repros keep concrete identifier anchors ahead of generic terms like `where`.
+
+## How To Validate Quickly
+
+- `python3 forge.py --llm-provider mock --output-format json --view full query "Wo ist enrich_detailed_context definiert?"`
+- Check:
+  - lead term starts with `enrich_detailed_context`
+  - effective retrieval terms start with `enrich_detailed_context`
+  - effective weight of first term is not lower than following terms
+
+## Known Limits / Notes
+
+- This issue resolves transfer/weight ordering, not planner semantic correctness for every language/domain query.

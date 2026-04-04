@@ -37,3 +37,29 @@ Goals:
 - Effective retrieval order visibly places concrete anchor terms first for locate-definition queries.
 - Generic terms remain supportive and cannot outrank exact identifier signals.
 - Quality gates validate planner-to-retrieval mapping.
+
+## Implemented Behavior (Current)
+
+- Query now exposes planner-to-retrieval transfer explicitly via:
+  - `sections.query_planner.effective_retrieval_terms`
+  - `sections.query_planner.effective_term_weights`
+- Effective retrieval terms are composed in deterministic priority order:
+  - lead terms
+  - support terms
+  - planner search terms (deduplicated append)
+- Weighting remains position-based, but now auditable against planner priority output.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 forge.py --llm-provider mock --output-format json --view full query "Wo ist enrich_detailed_context definiert?"`
+- Verify:
+  - `sections.query_planner.lead_terms[0] == "enrich_detailed_context"`
+  - `sections.query_planner.effective_retrieval_terms[0] == "enrich_detailed_context"`
+  - first `effective_term_weights` item has the highest weight
+- Gate check:
+  - `PYTHONPATH=. python3 -c "import shutil,tempfile; from pathlib import Path; from scripts.run_quality_gates import FIXTURE_BASIC_SRC, gate_query_planner_priority_transfer; td=tempfile.TemporaryDirectory(prefix='forge-gate-'); repo=Path(td.name)/'repo'; shutil.copytree(FIXTURE_BASIC_SRC, repo); gate_query_planner_priority_transfer(repo); print('ok')"`
+
+## Known Limits / Notes
+
+- Planner quality still depends on model output quality; this feature guarantees deterministic priority transfer and observability, not perfect semantic term generation.

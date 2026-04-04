@@ -1704,6 +1704,55 @@ def gate_query_token_aware_matching(repo_root: Path) -> None:
         )
 
 
+def gate_query_planner_priority_transfer(repo_root: Path) -> None:
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "Wo",
+                "ist",
+                "enrich_detailed_context",
+                "definiert?",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    planner = payload.get("sections", {}).get("query_planner", {})
+    lead_terms = planner.get("lead_terms", []) if isinstance(planner, dict) else []
+    effective_terms = planner.get("effective_retrieval_terms", []) if isinstance(planner, dict) else []
+    weighted = planner.get("effective_term_weights", []) if isinstance(planner, dict) else []
+    assert_true(isinstance(lead_terms, list) and lead_terms, "planner priority: expected non-empty lead_terms")
+    assert_true(isinstance(effective_terms, list) and effective_terms, "planner priority: expected effective retrieval terms")
+    assert_true(
+        str(effective_terms[0]).lower() == str(lead_terms[0]).lower(),
+        "planner priority: expected lead term to be first effective retrieval term",
+    )
+    assert_true(
+        str(effective_terms[0]).lower() == "enrich_detailed_context",
+        "planner priority: expected concrete identifier anchor first",
+    )
+    where_pos = next((idx for idx, term in enumerate(effective_terms) if str(term).lower() == "where"), None)
+    if where_pos is not None:
+        assert_true(where_pos > 0, "planner priority: generic term 'where' must not be first")
+    assert_true(isinstance(weighted, list) and weighted, "planner priority: expected effective term weights")
+    first_weight = weighted[0].get("weight") if isinstance(weighted[0], dict) else None
+    assert_true(isinstance(first_weight, int) and first_weight >= 1, "planner priority: expected numeric anchor weight")
+    for item in weighted[1:]:
+        if not isinstance(item, dict):
+            continue
+        value = item.get("weight")
+        assert_true(isinstance(value, int), "planner priority: expected integer weights")
+        assert_true(first_weight >= value, "planner priority: lead term weight must not be lower than following terms")
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -3707,6 +3756,7 @@ def run_all_gates() -> None:
         gate_run_history_prune(temp_repo)
         gate_cross_lingual_query(temp_repo)
         gate_query_token_aware_matching(temp_repo)
+        gate_query_planner_priority_transfer(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)
