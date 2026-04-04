@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 081 / issue 24: explain-facet-regressionsabdeckung als qualitaetsmatrix erweitert (alias/flag-paritaet, facet-sections, direction/source-scope, negative konfliktfaelle)
 - feature 075 / issue 18: erweitert ask/web quality gates um routing-boundary-assertions und deterministische no-network/provider-fallback-pruefung, inkl. verifizierter policy/provenance/freshness-kontrakte
 - feature 076 / issue 17: removed stale ask compatibility flow from query mode, aligned `forge ask` help wording to dedicated ask capability routing, and added boundary regression gate coverage (`gate_ask_query_boundary_cleanup`)
 - feature 074 / issue 15: generalized provenance helper to source-aware evidence typing and updated ask to emit correct `evidence_source` (`web_search`, `web_retrieval`, `none`) with regression gate coverage

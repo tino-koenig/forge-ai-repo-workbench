@@ -490,6 +490,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Added explicit ask/web quality-gate matrix including policy block, freshness divergence, provenance, boundary routing, and deterministic no-network fallback."
 
+[[feature]]
+id = "081"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added explain facet quality-gate matrix with alias/flag parity, facet section contracts, direction/scope checks, and conflict negative tests."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -588,6 +595,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Retired stale ask compatibility remnants from query mode, aligned ask CLI wording, and enforced boundary checks via dedicated regression gate."
+
+[[issue]]
+id = "24"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added dedicated explain facet regression matrix gate covering alias/flag parity, direction/scope contracts, and conflict negatives."
 
 [[issue]]
 id = "6"

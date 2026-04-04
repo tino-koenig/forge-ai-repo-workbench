@@ -20,3 +20,22 @@ Add dedicated quality gates for explain facets and option combinations.
 
 - Explain facet matrix is covered by deterministic gates.
 - CI failure pinpoints facet contract regressions.
+
+## Implemented Behavior (Current)
+
+- Added `gate_explain_facet_quality_matrix` in `scripts/run_quality_gates.py`.
+- Gate coverage now includes:
+  - alias/flag parity for `settings`, `defaults`, `llm`, `outputs`, `symbols`,
+  - directional/scope contracts for `dependencies`, `resources`, `uses`,
+  - negative conflict handling (`explain:<facet>` plus conflicting `--focus`).
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Confirm:
+  - `gate_explain_facet_quality_matrix` passes.
+
+## Known Limits / Notes
+
+- This feature adds regression coverage only; behavior fixes for specific facet defects are tracked in subsequent explain issues/features.

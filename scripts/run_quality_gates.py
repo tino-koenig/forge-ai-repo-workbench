@@ -3785,6 +3785,176 @@ def gate_explain_structured_synthesis(repo_root: Path) -> None:
     )
 
 
+def gate_explain_facet_quality_matrix(repo_root: Path) -> None:
+    target = "core/llm_observability.py"
+    facet_aliases = {
+        "settings": "settings_influences",
+        "defaults": "default_values",
+        "llm": "llm_participation",
+        "outputs": "output_surfaces",
+        "symbols": "symbols",
+    }
+    for focus, section_name in facet_aliases.items():
+        alias_payload = parse_json_output(
+            run_cmd(
+                [
+                    "python3",
+                    str(FORGE),
+                    "--output-format",
+                    "json",
+                    "--llm-provider",
+                    "mock",
+                    "--repo-root",
+                    str(repo_root),
+                    f"explain:{focus}",
+                    target,
+                ],
+                cwd=ROOT,
+            ).stdout
+        )
+        flag_payload = parse_json_output(
+            run_cmd(
+                [
+                    "python3",
+                    str(FORGE),
+                    "--output-format",
+                    "json",
+                    "--llm-provider",
+                    "mock",
+                    "--repo-root",
+                    str(repo_root),
+                    "explain",
+                    "--focus",
+                    focus,
+                    target,
+                ],
+                cwd=ROOT,
+            ).stdout
+        )
+        alias_explain = alias_payload.get("sections", {}).get("explain", {})
+        flag_explain = flag_payload.get("sections", {}).get("explain", {})
+        assert_true(alias_payload.get("capability") == "explain", f"explain facet matrix ({focus}): expected capability=explain for alias")
+        assert_true(flag_payload.get("capability") == "explain", f"explain facet matrix ({focus}): expected capability=explain for flag")
+        assert_true(alias_explain.get("focus") == focus, f"explain facet matrix ({focus}): alias focus mismatch")
+        assert_true(flag_explain.get("focus") == focus, f"explain facet matrix ({focus}): flag focus mismatch")
+        alias_section = alias_payload.get("sections", {}).get(section_name)
+        flag_section = flag_payload.get("sections", {}).get(section_name)
+        assert_true(isinstance(alias_section, list), f"explain facet matrix ({focus}): missing alias section '{section_name}'")
+        assert_true(isinstance(flag_section, list), f"explain facet matrix ({focus}): missing flag section '{section_name}'")
+        assert_true(
+            len(alias_section) == len(flag_section),
+            f"explain facet matrix ({focus}): alias/flag section cardinality mismatch",
+        )
+
+    deps_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:dependencies",
+                "--direction",
+                "out",
+                "--source-scope",
+                "repo_only",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    deps_sections = deps_payload.get("sections", {})
+    deps_explain = deps_sections.get("explain", {}) if isinstance(deps_sections, dict) else {}
+    assert_true(deps_explain.get("focus") == "dependencies", "explain facet matrix (dependencies): expected focus=dependencies")
+    assert_true(deps_explain.get("direction") == "out", "explain facet matrix (dependencies): expected direction=out")
+    assert_true(deps_explain.get("source_scope") == "repo_only", "explain facet matrix (dependencies): expected source_scope=repo_only")
+    assert_true(
+        isinstance(deps_sections.get("dependency_edges_out"), list),
+        "explain facet matrix (dependencies): expected dependency_edges_out list",
+    )
+    assert_true(
+        isinstance(deps_sections.get("dependency_edges_in"), list),
+        "explain facet matrix (dependencies): expected dependency_edges_in list",
+    )
+
+    resources_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:resources",
+                "--source-scope",
+                "repo_only",
+                target,
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    assert_true(
+        isinstance(resources_payload.get("sections", {}).get("resource_edges"), list),
+        "explain facet matrix (resources): expected resource_edges list",
+    )
+
+    uses_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:uses",
+                "--direction",
+                "in",
+                "--source-scope",
+                "repo_only",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    assert_true(
+        isinstance(uses_payload.get("sections", {}).get("dependency_edges_in"), list),
+        "explain facet matrix (uses): expected dependency_edges_in list",
+    )
+
+    conflict = run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--output-format",
+            "json",
+            "--repo-root",
+            str(repo_root),
+            "explain:settings",
+            "--focus",
+            "defaults",
+            target,
+        ],
+        cwd=ROOT,
+        expect_ok=False,
+    )
+    assert_true(conflict.returncode != 0, "explain facet matrix: expected non-zero exit for alias/flag focus conflict")
+    merged_error = f"{conflict.stdout}\n{conflict.stderr}".lower()
+    assert_true(
+        "conflicting explain focus" in merged_error,
+        "explain facet matrix: expected explicit alias/flag conflict error",
+    )
+
+
 def gate_mode_capability_contract_query_read_only(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     payload = parse_json_output(
@@ -4368,6 +4538,7 @@ def run_all_gates() -> None:
         gate_llm_observability_redaction(temp_repo)
         gate_evidence_quality(temp_repo)
         gate_explain_structured_synthesis(temp_repo)
+        gate_explain_facet_quality_matrix(temp_repo)
         gate_mode_capability_contract_query_read_only(temp_repo)
         gate_query_action_orchestration(temp_repo)
         gate_adaptive_query_explain_feedback(temp_repo)
