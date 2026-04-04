@@ -14,12 +14,12 @@ required=(
 
 missing=0
 for page in "${required[@]}"; do
-  if [[ ! -f "docs/en/$page" ]]; then
-    echo "[docs-parity] missing EN page: docs/en/$page"
+  if [[ ! -f "docs/user/en/$page" ]]; then
+    echo "[docs-parity] missing EN page: docs/user/en/$page"
     missing=1
   fi
-  if [[ ! -f "docs/de/$page" ]]; then
-    echo "[docs-parity] missing DE page: docs/de/$page"
+  if [[ ! -f "docs/user/de/$page" ]]; then
+    echo "[docs-parity] missing DE page: docs/user/de/$page"
     missing=1
   fi
 done
