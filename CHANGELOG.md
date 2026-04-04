@@ -46,6 +46,7 @@ All notable changes to Forge should be documented in this file.
 - issue 58: quality-gates fixture setup now creates `.forge/` markers in all temporary copied repos, preventing early CLI aborts from repository-context discovery preconditions
 - issue 59: updated `gate_openai_compatible_provider` to assert current stage-level query LLM contract fields (`query_planner.usage` / `action_orchestration.usage`) instead of legacy top-level provider/refined-summary assumptions
 - issue 60: updated `gate_config_precedence` to assert stage-level query contract model/provider fields (`query_planner.usage`, `action_orchestration.usage`) so CLI-overrides-env/TOML checks remain stable after llm_usage contract changes
+- issue 61: updated `gate_env_file_autoload` to assert planner-stage provider/usage (`query_planner.usage`) instead of legacy top-level `llm_usage.provider`, preserving `.env` key-autoload coverage under the current query contract
 - feature 069 / issue 10: `forge index` now persists graph-build failure warnings to `.forge/index.json` (`graph.warning`) so artifact metadata matches console graph-status output
 - feature 071 / issue 13: framework graph refs now enforce schema/version validation on load, exclude invalid refs from active usage, and expose per-ref validation warnings in query/explain `graph_usage`
 - feature 070 / issue 12: repo graph load now validates schema/version compatibility, rejects invalid payloads deterministically, and exposes graph validation state/warnings in query/explain graph_usage

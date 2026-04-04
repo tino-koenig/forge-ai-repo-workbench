@@ -1435,8 +1435,16 @@ def gate_env_file_autoload(repo_root: Path) -> None:
         ).stdout
     )
     usage = payload.get("sections", {}).get("llm_usage", {})
-    assert_true(usage.get("provider") == "openai_compatible", ".env autoload should preserve provider from config")
     assert_true(usage.get("used") is True, ".env autoload should provide missing API key")
+    planner_usage = payload.get("sections", {}).get("query_planner", {}).get("usage", {})
+    assert_true(
+        planner_usage.get("provider") == "openai_compatible",
+        ".env autoload should preserve provider from config in planner stage",
+    )
+    assert_true(
+        planner_usage.get("used") is True,
+        ".env autoload should allow planner usage with API key loaded from .env",
+    )
 
 
 def gate_prompt_profile_policy(repo_root: Path) -> None:
