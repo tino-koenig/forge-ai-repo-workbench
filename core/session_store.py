@@ -195,6 +195,20 @@ def _expires_at(now: datetime, ttl_minutes: int) -> str:
     return _to_iso(now + timedelta(minutes=ttl_minutes))
 
 
+def _refresh_activity(session: SessionRecord, now: datetime | None = None) -> SessionRecord:
+    current = now or _utc_now()
+    return SessionRecord(
+        name=session.name,
+        created_at=session.created_at,
+        last_activity_at=_to_iso(current),
+        expires_at=_expires_at(current, session.ttl_minutes),
+        ttl_minutes=session.ttl_minutes,
+        runtime_settings=session.runtime_settings,
+        context=session.context,
+        meta=session.meta,
+    )
+
+
 def _load_session(repo_root: Path, name: str) -> SessionRecord | None:
     payload = _load_json(_session_path(repo_root, name))
     if payload is None:
@@ -354,22 +368,12 @@ def use_session(repo_root: Path, name: str, *, revive: bool = False) -> tuple[Se
     if expired and not revive:
         raise ValueError(f"session '{safe}' is expired; use --revive to reactivate")
     revived = False
-    if expired and revive:
-        refreshed = SessionRecord(
-            name=loaded.name,
-            created_at=loaded.created_at,
-            last_activity_at=_to_iso(now),
-            expires_at=_expires_at(now, loaded.ttl_minutes),
-            ttl_minutes=loaded.ttl_minutes,
-            runtime_settings=loaded.runtime_settings,
-            context=loaded.context,
-            meta=loaded.meta,
-        )
-        _save_session(repo_root, refreshed)
-        loaded = refreshed
+    if expired:
         revived = True
-    _register_session(repo_root, loaded, activate=True)
-    return loaded, revived
+    refreshed = _refresh_activity(loaded, now)
+    _save_session(repo_root, refreshed)
+    _register_session(repo_root, refreshed, activate=True)
+    return refreshed, revived
 
 
 def show_session(repo_root: Path, name: str | None = None) -> dict[str, object] | None:
@@ -400,15 +404,16 @@ def clear_session_context(repo_root: Path, name: str | None = None) -> SessionRe
     loaded = _load_session(repo_root, safe)
     if loaded is None:
         raise ValueError(f"session '{safe}' not found")
+    refreshed = _refresh_activity(loaded)
     updated = SessionRecord(
-        name=loaded.name,
-        created_at=loaded.created_at,
-        last_activity_at=loaded.last_activity_at,
-        expires_at=loaded.expires_at,
-        ttl_minutes=loaded.ttl_minutes,
-        runtime_settings=loaded.runtime_settings,
+        name=refreshed.name,
+        created_at=refreshed.created_at,
+        last_activity_at=refreshed.last_activity_at,
+        expires_at=refreshed.expires_at,
+        ttl_minutes=refreshed.ttl_minutes,
+        runtime_settings=refreshed.runtime_settings,
         context=_default_context(),
-        meta=loaded.meta,
+        meta=refreshed.meta,
     )
     _save_session(repo_root, updated)
     _register_session(repo_root, updated, activate=False)
@@ -443,15 +448,16 @@ def update_session_runtime_settings(repo_root: Path, name: str, values: dict[str
     loaded = _load_session(repo_root, safe)
     if loaded is None:
         raise ValueError(f"session '{safe}' not found")
+    refreshed = _refresh_activity(loaded)
     updated = SessionRecord(
-        name=loaded.name,
-        created_at=loaded.created_at,
-        last_activity_at=loaded.last_activity_at,
-        expires_at=loaded.expires_at,
-        ttl_minutes=loaded.ttl_minutes,
+        name=refreshed.name,
+        created_at=refreshed.created_at,
+        last_activity_at=refreshed.last_activity_at,
+        expires_at=refreshed.expires_at,
+        ttl_minutes=refreshed.ttl_minutes,
         runtime_settings={str(k): v for k, v in values.items() if isinstance(k, str)},
-        context=loaded.context,
-        meta=loaded.meta,
+        context=refreshed.context,
+        meta=refreshed.meta,
     )
     _save_session(repo_root, updated)
     _register_session(repo_root, updated, activate=False)

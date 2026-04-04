@@ -885,8 +885,37 @@ def gate_named_session_context_and_ttl(repo_root: Path) -> None:
         ).stdout
     )
     assert_true(use_payload.get("sections", {}).get("session", {}).get("name") == "work", "session gate: expected use work")
-
     work_path = sessions_root / "work.json"
+    work_initial = parse_json_output(work_path.read_text(encoding="utf-8"))
+    initial_last = str(work_initial.get("last_activity_at", ""))
+    initial_expires = str(work_initial.get("expires_at", ""))
+
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--output-format",
+            "json",
+            "--repo-root",
+            str(repo_root),
+            "set",
+            "--scope",
+            "session",
+            "output.view",
+            "full",
+        ],
+        cwd=ROOT,
+    )
+    after_set = parse_json_output(work_path.read_text(encoding="utf-8"))
+    assert_true(
+        str(after_set.get("last_activity_at", "")) > initial_last,
+        "session gate: session-scoped set should refresh last_activity_at",
+    )
+    assert_true(
+        str(after_set.get("expires_at", "")) > initial_expires,
+        "session gate: session-scoped set should refresh expires_at",
+    )
+
     work_payload = parse_json_output(work_path.read_text(encoding="utf-8"))
     work_payload["last_activity_at"] = "2000-01-01T00:00:00+00:00"
     work_payload["expires_at"] = "2000-01-01T00:10:00+00:00"
@@ -929,6 +958,9 @@ def gate_named_session_context_and_ttl(repo_root: Path) -> None:
         ).stdout
     )
     assert_true(revived.get("sections", {}).get("revived") is True, "session gate: expected revive=true")
+    revived_payload = parse_json_output(work_path.read_text(encoding="utf-8"))
+    revived_last = str(revived_payload.get("last_activity_at", ""))
+    revived_expires = str(revived_payload.get("expires_at", ""))
 
     run_cmd(
         [
@@ -948,6 +980,14 @@ def gate_named_session_context_and_ttl(repo_root: Path) -> None:
     context = cleared.get("context", {})
     assert_true(isinstance(context, dict), "session gate: context should remain object")
     assert_true(context.get("recent_capabilities") == [], "session gate: clear-context should empty recent_capabilities")
+    assert_true(
+        str(cleared.get("last_activity_at", "")) > revived_last,
+        "session gate: clear-context should refresh last_activity_at",
+    )
+    assert_true(
+        str(cleared.get("expires_at", "")) > revived_expires,
+        "session gate: clear-context should refresh expires_at",
+    )
 
     run_cmd(
         [

@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 100 / issue 41: session-touch operationen (`session use`, `set --scope session`, `session clear-context`) aktualisieren nun konsistent `last_activity_at` und `expires_at`
 - feature 102 / issue 43: `doctor` und `config validate` erzeugen keine session-artefakte mehr; read-only-vertrag fuer `.forge/sessions` ist per gate abgesichert
 - feature 113 / issue 50: init invalid-target failures erzeugen keine verzeichnisse oder `.forge`-artefakte mehr; no-write-vertrag ist per gate abgesichert
 - feature 112 / issue 49: init non-mutating and precondition-failure paths (`--list-templates`, `--dry-run`, non-tty interactive) no longer persist run history or create `.forge` marker side effects
