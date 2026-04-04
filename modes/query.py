@@ -526,6 +526,25 @@ def _structural_tokens(raw: str) -> list[str]:
     return out
 
 
+_IDENT_CHAR_CLASS = r"A-Za-z0-9_"
+_WORD_CHAR_CLASS = r"A-Za-z0-9"
+
+
+def _compile_bounded_term_pattern(term: str) -> re.Pattern[str]:
+    escaped = re.escape(term)
+    # Identifier-like terms should not match inside larger identifiers.
+    if re.fullmatch(r"[a-z0-9_]+", term):
+        return re.compile(rf"(?<![{_IDENT_CHAR_CLASS}]){escaped}(?![{_IDENT_CHAR_CLASS}])")
+    return re.compile(rf"(?<![{_WORD_CHAR_CLASS}]){escaped}(?![{_WORD_CHAR_CLASS}])")
+
+
+def _line_matches_term(line_lower: str, term: str) -> bool:
+    normalized = " ".join(term.strip().split()).lower()
+    if not normalized:
+        return False
+    return bool(_compile_bounded_term_pattern(normalized).search(line_lower))
+
+
 def _path_term_score(rel_lower: str, term: str) -> tuple[int, list[str]]:
     normalized = " ".join(term.strip().lower().split())
     if not normalized:
@@ -675,7 +694,7 @@ def _collect_framework_local_matches(
             evidences: list[Evidence] = []
             for idx, line in enumerate(lines, start=1):
                 haystack = line.lower()
-                matches_in_line = [term for term in terms if term in haystack]
+                matches_in_line = [term for term in terms if _line_matches_term(haystack, term)]
                 if not matches_in_line:
                     continue
                 matched_term = max(matches_in_line, key=lambda item: (term_weights.get(item, 1), len(item)))
@@ -826,7 +845,7 @@ def collect_matches(
         evidences: list[Evidence] = []
         for idx, line in enumerate(lines, start=1):
             haystack = line.lower()
-            matches_in_line = [term for term in terms if term in haystack]
+            matches_in_line = [term for term in terms if _line_matches_term(haystack, term)]
             if not matches_in_line:
                 continue
             matched_term = max(matches_in_line, key=lambda item: (weight_map.get(item, 1), len(item)))

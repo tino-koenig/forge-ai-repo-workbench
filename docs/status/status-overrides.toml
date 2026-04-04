@@ -413,6 +413,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence."
 
+[[feature]]
+id = "077"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query content retrieval now uses boundary-aware token matching instead of naive substring checks, with regression coverage for identifier-location queries."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -434,3 +441,10 @@ status = "implemented"
 defined_on = "2026-04-03"
 implemented_on = "2026-04-03"
 notes = "Fixed forge console entrypoint import failure caused by stdlib cmd name collision by renaming internal package to forge_cmd."
+
+[[issue]]
+id = "20"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Replaced substring content matching in query retrieval with bounded token-aware matching to prevent false positives from short terms."

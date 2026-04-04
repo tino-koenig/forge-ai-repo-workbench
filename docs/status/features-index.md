@@ -86,7 +86,7 @@ Status values:
 | 074 | Source-Aware Provenance Contract | 2026-04-04 | defined | - | [074-source-aware-provenance-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/074-source-aware-provenance-contract.md) |
 | 075 | Ask and Web Quality Gates | 2026-04-04 | defined | - | [075-ask-and-web-quality-gates.md](/Users/tino/PhpstormProjects/forge/docs/features/075-ask-and-web-quality-gates.md) |
 | 076 | Ask/Query Boundary Cleanup | 2026-04-04 | defined | - | [076-ask-query-boundary-cleanup.md](/Users/tino/PhpstormProjects/forge/docs/features/076-ask-query-boundary-cleanup.md) |
-| 077 | Query Token-Aware Matching and Exact-Term Retrieval Contract | 2026-04-04 | defined | - | [077-query-token-aware-matching-and-exact-term-retrieval-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/077-query-token-aware-matching-and-exact-term-retrieval-contract.md) |
+| 077 | Query Token-Aware Matching and Exact-Term Retrieval Contract | 2026-04-04 | implemented | 2026-04-04 | [077-query-token-aware-matching-and-exact-term-retrieval-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/077-query-token-aware-matching-and-exact-term-retrieval-contract.md) |
 | 078 | Query Planner-to-Retrieval Priority Contract | 2026-04-04 | defined | - | [078-query-planner-to-retrieval-priority-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/078-query-planner-to-retrieval-priority-contract.md) |
 | 079 | Central Orchestration Foundation for Modes | 2026-04-04 | defined | - | [079-central-orchestration-foundation-for-modes.md](/Users/tino/PhpstormProjects/forge/docs/features/079-central-orchestration-foundation-for-modes.md) |
 | 080 | Query Orchestration Policy Settings and Source-Traceable Resolution | 2026-04-04 | defined | - | [080-query-orchestration-policy-settings-and-source-traceable-resolution.md](/Users/tino/PhpstormProjects/forge/docs/features/080-query-orchestration-policy-settings-and-source-traceable-resolution.md) |
@@ -170,6 +170,7 @@ Status values:
 - 061: Added top-level `forge set/get` commands with alias normalization, canonical runtime key support, session/repo/user scope reads+writes, and resolved source tracing (`--source`, including `session:<name>`).
 - 062: Added runtime settings foundation with canonical registry, deterministic resolver (cli/session/repo/user/toml/default precedence), source tracing, and bootstrap/config wiring.
 - 063: Added named repo-local session store with TTL, auto-create on runtime-consuming commands, session command group, revive flow, bounded context retention, and resolver source integration (`session:<name>`).
+- 077: Query content retrieval now uses boundary-aware token matching instead of naive substring checks, with regression coverage for identifier-location queries.
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.
 - 115: Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence.
 - 116: Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate.

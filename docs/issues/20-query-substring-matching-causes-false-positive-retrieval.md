@@ -33,3 +33,20 @@ Observed example:
 ## Linked Features
 
 - [Feature 077 - Query Token-Aware Matching and Exact-Term Retrieval Contract](/Users/tino/PhpstormProjects/forge/docs/features/077-query-token-aware-matching-and-exact-term-retrieval-contract.md)
+
+## Implemented Behavior (Current)
+
+- Query content matching no longer uses naive substring checks for retrieval.
+- Boundary-aware term matching is applied in repository and framework-local file scans.
+- The `Wo ist enrich_detailed_context definiert?` repro now resolves to `modes/query.py` as top result under mock planner.
+
+## How To Validate Quickly
+
+- `python3 forge.py --llm-provider mock --output-format json --view full query "Wo ist enrich_detailed_context definiert?"`
+- Check that:
+  - top likely location is `modes/query.py`
+  - no `content_match` evidence for term `ist` is caused by words like `exists`/`list`/`dist`
+
+## Known Limits / Notes
+
+- Non-content channels (for example graph text matching) still have independent matching behavior and are not part of this issue scope.

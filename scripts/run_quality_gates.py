@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1643,6 +1644,64 @@ def gate_cross_lingual_query(repo_root: Path) -> None:
         "src/service.py" in likely_paths[:5],
         "cross-lingual: expected src/service.py in top likely locations for german query",
     )
+
+
+def gate_query_token_aware_matching(repo_root: Path) -> None:
+    src_dir = repo_root / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "enricher.py").write_text(
+        (
+            "def enrich_detailed_context(value: str) -> str:\n"
+            "    return value.strip()\n"
+        ),
+        encoding="utf-8",
+    )
+    (src_dir / "noise_tokens.py").write_text(
+        (
+            "def exists_in_list(values: list[str], candidate: str) -> bool:\n"
+            "    return candidate in values\n"
+        ),
+        encoding="utf-8",
+    )
+    run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "index"], cwd=ROOT)
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "Wo",
+                "ist",
+                "enrich_detailed_context",
+                "definiert?",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    likely = payload.get("sections", {}).get("likely_locations", [])
+    assert_true(isinstance(likely, list) and likely, "token-aware query: expected likely_locations")
+    top_path = likely[0].get("path") if isinstance(likely[0], dict) else None
+    assert_true(top_path == "src/enricher.py", "token-aware query: expected exact symbol file as top hit")
+    evidence = payload.get("evidence", [])
+    assert_true(isinstance(evidence, list), "token-aware query: expected evidence list")
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("term", "")).lower() != "ist":
+            continue
+        if str(item.get("retrieval_source", "")) != "content_match":
+            continue
+        text = str(item.get("text", "")).lower()
+        assert_true(
+            bool(re.search(r"\bist\b", text)),
+            "token-aware query: term 'ist' must not match inside identifiers like exists/list/dist",
+        )
 
 
 def gate_query_planner_success(repo_root: Path) -> None:
@@ -3647,6 +3706,7 @@ def run_all_gates() -> None:
         gate_run_history_and_views(temp_repo)
         gate_run_history_prune(temp_repo)
         gate_cross_lingual_query(temp_repo)
+        gate_query_token_aware_matching(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)

@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 077 / issue 20: query content retrieval (repo + framework-local) now uses boundary-aware token matching instead of naive substring checks, preventing false-positive hits like `ist` in `exists`/`list` and adding a dedicated regression gate
 - feature 115 / issue 52: init-qualitaetsgates als matrix erweitert (overwrite-block/force, template-output-contract je template, source-policy-persistenz) und damit sicherheits-/drift-absicherung im standard-gate-pipeline verankert
 - feature 117 / issue 54: init onboarded source-policy defaults (`--source-scope`, `--framework-allowlist`) in interaktivem und non-interaktivem flow; generierte `config.toml`/`template-meta.toml` enthalten nun auditable source-policy-settings
 - feature 116 / issue 53: init-template- und option-domains wurden in eine zentrale foundation (`core/init_foundation.py`) ueberfuehrt; CLI-choices und init-mode nutzen nun dieselbe registry inkl. drift-gate
