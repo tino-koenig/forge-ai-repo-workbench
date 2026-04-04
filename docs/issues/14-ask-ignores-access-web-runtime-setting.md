@@ -26,3 +26,24 @@ This breaks expected runtime access control semantics.
 ## Linked Features
 
 - [072-ask-web-access-policy-and-settings-integration.md](/Users/tino/PhpstormProjects/forge/docs/features/072-ask-web-access-policy-and-settings-integration.md)
+
+## Implemented Behavior (Current)
+
+- Ask web presets now enforce runtime `access.web` before invoking web foundations.
+- With `access.web=false`, `ask:docs` and `ask:latest` skip both web search and web retrieval deterministically.
+- Ask output now exposes explicit policy metadata under `sections.ask.access_policy` including source and blocked reason.
+
+## How To Validate Quickly
+
+- Blocked path:
+  - set `.forge/runtime.toml` to `"access.web" = false`
+  - run `python3 forge.py --output-format json --llm-provider mock ask:docs "latest typo3 news"`
+  - verify `sections.ask.access_policy.web_policy_blocked == true`
+  - verify `sections.ask.search.used == false` and `sections.ask.retrieval.used == false`
+- Allowed path:
+  - set `.forge/runtime.toml` to `"access.web" = true`
+  - rerun command and verify `sections.ask.access_policy.web_policy_blocked == false`
+
+## Known Limits / Notes
+
+- This issue covers access gating and reporting; budget tuning and freshness semantics are handled in subsequent features/issues.

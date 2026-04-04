@@ -12,6 +12,23 @@ from core.web_retrieval_foundation import build_web_retrieval_policy, run_web_re
 from core.web_search_foundation import build_web_search_policy, run_web_search
 
 
+def _resolve_runtime_bool(args, key: str, default: bool) -> tuple[bool, str]:
+    values = getattr(args, "runtime_settings_values", {})
+    sources = getattr(args, "runtime_settings_sources", {})
+    raw = values.get(key) if isinstance(values, dict) else None
+    source = str(sources.get(key) or "default") if isinstance(sources, dict) else "default"
+    if raw is None:
+        return default, "default"
+    if isinstance(raw, bool):
+        return raw, source
+    lowered = str(raw).strip().lower()
+    if lowered in {"1", "true", "yes", "on"}:
+        return True, source
+    if lowered in {"0", "false", "no", "off"}:
+        return False, source
+    return default, "default"
+
+
 def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     _ = session
     is_json = args.output_format == "json"
@@ -35,26 +52,33 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     retrieval_outcome = None
     retrieval_policy = None
     retrieval_warnings: list[str] = []
+    access_web_enabled, access_web_source = _resolve_runtime_bool(args, "access.web", False)
+    web_policy_blocked_reason = None
     if ask_preset in {"docs", "latest"}:
-        search_policy, policy_warnings = build_web_search_policy(framework_profile=framework_profile)
-        search_warnings.extend(policy_warnings)
-        search_outcome = run_web_search(
-            question=question,
-            policy=search_policy,
-            session=session,
-            repo_root=repo_root,
-        )
-        search_warnings.extend(search_outcome.warnings)
-        retrieval_policy = build_web_retrieval_policy()
-        retrieval_outcome = run_web_retrieval(
-            question=question,
-            candidates=search_outcome.candidates,
-            allowed_hosts=list(search_policy.allowed_hosts),
-            policy=retrieval_policy,
-            session=session,
-            repo_root=repo_root,
-        )
-        retrieval_warnings.extend(retrieval_outcome.warnings)
+        if not access_web_enabled:
+            web_policy_blocked_reason = "web access denied by runtime policy (access.web=false)"
+            search_warnings.append(web_policy_blocked_reason)
+            retrieval_warnings.append(web_policy_blocked_reason)
+        else:
+            search_policy, policy_warnings = build_web_search_policy(framework_profile=framework_profile)
+            search_warnings.extend(policy_warnings)
+            search_outcome = run_web_search(
+                question=question,
+                policy=search_policy,
+                session=session,
+                repo_root=repo_root,
+            )
+            search_warnings.extend(search_outcome.warnings)
+            retrieval_policy = build_web_retrieval_policy()
+            retrieval_outcome = run_web_retrieval(
+                question=question,
+                candidates=search_outcome.candidates,
+                allowed_hosts=list(search_policy.allowed_hosts),
+                policy=retrieval_policy,
+                session=session,
+                repo_root=repo_root,
+            )
+            retrieval_warnings.extend(retrieval_outcome.warnings)
 
     deterministic_summary = "No LLM answer available for this free ask question."
     if retrieval_outcome is not None and retrieval_outcome.used and retrieval_outcome.sources:
@@ -146,6 +170,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "framework_profile_requested": requested_framework_profile,
             "framework_profile_resolved": framework_profile_id,
             "mode": "docs_web_search" if ask_preset in {"docs", "latest"} else "free_llm_question",
+            "access_policy": {
+                "access_web_enabled": access_web_enabled,
+                "access_web_source": access_web_source,
+                "web_policy_blocked": bool(web_policy_blocked_reason),
+                "blocked_reason": web_policy_blocked_reason,
+            },
             "search": (
                 {
                     "used": bool(search_outcome.used) if search_outcome is not None else False,
@@ -266,6 +296,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     print(f"- {item.url}")
             if retrieval_outcome.fallback_reason:
                 print(f"Web retrieval fallback: {retrieval_outcome.fallback_reason}")
+        if ask_preset in {"docs", "latest"}:
+            print(f"Web access enabled: {access_web_enabled} ({access_web_source})")
+            if web_policy_blocked_reason:
+                print(f"Web policy blocked: {web_policy_blocked_reason}")
         print("\n--- LLM Usage ---")
         print(f"Policy: {llm_outcome.usage.get('policy')}")
         print(f"Mode: {llm_outcome.usage.get('mode')}")

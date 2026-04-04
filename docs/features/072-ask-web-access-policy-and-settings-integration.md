@@ -38,3 +38,26 @@ Support controlled settings for web stages (runtime/toml), for example:
 
 - [14-ask-ignores-access-web-runtime-setting.md](/Users/tino/PhpstormProjects/forge/docs/issues/14-ask-ignores-access-web-runtime-setting.md)
 - [17-web-search-policy-entrypoints-are-not-used-in-query-planning.md](/Users/tino/PhpstormProjects/forge/docs/issues/17-web-search-policy-entrypoints-are-not-used-in-query-planning.md)
+
+## Implemented Behavior (Current)
+
+- Ask now enforces runtime `access.web` for web presets (`ask:docs`, `ask:latest`) before any web foundation call.
+- Policy-blocked web execution is deterministic and surfaced in contract metadata:
+  - `sections.ask.access_policy.access_web_enabled`
+  - `sections.ask.access_policy.access_web_source`
+  - `sections.ask.access_policy.web_policy_blocked`
+  - `sections.ask.access_policy.blocked_reason`
+
+## How To Use
+
+- Deny web access:
+  - set `.forge/runtime.toml` to `"access.web" = false`
+  - run `forge ask:docs "..."` or `forge ask:latest "..."`
+  - web search/retrieval are skipped and marked policy-blocked
+- Allow web access:
+  - set `.forge/runtime.toml` to `"access.web" = true`
+  - run ask web presets and confirm policy block is not active
+
+## Known Limits / Notes
+
+- Budget settings and entrypoint planning are covered by subsequent issue/feature steps.

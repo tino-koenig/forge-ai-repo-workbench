@@ -455,6 +455,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Query orchestration progress/cost policy is now runtime-resolved with source-traceable output and dedicated override/default regression coverage."
 
+[[feature]]
+id = "072"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Ask web presets now enforce runtime access.web gating with explicit policy-block metadata and regression coverage."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -511,6 +518,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Moved query orchestration progress and handler-cost coefficients to runtime settings with explicit source tracing."
+
+[[issue]]
+id = "14"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Ask docs/latest now honor access.web and report deterministic policy-block metadata when denied."
 
 [[issue]]
 id = "6"

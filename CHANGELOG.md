@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 072 / issue 14: ask web presets (`ask:docs`, `ask:latest`) now enforce runtime `access.web` before web foundations, expose explicit policy-block metadata in `sections.ask.access_policy`, and are covered by a dedicated gate
 - issue 6: query top-level `llm_usage` and `provenance.inference_source` now consistently aggregate stage-level planner/orchestrator/summary participation; added `llm_usage.stage_usage` and regression gate coverage
 - feature 080 / issue 23: query orchestration progress and handler-cost coefficients moved from hardcoded literals to runtime settings, with source-traceable `progress_policy`/`handler_policy` output and override/default regression gate coverage
 - feature 079 / issue 22: extracted bounded orchestration cycle control into central `core/mode_orchestrator.py` and reused it in both query and explain while keeping query action-orchestration output contract stable
