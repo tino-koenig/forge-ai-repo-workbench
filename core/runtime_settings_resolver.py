@@ -18,6 +18,10 @@ from core.runtime_settings_registry import (
 )
 from core.session_store import ensure_active_session, get_active_session, update_session_runtime_settings
 
+SESSION_DEFAULT_TTL_KEY = "session.default_ttl_minutes"
+MIN_SESSION_TTL_MINUTES = 1
+MAX_SESSION_TTL_MINUTES = 24 * 60
+
 
 @dataclass(frozen=True)
 class RuntimeSettingsResolution:
@@ -139,6 +143,14 @@ def _baseline_from_repo_config(repo_root: Path) -> dict[str, object]:
     llm_model = pick("llm.openai_compatible.model")
     if isinstance(llm_model, str) and llm_model.strip():
         baseline["llm.model"] = llm_model.strip()
+    session_ttl = pick("session.default_ttl_minutes")
+    if isinstance(session_ttl, int):
+        baseline[SESSION_DEFAULT_TTL_KEY] = session_ttl
+    elif isinstance(session_ttl, str):
+        try:
+            baseline[SESSION_DEFAULT_TTL_KEY] = int(session_ttl.strip())
+        except ValueError:
+            pass
     return baseline
 
 
@@ -218,6 +230,15 @@ def resolve_runtime_settings(
             continue
         warnings.append(f"cli: unknown runtime key '{key}'")
 
+    ttl_raw = values.get(SESSION_DEFAULT_TTL_KEY)
+    if not isinstance(ttl_raw, int) or ttl_raw < MIN_SESSION_TTL_MINUTES or ttl_raw > MAX_SESSION_TTL_MINUTES:
+        original_source = sources.get(SESSION_DEFAULT_TTL_KEY, "default")
+        warnings.append(
+            f"runtime: {SESSION_DEFAULT_TTL_KEY} from {original_source} is invalid; using default 60"
+        )
+        values[SESSION_DEFAULT_TTL_KEY] = 60
+        sources[SESSION_DEFAULT_TTL_KEY] = "default"
+
     return RuntimeSettingsResolution(
         values=values,
         sources=sources,
@@ -276,7 +297,8 @@ def load_runtime_scope(scope: str, repo_root: Path) -> tuple[dict[str, object], 
 
 def save_runtime_scope(scope: str, values: dict[str, object], repo_root: Path) -> tuple[bool, str]:
     if scope == "session":
-        active, _auto_created, _warnings = ensure_active_session(repo_root)
+        ttl_minutes, _ttl_source, _ttl_warnings = resolve_session_default_ttl_minutes(repo_root)
+        active, _auto_created, _warnings = ensure_active_session(repo_root, default_ttl_minutes=ttl_minutes)
         update_session_runtime_settings(repo_root, active.name, values)
         return True, f"session:{active.name}"
 
@@ -286,3 +308,12 @@ def save_runtime_scope(scope: str, values: dict[str, object], repo_root: Path) -
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_render_scope_toml(values), encoding="utf-8")
     return True, str(path)
+
+
+def resolve_session_default_ttl_minutes(repo_root: Path, args=None) -> tuple[int, str, list[str]]:
+    resolution = resolve_runtime_settings(repo_root=repo_root, args=args, explicit_cli_values={})
+    value = resolution.values.get(SESSION_DEFAULT_TTL_KEY)
+    source = resolution.sources.get(SESSION_DEFAULT_TTL_KEY, "default")
+    if isinstance(value, int) and MIN_SESSION_TTL_MINUTES <= value <= MAX_SESSION_TTL_MINUTES:
+        return value, source, resolution.warnings
+    return 60, "default", resolution.warnings

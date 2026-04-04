@@ -73,6 +73,14 @@ RUNTIME_SETTINGS_REGISTRY: dict[str, RuntimeSettingSpec] = {
         scope_support=frozenset({"session", "repo", "user"}),
         description="Allow write-capable workflows where contracts permit it.",
     ),
+    "session.default_ttl_minutes": RuntimeSettingSpec(
+        key="session.default_ttl_minutes",
+        value_type="int",
+        allowed_values=None,
+        default=60,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Default TTL for auto-created sessions in minutes.",
+    ),
 }
 
 
@@ -146,6 +154,9 @@ def expand_runtime_alias(
         "access web": "access.web",
         "access.write": "access.write",
         "access write": "access.write",
+        "session default ttl": "session.default_ttl_minutes",
+        "session.default.ttl.minutes": "session.default_ttl_minutes",
+        "session.default_ttl_minutes": "session.default_ttl_minutes",
     }
 
     if key_norm == "output":

@@ -17,6 +17,7 @@ FAMILY_MAP = {
     "llm": ["llm.mode", "llm.model"],
     "execution": ["execution.profile"],
     "access": ["access.web", "access.write"],
+    "session": ["session.default_ttl_minutes"],
 }
 KEY_ALIASES = {
     "llm mode": "llm.mode",
@@ -28,6 +29,9 @@ KEY_ALIASES = {
     "access write": "access.write",
     "output format": "output.format",
     "output view": "output.view",
+    "session default ttl": "session.default_ttl_minutes",
+    "session.default.ttl.minutes": "session.default_ttl_minutes",
+    "session.default_ttl_minutes": "session.default_ttl_minutes",
 }
 
 
@@ -135,6 +139,10 @@ def _apply_scope_support(scope: str, values: dict[str, object]) -> str | None:
             return f"unknown runtime key '{key}'"
         if scope not in spec.scope_support:
             return f"key '{key}' is not supported in scope '{scope}'"
+        if key == "session.default_ttl_minutes":
+            value = values.get(key)
+            if not isinstance(value, int) or value < 1 or value > 24 * 60:
+                return "session.default_ttl_minutes must be within [1, 1440]"
     return None
 
 

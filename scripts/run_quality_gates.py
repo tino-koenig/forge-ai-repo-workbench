@@ -408,6 +408,8 @@ def gate_runtime_settings_foundation(repo_root: Path) -> None:
             'model = "model-from-toml"\n'
             'api_key_env = "FORGE_LLM_API_KEY"\n'
             "timeout_s = 2\n"
+            "[session]\n"
+            "default_ttl_minutes = 45\n"
         ),
         encoding="utf-8",
     )
@@ -421,6 +423,8 @@ def gate_runtime_settings_foundation(repo_root: Path) -> None:
             "[access]\n"
             'web = "on"\n'
             'write = "off"\n'
+            "[session]\n"
+            "default_ttl_minutes = 25\n"
             "[unknown]\n"
             'key = "value"\n'
         ),
@@ -478,6 +482,11 @@ def gate_runtime_settings_foundation(repo_root: Path) -> None:
         assert_true(sources.get("llm.model") == "repo", "runtime foundation: llm.model source should be repo")
         assert_true(values.get("execution.profile") == "intensive", "runtime foundation: execution profile expected")
         assert_true(sources.get("execution.profile") == "repo", "runtime foundation: execution profile source expected")
+        assert_true(values.get("session.default_ttl_minutes") == 25, "runtime foundation: session ttl should resolve from repo scope")
+        assert_true(
+            sources.get("session.default_ttl_minutes") == "repo",
+            "runtime foundation: session ttl source should be repo",
+        )
         assert_true(values.get("output.format") == "json", "runtime foundation: output.format expected")
         assert_true(
             sources.get("output.format") == "cli",
@@ -529,6 +538,30 @@ def gate_runtime_settings_foundation(repo_root: Path) -> None:
             ).stdout
         )
         assert_true(query_payload.get("profile") == "detailed", "runtime foundation: execution.profile intensive should map to detailed")
+
+        sessions_dir = repo_root / ".forge" / "sessions"
+        if sessions_dir.exists():
+            shutil.rmtree(sessions_dir)
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+            env=env,
+        )
+        index_payload = parse_json_output((sessions_dir / "index.json").read_text(encoding="utf-8"))
+        active_name = index_payload.get("active_session")
+        assert_true(isinstance(active_name, str) and active_name.startswith("auto-"), "runtime foundation: expected active auto session")
+        active_payload = parse_json_output((sessions_dir / f"{active_name}.json").read_text(encoding="utf-8"))
+        assert_true(
+            int(active_payload.get("ttl_minutes", 0)) == 25,
+            "runtime foundation: auto-created session should use resolved ttl policy",
+        )
 
 
 def gate_runtime_settings_set_get(repo_root: Path) -> None:

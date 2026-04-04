@@ -19,6 +19,7 @@ from core.session_store import (
     record_activity,
 )
 from core.runtime_settings_resolver import resolve_runtime_settings
+from core.runtime_settings_resolver import resolve_session_default_ttl_minutes
 from core.run_history import append_run
 from core.runtime import execute
 from core.step_protocol import build_step_event, llm_step_events_from_usage
@@ -694,7 +695,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     args.active_session_name = None
     if capability_name in runtime_consuming_capabilities:
-        active_session, _auto_created, _session_warnings = ensure_active_session(repo_root)
+        session_ttl_minutes, _ttl_source, _ttl_warnings = resolve_session_default_ttl_minutes(repo_root, args=args)
+        active_session, _auto_created, _session_warnings = ensure_active_session(
+            repo_root,
+            default_ttl_minutes=session_ttl_minutes,
+        )
         args.active_session_name = active_session.name
 
     explicit_cli_values: dict[str, object] = {}

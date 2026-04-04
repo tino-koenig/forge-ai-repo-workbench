@@ -311,7 +311,11 @@ def _auto_session_name(now: datetime) -> str:
     return now.strftime("auto-%Y%m%d-%H%M%S")
 
 
-def ensure_active_session(repo_root: Path) -> tuple[SessionRecord, bool, list[str]]:
+def ensure_active_session(
+    repo_root: Path,
+    *,
+    default_ttl_minutes: int = DEFAULT_TTL_MINUTES,
+) -> tuple[SessionRecord, bool, list[str]]:
     warnings: list[str] = []
     now = _utc_now()
     index_payload = _load_index(repo_root)
@@ -330,10 +334,11 @@ def ensure_active_session(repo_root: Path) -> tuple[SessionRecord, bool, list[st
     while _load_session(repo_root, candidate) is not None:
         candidate = f"{base_name}-{counter}"
         counter += 1
+    ttl_minutes = default_ttl_minutes if 1 <= int(default_ttl_minutes) <= 24 * 60 else DEFAULT_TTL_MINUTES
     created = create_session(
         repo_root,
         name=candidate,
-        ttl_minutes=DEFAULT_TTL_MINUTES,
+        ttl_minutes=ttl_minutes,
         auto_created=True,
         activate=True,
     )
