@@ -1708,6 +1708,19 @@ def gate_doctor_config_validate_read_only_sessions(repo_root: Path) -> None:
     )
 
 
+def gate_index_config_contract_docs() -> None:
+    feature_doc = ROOT / "docs" / "features" / "002-index.md"
+    content = feature_doc.read_text(encoding="utf-8")
+    assert_true(
+        ".forge/defaults.yml" not in content and ".forge/repo.yml" not in content,
+        "index docs contract: legacy yaml config contract should not be documented as active",
+    )
+    assert_true(
+        ".forge/config.toml" in content and ".forge/config.local.toml" in content,
+        "index docs contract: expected TOML-based config sources in feature 002 docs",
+    )
+
+
 def gate_doctor_config_validate_unknown_keys(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -3212,6 +3225,7 @@ def run_all_gates() -> None:
         gate_doctor_config_validate_provider_required_fields(temp_repo_provider_required)
         gate_doctor_config_validate_logs_protocol_malformed(temp_repo_logs_malformed)
         gate_doctor_config_validate_read_only_sessions(temp_repo)
+        gate_index_config_contract_docs()
         gate_external_review_rules(temp_repo_rules)
         gate_external_review_rules_invalid(temp_repo_rules_invalid)
         gate_from_run_references(temp_repo)

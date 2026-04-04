@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 105 / issue 11: index-konfigurationsvertrag auf TOML-basiertes Ist-Verhalten harmonisiert (`.forge/config.toml` + `.forge/config.local.toml`) und per Doku-Gate gegen Rueckfall auf nicht implementierte YAML-dateien abgesichert
 - feature 110 / issue 48: `config_validation` prueft `logs.protocol` jetzt explizit (ranges + timestamp-format) und meldet Fehlkonfigurationen sichtbar in `doctor`/`config validate` statt stiller Korrektur
 - feature 108 / issue 46: protocol-log settings werden jetzt zentral aus `core.config` aufgeloest (inkl. `.forge/config.local.toml`-Precedence) statt lokalem Direkt-Parsing in `core/protocol_log.py`
 - feature 118 / issue 55: init nutzt planner/orchestrator-defaults jetzt aus zentralen `core.config`-Konstanten; doppelte Literalwerte wurden entfernt und per Gate gegen Drift abgesichert

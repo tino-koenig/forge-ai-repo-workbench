@@ -145,8 +145,8 @@ There are no out-of-repo defaults that influence repo behavior.
 
 #### Repo config files
 
-- `.forge/defaults.yml`
-- `.forge/repo.yml`
+- `.forge/config.toml` (versioned, repo-owned baseline)
+- `.forge/config.local.toml` (optional local override, not versioned)
 
 #### Runtime environment outside the repo
 
@@ -161,34 +161,29 @@ But it must not load repo behavior defaults from user directories.
 
 ### Config responsibilities
 
-#### `.forge/defaults.yml`
-Defines the shared or team-level defaults for this repository.
+#### `.forge/config.toml`
+Defines the shared repository defaults used by runtime behavior.
 
-Typical contents:
-- path classes
-- default weights
-- framework assumptions
-- shared capability defaults
-- common standards for this repo family or organization
+Current index-relevant contents:
+- `[index.enrichment]`
+  - `enabled`
+  - `summary_version`
+  - `max_summary_chars`
 
-This file is versioned with the repo and may come from a shared team template.
+#### `.forge/config.local.toml`
+Defines optional machine-local overrides for repository config values.
 
-#### `.forge/repo.yml`
-Defines concrete repo-specific overrides and special cases.
-
-Typical contents:
-- repo-specific preferred paths
-- exceptional directory handling
-- special capability weight adjustments
-- project-specific hints
+Typical use:
+- local experimentation with index enrichment settings
+- temporary local tuning without changing versioned repo defaults
 
 ### Merge order
 
 The configuration merge order should be:
 
 1. minimal built-in Forge defaults
-2. `.forge/defaults.yml`
-3. `.forge/repo.yml`
+2. `.forge/config.toml`
+3. `.forge/config.local.toml`
 4. CLI overrides
 
 Environment variables or machine-local config must not override functional repo behavior.
@@ -204,7 +199,7 @@ They should cover only obvious universal cases such as:
 - `.forge/`
 - clearly disposable build/cache metadata where reasonable
 
-The real repo behavior should come from `.forge/defaults.yml` and `.forge/repo.yml`.
+The real repo behavior should come from repository-owned `.forge/config.toml` with optional local override via `.forge/config.local.toml`.
 
 ### Index participation vs future usage
 
@@ -287,7 +282,7 @@ JSON is sufficient for the first phase.
 - `forge index` creates `.forge/index.json`
 - the index includes both files and directories
 - path classes are represented clearly
-- `.forge/defaults.yml` and `.forge/repo.yml` are supported as repo-local config inputs
+- `.forge/config.toml` and `.forge/config.local.toml` are supported as repo-local config inputs
 - merge order is deterministic and documented
 - `hard_ignore` and `index_exclude` are treated differently
 - `vendor/`-style paths can be excluded from indexing without becoming invisible to Forge forever

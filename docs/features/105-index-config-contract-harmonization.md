@@ -20,3 +20,18 @@ Harmonize documented index configuration contract with actual runtime behavior.
 - No contradiction between feature docs and runtime behavior remains.
 - Config source model is clearly documented and validated.
 - Regression/documentation checks prevent drift.
+
+## Implemented Behavior (Current)
+
+- Canonical direction chosen: docs were harmonized to the implemented TOML-based runtime contract.
+- Index config model now documents `.forge/config.toml` + optional `.forge/config.local.toml` override instead of non-implemented `.forge/defaults.yml`/`.forge/repo.yml`.
+- Feature 002 now reflects actual index runtime behavior and precedence.
+
+## How To Validate Quickly
+
+- Open [docs/features/002-index.md](/Users/tino/PhpstormProjects/forge/docs/features/002-index.md) and verify config sections reference TOML files only.
+- Run `python3 scripts/run_quality_gates.py` and confirm the docs contract gate passes.
+
+## Known Limits / Notes
+
+- This feature harmonizes contract/docs; it does not introduce new index settings beyond the current `[index.enrichment]` scope.
