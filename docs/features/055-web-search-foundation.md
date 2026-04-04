@@ -106,3 +106,40 @@ Forge needs a deterministic URL discovery phase before retrieval. Separating sea
 - output contract exposes search candidates and policy/fallback status
 - no content retrieval side effects are introduced
 - failure and downgrade paths are explicit and safe
+
+## Implemented Behavior (Current)
+
+- Added shared web-search foundation module:
+  - `core/web_search_foundation.py`
+  - policy builder (`build_web_search_policy`)
+  - bounded search executor (`run_web_search`)
+  - normalized candidate/output dataclasses
+- Host policy behavior:
+  - consumes `profiles.docs.allowlist_hosts` and `profiles.docs.entrypoints` from framework profiles
+  - enforces allowlist filtering for discovered URLs
+  - supports fallback docs allowlist when profile data is missing/incomplete
+- Search execution behavior:
+  - query plan generation with `site:<host>` constrained variants
+  - bounded candidate collection and deduplication
+  - provider fallback visibility (`fallback_reason`, warnings, `used=false`)
+- Foundation integration:
+  - `ask:docs` and `ask:latest` now consume the web-search foundation
+  - search metadata is emitted in `sections.ask.search` (used/policy/query_plan/candidates)
+  - no web content retrieval is performed in this feature phase
+
+## How To Validate Quickly
+
+- Docs search preset:
+  - `forge --view full ask:docs --profile typo3-v14 "TYPO3 routing docs"`
+  - verify `Web search used`, `Allowed hosts`, and candidate URLs in full view
+- JSON contract:
+  - `forge --output-format json ask:docs --profile typo3-v14 "TYPO3 routing docs"`
+  - inspect `sections.ask.search`
+- Fallback visibility:
+  - run with missing/unconfigured profile and inspect warnings/fallback reason in `uncertainty` and `sections.ask.search`
+
+## Known Limits / Notes
+
+- Current provider implementation uses bounded DuckDuckGo HTML search and can fail due to network/provider restrictions.
+- Search quality depends on host allowlist and query phrasing; retrieval/synthesis quality is handled by separate feature 056.
+- This feature intentionally does not fetch page bodies or produce citation-grounded synthesis.

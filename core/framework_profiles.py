@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,8 @@ class FrameworkProfile:
     framework_docs_roots: list[Path]
     exclude_globs: list[str]
     retrieval_scope: str | None
+    docs_allowlist_hosts: list[str] = field(default_factory=list)
+    docs_entrypoints: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,11 @@ def load_framework_registry(repo_root: Path, session: ExecutionSession) -> Frame
         else:
             retrieval_scope = None
 
+        docs_cfg = item.get("docs")
+        docs_payload = docs_cfg if isinstance(docs_cfg, dict) else {}
+        docs_allowlist_hosts = [host.strip().lower() for host in _string_list(docs_payload.get("allowlist_hosts"))]
+        docs_entrypoints = _string_list(docs_payload.get("entrypoints"))
+
         profile = FrameworkProfile(
             profile_id=profile_id,
             version=version.strip() if isinstance(version, str) and version.strip() else None,
@@ -146,6 +153,8 @@ def load_framework_registry(repo_root: Path, session: ExecutionSession) -> Frame
             framework_docs_roots=framework_docs_roots,
             exclude_globs=exclude_globs,
             retrieval_scope=retrieval_scope,
+            docs_allowlist_hosts=docs_allowlist_hosts,
+            docs_entrypoints=docs_entrypoints,
         )
         profiles[profile_id] = profile
         alias_to_profile[profile_id] = profile_id

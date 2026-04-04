@@ -291,6 +291,20 @@ implemented_on = "2026-04-04"
 notes = "Added ask UX entrypoints (ask, ask:repo/docs/latest) as dedicated free-question LLM mode (not repository file search), with explicit preset metadata and staged warnings for latest/guided behavior."
 
 [[feature]]
+id = "055"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added reusable web-search foundation with allowlist policy, bounded URL discovery, normalized candidate output, and ask docs/latest integration via sections.ask.search."
+
+[[feature]]
+id = "056"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added reusable web-retrieval foundation with bounded host-allowlisted fetch/snippet extraction and ask docs/latest integration via sections.ask.retrieval."
+
+[[feature]]
 id = "045"
 status = "implemented"
 defined_on = "2026-04-03"

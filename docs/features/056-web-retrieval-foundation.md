@@ -116,3 +116,36 @@ Search alone is not enough for grounded web-based answers. Retrieval + snippet e
 - output contract includes retrieval/source metadata
 - fallback states are explicit and safe
 - behavior remains debuggable with deterministic budget traces
+
+## Implemented Behavior (Current)
+
+- Added shared web-retrieval foundation module:
+  - `core/web_retrieval_foundation.py`
+  - retrieval policy builder (`build_web_retrieval_policy`)
+  - bounded retrieval executor (`run_web_retrieval`)
+- Retrieval behavior:
+  - consumes host-allowlisted candidates from web search (Feature 055)
+  - fetches bounded HTML content with timeout and time-budget guards
+  - extracts normalized page text and relevance-ranked snippets
+  - emits source metadata (`url`, `title`, `retrieved_at`, `snippet_count`)
+- Ask integration:
+  - `ask:docs` and `ask:latest` now run retrieval after search
+  - ask contract emits `sections.ask.retrieval` with usage/policy/source/citation data
+  - LLM evidence payload prefers retrieval snippets over search-title-only evidence
+
+## How To Validate Quickly
+
+- Full view:
+  - `forge --view full ask:docs --profile typo3-v14 "TYPO3 routing docs"`
+  - verify retrieval summary (`Web retrieval used`, `fetched`, `snippets`, `Retrieved sources`)
+- JSON contract:
+  - `forge --output-format json ask:docs --profile typo3-v14 "TYPO3 routing docs"`
+  - inspect `sections.ask.retrieval.used`, `sources`, `citations`, and `fallback_reason`
+- Fallback behavior:
+  - run with blocked network and verify explicit retrieval warnings/fallback notes
+
+## Known Limits / Notes
+
+- Retrieval is intentionally bounded and snippet-oriented (no crawler/full-document indexing).
+- Current extraction relies on robust HTML text normalization heuristics (no JS rendering).
+- Freshness metadata beyond `retrieved_at` is not yet extracted in this phase.

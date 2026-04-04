@@ -123,6 +123,6 @@ Users should be able to ask a free question quickly without entering retrieval m
 
 ## Known Limits / Notes
 
-- `ask:latest` does not execute web retrieval in this phase; it returns model-only output with explicit warning.
+- `ask:latest` now consumes staged web search + retrieval foundations; freshness quality depends on retrieval coverage and source metadata.
 - `ask:docs` and `ask:repo` are intent presets in this phase and do not trigger repository search.
 - Guided clarification (`--guided`) is reserved for a later staged rollout.
