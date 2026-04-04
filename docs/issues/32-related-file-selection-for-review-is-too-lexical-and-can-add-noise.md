@@ -24,3 +24,24 @@ Related-file expansion for review relies on simple stem substring matching and c
 ## Linked Features
 
 - [Feature 089 - Related-Target Retrieval Foundation for Review and Explain](/Users/tino/PhpstormProjects/forge/docs/features/089-related-target-retrieval-foundation-for-review-and-explain.md)
+
+## Implemented Behavior (Current)
+
+- Related-target selection now uses a weighted deterministic foundation instead of pure stem containment.
+- Review and explain share the same ranking primitive (`rank_related_targets`).
+- Noise from weak lexical collisions is filtered by minimum score thresholds and stronger structural signals.
+- Output contracts now expose related-target rationale metadata:
+  - review: `sections.related_targets`
+  - explain: `sections.related_target_rationale`
+- Regression coverage added via `gate_related_target_retrieval_foundation`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_related_target_retrieval_foundation` passes.
+
+## Known Limits / Notes
+
+- Current relation scoring remains heuristic and static; it does not execute or import project code at runtime.

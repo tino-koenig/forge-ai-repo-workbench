@@ -3207,6 +3207,119 @@ def gate_review_runtime_policy_settings(repo_root: Path) -> None:
     )
 
 
+def gate_related_target_retrieval_foundation(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (repo_root / "docs").mkdir(parents=True, exist_ok=True)
+    (repo_root / "src" / "target_logic.py").write_text(
+        "\n".join(
+            [
+                "def target_logic(value: int) -> int:",
+                "    return value + 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "src" / "consumer.py").write_text(
+        "\n".join(
+            [
+                "from src.target_logic import target_logic",
+                "",
+                "def consume(value: int) -> int:",
+                "    return target_logic(value)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "src" / "target_logic_helper.py").write_text(
+        "\n".join(
+            [
+                "def helper(value: int) -> int:",
+                "    return value * 2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "docs" / "target_logic_notes.py").write_text(
+        "\n".join(
+            [
+                "# name collision fixture",
+                "NOT_RELATED = True",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (forge_dir / "runtime.toml").write_text(
+        '"review.related.max_targets" = 3\n',
+        encoding="utf-8",
+    )
+
+    review_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "review",
+                "detailed",
+                "src/target_logic.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    review_related = review_payload.get("sections", {}).get("related_targets", [])
+    assert_true(isinstance(review_related, list), "related foundation: expected review related_targets list")
+    review_paths = {
+        str(item.get("path"))
+        for item in review_related
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    }
+    assert_true("docs/target_logic_notes.py" not in review_paths, "related foundation: noisy lexical docs match should be filtered")
+    assert_true(
+        any("src/consumer.py" == path or "src/target_logic_helper.py" == path for path in review_paths),
+        "related foundation: expected deterministic structural related targets",
+    )
+    assert_true(
+        all(
+            isinstance(item, dict) and isinstance(item.get("rationale"), list) and item.get("rationale")
+            for item in review_related
+        ),
+        "related foundation: expected review rationale metadata for selected related targets",
+    )
+
+    explain_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "explain",
+                "detailed",
+                "src/target_logic.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    explain_rationale = explain_payload.get("sections", {}).get("related_target_rationale", [])
+    assert_true(isinstance(explain_rationale, list), "related foundation: expected explain related_target_rationale list")
+    explain_paths = {
+        str(item.get("path"))
+        for item in explain_rationale
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    }
+    assert_true("docs/target_logic_notes.py" not in explain_paths, "related foundation: explain should filter noisy lexical docs match")
+    assert_true(
+        any("src/consumer.py" == path or "src/target_logic_helper.py" == path for path in explain_paths),
+        "related foundation: explain should surface deterministic structural related targets",
+    )
+
+
 def gate_from_run_references(repo_root: Path) -> None:
     run_cmd(
         [
@@ -5090,6 +5203,7 @@ def run_all_gates() -> None:
         gate_external_review_rules_invalid(temp_repo_rules_invalid)
         gate_review_path_like_target_resolution_contract(temp_repo)
         gate_review_runtime_policy_settings(temp_repo)
+        gate_related_target_retrieval_foundation(temp_repo)
         gate_from_run_references(temp_repo)
         gate_run_history_contract_always_persisted(temp_repo)
         gate_protocol_log_storage_jsonl(temp_repo)

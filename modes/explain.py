@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.analysis_primitives import (
+    RelatedTarget,
     ResolvedTarget,
-    find_related_files,
     load_index_entry_map,
     load_index_path_class_map,
     path_class_weight,
     prioritize_paths_by_index,
+    rank_related_targets,
     resolve_file_or_symbol_target,
 )
 from core.capability_model import CommandRequest, Profile
@@ -1051,6 +1052,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             sections={
                 "role_classification": None,
                 "related_files": [],
+                "related_target_rationale": [],
                 "action_orchestration": {
                     "catalog": orchestration_catalog,
                     "iterations": [{"iteration": 1, "actions": orchestration_actions}],
@@ -1138,12 +1140,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     evidence = gather_evidence_for_target(target, request)[:evidence_limit]
     mark_action("collect_evidence", "completed", f"collected {len(evidence)} evidence entries")
     related: list[Path] = []
+    related_target_rationale: list[dict[str, object]] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         for cycle in iter_bounded_cycles(max_iterations=1, max_wall_time_ms=800):
             if cycle.wall_time_exhausted:
                 break
-            related_rel = find_related_files(repo_root, rel_target, session, limit=10)
-            related_abs = [repo_root / rel for rel in related_rel]
+            ranked_related = rank_related_targets(repo_root, rel_target, session, path_classes, limit=10)
+            related_abs = [repo_root / item.path for item in ranked_related]
             prioritized = prioritize_paths_by_index(
                 repo_root,
                 related_abs,
@@ -1153,6 +1156,16 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             if not prioritized:
                 prioritized = related_abs
             related = [path.relative_to(repo_root) for path in prioritized[:5]]
+            ranked_map = {item.path: item for item in ranked_related}
+            selected_ranked: list[RelatedTarget] = []
+            for rel in related:
+                ranked = ranked_map.get(rel)
+                if ranked is not None:
+                    selected_ranked.append(ranked)
+            related_target_rationale = [
+                {"path": str(item.path), "score": item.score, "rationale": item.rationale}
+                for item in selected_ranked
+            ]
             break
     uncertainties = uncertainty_notes(target, evidence, request.profile)
     if explain_focus == "uses" and explain_direction_requested != "in":
@@ -1368,6 +1381,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         },
         "role_classification": {"role": role, "reason": rationale},
         "related_files": [str(path) for path in related],
+        "related_target_rationale": related_target_rationale,
         "resolved_target": str(rel_target),
         "resolved_target_source": {
             "source_type": "repo",

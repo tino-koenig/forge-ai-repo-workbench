@@ -546,6 +546,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Review policy thresholds/caps are now runtime-configurable and source-traceable in sections.review_policy."
 
+[[feature]]
+id = "089"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Review and explain now share a weighted related-target ranking foundation and expose relation rationale metadata in output contracts."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -700,6 +707,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Review heuristic thresholds and output caps are now configurable via runtime settings with source tracing."
+
+[[issue]]
+id = "32"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Replaced lexical-only related-file expansion with shared weighted related-target ranking and rationale metadata in review/explain outputs."
 
 [[issue]]
 id = "6"

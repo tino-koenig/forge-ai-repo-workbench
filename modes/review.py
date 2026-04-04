@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.analysis_primitives import (
+    RelatedTarget,
     ResolvedTarget,
     collect_line_evidence as collect_line_evidence_shared,
-    find_related_files,
     is_path_like_target,
     load_index_path_class_map,
     prioritize_paths_by_index,
+    rank_related_targets,
     resolve_file_target,
     resolve_file_or_symbol_target,
 )
@@ -292,12 +293,17 @@ def gather_related_targets(
     session: ExecutionSession,
     limit: int,
     path_classes: dict[str, str],
-) -> list[ResolvedTarget]:
+) -> tuple[list[ResolvedTarget], list[RelatedTarget]]:
     primary_rel = primary.path.relative_to(repo_root)
     related: list[ResolvedTarget] = []
-
-    related_rel = find_related_files(repo_root, primary_rel, session, limit=max(10, limit * 3))
-    related_abs = [repo_root / rel for rel in related_rel]
+    ranked_related = rank_related_targets(
+        repo_root,
+        primary_rel,
+        session,
+        path_classes,
+        limit=max(10, limit * 3),
+    )
+    related_abs = [repo_root / item.path for item in ranked_related]
     prioritized = prioritize_paths_by_index(
         repo_root,
         related_abs,
@@ -306,13 +312,18 @@ def gather_related_targets(
     )
     if not prioritized:
         prioritized = related_abs
+    ranked_map = {repo_root / item.path: item for item in ranked_related}
+    selected_ranked: list[RelatedTarget] = []
 
     for path in prioritized[:limit]:
         content = read_text_file(path, session)
         if content is None:
             continue
         related.append(ResolvedTarget(path=path, content=content, source="related", kind="file"))
-    return related
+        ranked = ranked_map.get(path)
+        if ranked is not None:
+            selected_ranked.append(ranked)
+    return related, selected_ranked
 
 
 def review_target(target: ResolvedTarget, profile: Profile, external_rules: list[ReviewRule], policy: ReviewPolicy) -> list[Finding]:
@@ -521,6 +532,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             next_step=next_step,
             sections={
                 "findings": [],
+                "related_targets": [],
                 "review_policy": review_policy_section,
                 "review_rules": {"loaded": len(external_rules), "errors": rule_errors},
             },
@@ -542,11 +554,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     primary_findings = review_target(target, request.profile, external_rules, review_policy)
     all_findings = list(primary_findings)
     related_count = 0
+    related_target_meta: list[dict[str, object]] = []
 
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         related_limit = 1 if request.profile == Profile.STANDARD else 3
         related_limit = min(related_limit, review_policy.related_max_targets)
-        related_targets = gather_related_targets(
+        related_targets, related_ranked = gather_related_targets(
             repo_root,
             target,
             session,
@@ -554,6 +567,14 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             path_classes=path_classes,
         )
         related_count = len(related_targets)
+        related_target_meta = [
+            {
+                "path": str(item.path),
+                "score": item.score,
+                "rationale": item.rationale,
+            }
+            for item in related_ranked
+        ]
         for related in related_targets:
             all_findings.extend(review_target(related, request.profile, external_rules, review_policy))
 
@@ -621,6 +642,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         sections={
             "findings": findings_payload,
             "target_source": target.source,
+            "related_targets": related_target_meta,
             "review_policy": review_policy_section,
             "review_rules": {"loaded": len(external_rules), "errors": rule_errors},
             "llm_usage": llm_outcome.usage,

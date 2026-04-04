@@ -27,6 +27,13 @@ class LineEvidence:
     text: str
 
 
+@dataclass(frozen=True)
+class RelatedTarget:
+    path: Path
+    score: int
+    rationale: list[str]
+
+
 PATH_CLASS_WEIGHTS = {
     "preferred": 3,
     "normal": 0,
@@ -180,20 +187,107 @@ def resolve_describe_target(repo_root: Path, raw_target: str, session: Execution
 
 
 def find_related_files(repo_root: Path, target_rel: Path, session: ExecutionSession, limit: int = 5) -> list[Path]:
-    stem = target_rel.stem.lower()
-    if not stem:
-        return []
+    ranked = rank_related_targets(repo_root, target_rel, session, {}, limit=limit)
+    return [item.path for item in ranked]
 
-    related: list[Path] = []
+
+def _extract_import_tokens(content: str) -> set[str]:
+    tokens: set[str] = set()
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        from_match = re.match(r"from\s+([A-Za-z0-9_\.]+)\s+import\s+", stripped)
+        if from_match:
+            parts = [part for part in from_match.group(1).split(".") if part]
+            tokens.update(part.lower() for part in parts if len(part) >= 3)
+            continue
+        import_match = re.match(r"import\s+([A-Za-z0-9_\.]+)", stripped)
+        if import_match:
+            first = import_match.group(1).split(",")[0].strip()
+            parts = [part for part in first.split(".") if part]
+            tokens.update(part.lower() for part in parts if len(part) >= 3)
+    return tokens
+
+
+def _module_tokens_for_rel(rel_path: Path) -> set[str]:
+    tokens: set[str] = set()
+    stem = rel_path.stem.lower()
+    if stem:
+        tokens.add(stem)
+    for part in rel_path.parts:
+        normalized = part.lower().replace(".py", "")
+        if len(normalized) >= 3:
+            tokens.add(normalized)
+    return tokens
+
+
+def rank_related_targets(
+    repo_root: Path,
+    target_rel: Path,
+    session: ExecutionSession,
+    path_classes: dict[str, str],
+    *,
+    limit: int = 5,
+) -> list[RelatedTarget]:
+    target_abs = repo_root / target_rel
+    target_content = read_text_file(target_abs, session) or ""
+    target_imports = _extract_import_tokens(target_content)
+    target_tokens = _module_tokens_for_rel(target_rel)
+    target_stem = target_rel.stem.lower()
+    target_parent = target_rel.parent
+    target_top = target_rel.parts[0].lower() if target_rel.parts else ""
+
+    related: list[RelatedTarget] = []
     for path in iter_repo_files(repo_root, session):
         rel = path.relative_to(repo_root)
         if rel == target_rel:
             continue
-        if stem in rel.stem.lower():
-            related.append(rel)
-        if len(related) >= limit:
-            break
-    return related
+        candidate_content = read_text_file(path, session)
+        if candidate_content is None:
+            continue
+
+        score = 0
+        rationale: list[str] = []
+        candidate_tokens = _module_tokens_for_rel(rel)
+        candidate_imports = _extract_import_tokens(candidate_content)
+        candidate_stem = rel.stem.lower()
+
+        if rel.parent == target_parent:
+            score += 8
+            rationale.append("same_directory")
+        elif rel.parts and target_top and rel.parts[0].lower() == target_top:
+            score += 3
+            rationale.append("same_top_level_directory")
+
+        if target_imports.intersection(candidate_tokens):
+            score += 10
+            rationale.append("target_imports_candidate_tokens")
+        if candidate_imports.intersection(target_tokens):
+            score += 6
+            rationale.append("candidate_imports_target_tokens")
+
+        if target_stem and candidate_stem:
+            if target_stem == candidate_stem:
+                score += 6
+                rationale.append("exact_stem_match")
+            elif target_stem in candidate_stem or candidate_stem in target_stem:
+                score += 3
+                rationale.append("stem_overlap")
+
+        path_class = path_classes.get(str(rel))
+        if isinstance(path_class, str):
+            class_weight = path_class_weight(path_class)
+            if class_weight > 0:
+                score += class_weight
+                rationale.append(f"path_class:{path_class}")
+
+        if score < 4:
+            continue
+        related.append(RelatedTarget(path=rel, score=score, rationale=rationale))
+
+    related.sort(key=lambda item: (-item.score, str(item.path)))
+    return related[:limit]
 
 
 def prioritize_paths_by_index(

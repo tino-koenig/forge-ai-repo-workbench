@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 089 / issue 32: review/explain use shared weighted related-target ranking (imports/locality/index + lexical fallback) and now expose relation rationale metadata in output contracts
 - feature 088 / issue 31: review heuristic policy thresholds/caps moved to runtime settings with source-traceable `sections.review_policy` and dedicated regression gate
 - feature 087 / issue 30: review target resolution now treats unresolved path-like payloads as deterministic unresolved results (no symbol fallback), while preserving symbol fallback for symbol-like payloads; added dedicated regression gate
 - feature 086 / issue 29: explain ergaenzt zentrale orchestrator-trace-sektion (`action_orchestration`) mit action-katalog, iteration-trace und engine-annotation
