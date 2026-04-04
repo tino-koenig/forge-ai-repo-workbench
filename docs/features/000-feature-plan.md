@@ -40,3 +40,18 @@ Each feature should be:
 - reusable by other Forge workflows
 - explicit about its allowed effects
 - understandable in isolation
+
+## Implemented Behavior (Current)
+
+- This item is treated as a meta/test planning document and has no direct runtime implementation scope.
+- The plan served as initial sequencing guidance for core Forge capabilities.
+
+## How To Validate Quickly
+
+1. Check status indices under `docs/status/`.
+2. Confirm core phase features (`001`-`007`) are implemented.
+
+## Known Limits / Notes
+
+- Feature `000` is not a product/runtime feature contract.
+- Future planning changes should be tracked as documentation updates rather than runtime implementation work.

@@ -9,7 +9,7 @@ Status values:
 
 | ID | Feature | Defined On | Status | Implemented On | Spec |
 |---|---|---|---|---|---|
-| 000 | Forge Feature Plan | 2026-04-02 | defined | - | [000-feature-plan.md](/Users/tino/PhpstormProjects/forge/docs/features/000-feature-plan.md) |
+| 000 | Forge Feature Plan | 2026-04-02 | implemented | 2026-04-04 | [000-feature-plan.md](/Users/tino/PhpstormProjects/forge/docs/features/000-feature-plan.md) |
 | 001 | Core CLI & Capability Model | 2026-04-02 | implemented | 2026-04-02 | [001-core-cli-and-capability-model.md](/Users/tino/PhpstormProjects/forge/docs/features/001-core-cli-and-capability-model.md) |
 | 002 | Index | 2026-04-02 | implemented | 2026-04-02 | [002-index.md](/Users/tino/PhpstormProjects/forge/docs/features/002-index.md) |
 | 003 | Query | 2026-04-02 | implemented | 2026-04-02 | [003-query.md](/Users/tino/PhpstormProjects/forge/docs/features/003-query.md) |
@@ -29,7 +29,7 @@ Status values:
 | 017 | Redacted LLM Observability | 2026-04-03 | implemented | 2026-04-03 | [017-redacted-llm-observability.md](/Users/tino/PhpstormProjects/forge/docs/features/017-redacted-llm-observability.md) |
 | 018 | Expanded Regression and Fixture Suite | 2026-04-03 | implemented | 2026-04-03 | [018-expanded-regression-and-fixture-suite.md](/Users/tino/PhpstormProjects/forge/docs/features/018-expanded-regression-and-fixture-suite.md) |
 | 019 | Externalized Review Rules | 2026-04-03 | implemented | 2026-04-03 | [019-externalized-review-rules.md](/Users/tino/PhpstormProjects/forge/docs/features/019-externalized-review-rules.md) |
-| 020 | Cross-Lingual Query and Semantic Expansion | 2026-04-03 | defined | - | [020-cross-lingual-query-and-semantic-expansion.md](/Users/tino/PhpstormProjects/forge/docs/features/020-cross-lingual-query-and-semantic-expansion.md) |
+| 020 | Cross-Lingual Query and Semantic Expansion | 2026-04-03 | implemented | 2026-04-04 | [020-cross-lingual-query-and-semantic-expansion.md](/Users/tino/PhpstormProjects/forge/docs/features/020-cross-lingual-query-and-semantic-expansion.md) |
 | 021 | Explain Evidence/Inference Structured Synthesis | 2026-04-03 | implemented | 2026-04-03 | [021-explain-evidence-inference-structured-synthesis.md](/Users/tino/PhpstormProjects/forge/docs/features/021-explain-evidence-inference-structured-synthesis.md) |
 | 022 | Run History with IDs and Referenceable Workflows | 2026-04-03 | implemented | 2026-04-03 | [022-run-history-with-ids-and-referenceable-workflows.md](/Users/tino/PhpstormProjects/forge/docs/features/022-run-history-with-ids-and-referenceable-workflows.md) |
 | 023 | Human-First Output Views | 2026-04-03 | implemented | 2026-04-03 | [023-human-first-output-views.md](/Users/tino/PhpstormProjects/forge/docs/features/023-human-first-output-views.md) |
@@ -107,31 +107,32 @@ Status values:
 | 095 | Describe Adoption of Central Mode Orchestrator | 2026-04-04 | implemented | 2026-04-04 | [095-describe-adoption-of-central-mode-orchestrator.md](/Users/tino/PhpstormProjects/forge/docs/features/095-describe-adoption-of-central-mode-orchestrator.md) |
 | 096 | Describe Runtime Settings Surface for Analysis Policy | 2026-04-04 | implemented | 2026-04-04 | [096-describe-runtime-settings-surface-for-analysis-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/096-describe-runtime-settings-surface-for-analysis-policy.md) |
 | 097 | Describe Quality Gate Matrix Extension | 2026-04-04 | implemented | 2026-04-04 | [097-describe-quality-gate-matrix-extension.md](/Users/tino/PhpstormProjects/forge/docs/features/097-describe-quality-gate-matrix-extension.md) |
-| 098 | Runtime Scope Round-Trip Preservation for Unknown Keys | 2026-04-04 | defined | - | [098-runtime-scope-round-trip-preservation-for-unknown-keys.md](/Users/tino/PhpstormProjects/forge/docs/features/098-runtime-scope-round-trip-preservation-for-unknown-keys.md) |
-| 099 | Runtime Session Source Metadata Consistency | 2026-04-04 | defined | - | [099-runtime-session-source-metadata-consistency.md](/Users/tino/PhpstormProjects/forge/docs/features/099-runtime-session-source-metadata-consistency.md) |
-| 100 | Session Activity Refresh Contract for Touch Operations | 2026-04-04 | defined | - | [100-session-activity-refresh-contract-for-touch-operations.md](/Users/tino/PhpstormProjects/forge/docs/features/100-session-activity-refresh-contract-for-touch-operations.md) |
-| 101 | Configurable Session TTL Policy via Runtime Settings | 2026-04-04 | defined | - | [101-configurable-session-ttl-policy-via-runtime-settings.md](/Users/tino/PhpstormProjects/forge/docs/features/101-configurable-session-ttl-policy-via-runtime-settings.md) |
-| 102 | Read-Only Capability Guard for Session Auto-Activation | 2026-04-04 | defined | - | [102-read-only-capability-guard-for-session-auto-activation.md](/Users/tino/PhpstormProjects/forge/docs/features/102-read-only-capability-guard-for-session-auto-activation.md) |
-| 103 | Schema-Aware Unknown-Key Validation for Config TOML | 2026-04-04 | defined | - | [103-schema-aware-unknown-key-validation-for-config-toml.md](/Users/tino/PhpstormProjects/forge/docs/features/103-schema-aware-unknown-key-validation-for-config-toml.md) |
-| 104 | Mandatory Provider Field Validation Harmonization | 2026-04-04 | defined | - | [104-mandatory-provider-field-validation-harmonization.md](/Users/tino/PhpstormProjects/forge/docs/features/104-mandatory-provider-field-validation-harmonization.md) |
-| 105 | Index Config Contract Harmonization | 2026-04-04 | defined | - | [105-index-config-contract-harmonization.md](/Users/tino/PhpstormProjects/forge/docs/features/105-index-config-contract-harmonization.md) |
-| 106 | Policy-Disabled LLM Events Must Not Inflate Fallback Analytics | 2026-04-04 | defined | - | [106-policy-disabled-llm-events-must-not-inflate-fallback-analytics.md](/Users/tino/PhpstormProjects/forge/docs/features/106-policy-disabled-llm-events-must-not-inflate-fallback-analytics.md) |
-| 107 | Preserve Token Usage Metadata in Redacted Protocol Logs | 2026-04-04 | defined | - | [107-preserve-token-usage-metadata-in-redacted-protocol-logs.md](/Users/tino/PhpstormProjects/forge/docs/features/107-preserve-token-usage-metadata-in-redacted-protocol-logs.md) |
-| 108 | Centralized Logs Protocol Settings in Config Foundation | 2026-04-04 | defined | - | [108-centralized-logs-protocol-settings-in-config-foundation.md](/Users/tino/PhpstormProjects/forge/docs/features/108-centralized-logs-protocol-settings-in-config-foundation.md) |
-| 109 | Derive Logs Capability Filter Choices from Capability Model | 2026-04-04 | defined | - | [109-derive-logs-capability-filter-choices-from-capability-model.md](/Users/tino/PhpstormProjects/forge/docs/features/109-derive-logs-capability-filter-choices-from-capability-model.md) |
-| 110 | Logs Protocol Validation Surface in Config Diagnostics | 2026-04-04 | defined | - | [110-logs-protocol-validation-surface-in-config-diagnostics.md](/Users/tino/PhpstormProjects/forge/docs/features/110-logs-protocol-validation-surface-in-config-diagnostics.md) |
+| 098 | Runtime Scope Round-Trip Preservation for Unknown Keys | 2026-04-04 | implemented | 2026-04-04 | [098-runtime-scope-round-trip-preservation-for-unknown-keys.md](/Users/tino/PhpstormProjects/forge/docs/features/098-runtime-scope-round-trip-preservation-for-unknown-keys.md) |
+| 099 | Runtime Session Source Metadata Consistency | 2026-04-04 | implemented | 2026-04-04 | [099-runtime-session-source-metadata-consistency.md](/Users/tino/PhpstormProjects/forge/docs/features/099-runtime-session-source-metadata-consistency.md) |
+| 100 | Session Activity Refresh Contract for Touch Operations | 2026-04-04 | implemented | 2026-04-04 | [100-session-activity-refresh-contract-for-touch-operations.md](/Users/tino/PhpstormProjects/forge/docs/features/100-session-activity-refresh-contract-for-touch-operations.md) |
+| 101 | Configurable Session TTL Policy via Runtime Settings | 2026-04-04 | implemented | 2026-04-04 | [101-configurable-session-ttl-policy-via-runtime-settings.md](/Users/tino/PhpstormProjects/forge/docs/features/101-configurable-session-ttl-policy-via-runtime-settings.md) |
+| 102 | Read-Only Capability Guard for Session Auto-Activation | 2026-04-04 | implemented | 2026-04-04 | [102-read-only-capability-guard-for-session-auto-activation.md](/Users/tino/PhpstormProjects/forge/docs/features/102-read-only-capability-guard-for-session-auto-activation.md) |
+| 103 | Schema-Aware Unknown-Key Validation for Config TOML | 2026-04-04 | implemented | 2026-04-04 | [103-schema-aware-unknown-key-validation-for-config-toml.md](/Users/tino/PhpstormProjects/forge/docs/features/103-schema-aware-unknown-key-validation-for-config-toml.md) |
+| 104 | Mandatory Provider Field Validation Harmonization | 2026-04-04 | implemented | 2026-04-04 | [104-mandatory-provider-field-validation-harmonization.md](/Users/tino/PhpstormProjects/forge/docs/features/104-mandatory-provider-field-validation-harmonization.md) |
+| 105 | Index Config Contract Harmonization | 2026-04-04 | implemented | 2026-04-04 | [105-index-config-contract-harmonization.md](/Users/tino/PhpstormProjects/forge/docs/features/105-index-config-contract-harmonization.md) |
+| 106 | Policy-Disabled LLM Events Must Not Inflate Fallback Analytics | 2026-04-04 | implemented | 2026-04-04 | [106-policy-disabled-llm-events-must-not-inflate-fallback-analytics.md](/Users/tino/PhpstormProjects/forge/docs/features/106-policy-disabled-llm-events-must-not-inflate-fallback-analytics.md) |
+| 107 | Preserve Token Usage Metadata in Redacted Protocol Logs | 2026-04-04 | implemented | 2026-04-04 | [107-preserve-token-usage-metadata-in-redacted-protocol-logs.md](/Users/tino/PhpstormProjects/forge/docs/features/107-preserve-token-usage-metadata-in-redacted-protocol-logs.md) |
+| 108 | Centralized Logs Protocol Settings in Config Foundation | 2026-04-04 | implemented | 2026-04-04 | [108-centralized-logs-protocol-settings-in-config-foundation.md](/Users/tino/PhpstormProjects/forge/docs/features/108-centralized-logs-protocol-settings-in-config-foundation.md) |
+| 109 | Derive Logs Capability Filter Choices from Capability Model | 2026-04-04 | implemented | 2026-04-04 | [109-derive-logs-capability-filter-choices-from-capability-model.md](/Users/tino/PhpstormProjects/forge/docs/features/109-derive-logs-capability-filter-choices-from-capability-model.md) |
+| 110 | Logs Protocol Validation Surface in Config Diagnostics | 2026-04-04 | implemented | 2026-04-04 | [110-logs-protocol-validation-surface-in-config-diagnostics.md](/Users/tino/PhpstormProjects/forge/docs/features/110-logs-protocol-validation-surface-in-config-diagnostics.md) |
 | 111 | Protocol Analytics Foundation for Logs and Future Modes | 2026-04-04 | implemented | 2026-04-04 | [111-protocol-analytics-foundation-for-logs-and-future-modes.md](/Users/tino/PhpstormProjects/forge/docs/features/111-protocol-analytics-foundation-for-logs-and-future-modes.md) |
-| 112 | Init Side-Effect Guard for Non-Mutating and Failed Flows | 2026-04-04 | defined | - | [112-init-side-effect-guard-for-non-mutating-and-failed-flows.md](/Users/tino/PhpstormProjects/forge/docs/features/112-init-side-effect-guard-for-non-mutating-and-failed-flows.md) |
-| 113 | Strict Invalid-Target No-Write Contract for Init | 2026-04-04 | defined | - | [113-strict-invalid-target-no-write-contract-for-init.md](/Users/tino/PhpstormProjects/forge/docs/features/113-strict-invalid-target-no-write-contract-for-init.md) |
-| 114 | Init Baseline and Doctor Coherence for Provider Requirements | 2026-04-04 | defined | - | [114-init-baseline-and-doctor-coherence-for-provider-requirements.md](/Users/tino/PhpstormProjects/forge/docs/features/114-init-baseline-and-doctor-coherence-for-provider-requirements.md) |
+| 112 | Init Side-Effect Guard for Non-Mutating and Failed Flows | 2026-04-04 | implemented | 2026-04-04 | [112-init-side-effect-guard-for-non-mutating-and-failed-flows.md](/Users/tino/PhpstormProjects/forge/docs/features/112-init-side-effect-guard-for-non-mutating-and-failed-flows.md) |
+| 113 | Strict Invalid-Target No-Write Contract for Init | 2026-04-04 | implemented | 2026-04-04 | [113-strict-invalid-target-no-write-contract-for-init.md](/Users/tino/PhpstormProjects/forge/docs/features/113-strict-invalid-target-no-write-contract-for-init.md) |
+| 114 | Init Baseline and Doctor Coherence for Provider Requirements | 2026-04-04 | implemented | 2026-04-04 | [114-init-baseline-and-doctor-coherence-for-provider-requirements.md](/Users/tino/PhpstormProjects/forge/docs/features/114-init-baseline-and-doctor-coherence-for-provider-requirements.md) |
 | 115 | Init Quality-Gate Matrix for Safety and Template Contracts | 2026-04-04 | implemented | 2026-04-04 | [115-init-quality-gate-matrix-for-safety-and-template-contracts.md](/Users/tino/PhpstormProjects/forge/docs/features/115-init-quality-gate-matrix-for-safety-and-template-contracts.md) |
 | 116 | Canonical Init Template Registry and CLI Choice Derivation | 2026-04-04 | implemented | 2026-04-04 | [116-canonical-init-template-registry-and-cli-choice-derivation.md](/Users/tino/PhpstormProjects/forge/docs/features/116-canonical-init-template-registry-and-cli-choice-derivation.md) |
 | 117 | Init Source-Scope and Framework Policy Onboarding | 2026-04-04 | implemented | 2026-04-04 | [117-init-source-scope-and-framework-policy-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/117-init-source-scope-and-framework-policy-onboarding.md) |
-| 118 | Shared Init Default-Value Foundation with Central Config | 2026-04-04 | defined | - | [118-shared-init-default-value-foundation-with-central-config.md](/Users/tino/PhpstormProjects/forge/docs/features/118-shared-init-default-value-foundation-with-central-config.md) |
+| 118 | Shared Init Default-Value Foundation with Central Config | 2026-04-04 | implemented | 2026-04-04 | [118-shared-init-default-value-foundation-with-central-config.md](/Users/tino/PhpstormProjects/forge/docs/features/118-shared-init-default-value-foundation-with-central-config.md) |
 
 ## Notes
+- 000: Meta/test planning document closed; no runtime implementation scope.
 - 001: Core CLI and capability model implemented.
-- 020: Defined, not marked implemented yet.
+- 020: Closed as superseded by split implementation in features 027, 028, and 035.
 - 021: Explain now emits structured evidence/inference/confidence sections with detailed alternatives.
 - 024: Added runs prune with dry-run, retention criteria, config defaults, and safe rewrite behavior.
 - 025: Added --from-run resolution across explain/review/test/describe with provenance metadata.
@@ -201,7 +202,24 @@ Status values:
 - 095: Describe now exposes central orchestrator trace/runtime metadata under action_orchestration using the shared mode orchestrator engine.
 - 096: Describe policy limits are now runtime-configurable and source-traceable in sections.describe_policy.
 - 097: Added integrated describe quality-gate matrix covering unresolved-target, symbol-anchor, ranking-noise, runtime-policy, and orchestrator-trace regressions.
+- 098: Runtime scope writes preserve unknown keys and avoid destructive rewrites.
+- 099: Runtime diagnostics now align session source metadata with effective session source origin.
+- 100: Session touch operations now refresh last_activity_at and expires_at consistently.
+- 101: Auto-created session TTL is now runtime-configurable with source-traceable resolution.
+- 102: Read-only diagnostics skip session auto-activation side effects.
+- 103: Config validation now detects unknown TOML keys with actionable diagnostics.
+- 104: Provider-required field checks are harmonized into mandatory config validation semantics.
+- 105: Index config contract documentation now matches implemented TOML-based runtime behavior.
+- 106: Policy-disabled LLM stages are excluded from fallback analytics inflation.
+- 107: Protocol redaction now preserves non-secret token_usage counters.
+- 108: Logs protocol settings now resolve via central config foundation with local precedence support.
+- 109: Logs capability filter choices are now derived from canonical capability model.
+- 110: Config diagnostics now validate logs.protocol settings explicitly.
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.
+- 112: Init non-mutating/failed flows no longer create marker or run-history side effects.
+- 113: Init invalid-target failures now enforce strict no-write behavior.
+- 114: Init baseline output and doctor provider-required checks are now coherent.
 - 115: Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence.
 - 116: Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate.
 - 117: Init now captures source-scope/framework allowlist onboarding settings and persists them deterministically in generated config and template metadata.
+- 118: Shared init defaults now align with central config foundation to prevent drift.

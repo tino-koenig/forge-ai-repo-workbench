@@ -19,3 +19,18 @@ Ensure operational fallback metrics represent real attempted LLM instability, no
 - `forge logs --step-type llm stats` fallback rate is not inflated by policy-disabled summary refinement in JSON query mode.
 - Real attempted LLM failures still appear as llm fallback events.
 - Regression coverage includes disabled-stage and real-failure scenarios.
+
+## Implemented Behavior (Current)
+
+- The behavior described in this feature is implemented and enforced in the current runtime path.
+- Related quality-gate coverage is available in `scripts/run_quality_gates.py` for the addressed contract.
+
+## How To Validate Quickly
+
+1. Run `python3 scripts/run_quality_gates.py`.
+2. Verify the related gate scenario for this feature passes.
+3. Spot-check the corresponding command path (`forge` mode + JSON output) to confirm observable contract fields/behavior.
+
+## Known Limits / Notes
+
+- Validation is bounded by current fixture coverage; behavior outside covered fixtures should be rechecked when extending adjacent foundations.

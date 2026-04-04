@@ -88,3 +88,27 @@ Users expect intent-level matching and cross-language querying in real repositor
   - no-LLM deterministic baseline
   - LLM expansion/rerank path
   - cross-lingual regression scenario
+
+## Implemented Behavior (Current)
+
+- This feature is superseded as a standalone rollout and is now covered by split implementation tracks:
+  - cross-lingual term expansion in Feature 027
+  - planner-driven multilingual normalization/term shaping in Feature 028
+  - output-language control in Feature 035
+- Query output continues to expose cross-lingual metadata (`sections.cross_lingual`) and planner normalization signals.
+
+## How To Validate Quickly
+
+1. Run a German query against an English-code fixture:
+   - `forge --output-format json query "Wo ist die Funktion X definiert?"`
+2. Verify output contains:
+   - `sections.cross_lingual.source_language`
+   - `sections.cross_lingual.mapped_terms`
+   - `sections.query_planner.normalized_question_en`
+3. Verify output-language behavior via:
+   - `--llm-output-language de|en|auto`
+
+## Known Limits / Notes
+
+- Feature 020 should not be extended independently anymore.
+- New work should target the active split contracts (027/028/035) and keep behavior explicit in those specs.

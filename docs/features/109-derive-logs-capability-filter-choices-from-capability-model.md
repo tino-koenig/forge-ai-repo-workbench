@@ -19,3 +19,18 @@ Use the canonical capability model as single source of truth for `forge logs --c
 - Adding a capability in the model automatically updates accepted `logs --capability` values.
 - No duplicated hardcoded capability tuple remains for logs filter parsing.
 - Regression gate catches future drift.
+
+## Implemented Behavior (Current)
+
+- The behavior described in this feature is implemented and enforced in the current runtime path.
+- Related quality-gate coverage is available in `scripts/run_quality_gates.py` for the addressed contract.
+
+## How To Validate Quickly
+
+1. Run `python3 scripts/run_quality_gates.py`.
+2. Verify the related gate scenario for this feature passes.
+3. Spot-check the corresponding command path (`forge` mode + JSON output) to confirm observable contract fields/behavior.
+
+## Known Limits / Notes
+
+- Validation is bounded by current fixture coverage; behavior outside covered fixtures should be rechecked when extending adjacent foundations.

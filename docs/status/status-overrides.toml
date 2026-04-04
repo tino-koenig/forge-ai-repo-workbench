@@ -3,6 +3,13 @@
 # Any item without override defaults to status="defined".
 
 [[feature]]
+id = "000"
+status = "implemented"
+defined_on = "2026-04-02"
+implemented_on = "2026-04-04"
+notes = "Meta/test planning document closed; no runtime implementation scope."
+
+[[feature]]
 id = "001"
 status = "implemented"
 implemented_on = "2026-04-02"
@@ -100,8 +107,10 @@ implemented_on = "2026-04-03"
 
 [[feature]]
 id = "020"
-status = "defined"
-notes = "Defined, not marked implemented yet."
+status = "implemented"
+defined_on = "2026-04-03"
+implemented_on = "2026-04-04"
+notes = "Closed as superseded by split implementation in features 027, 028, and 035."
 
 [[feature]]
 id = "021"
@@ -630,6 +639,125 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Framework graph refs now enforce schema/version validation with explicit graph_usage validation and per-ref warnings."
 
+[[feature]]
+id = "098"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Runtime scope writes preserve unknown keys and avoid destructive rewrites."
+
+[[feature]]
+id = "099"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Runtime diagnostics now align session source metadata with effective session source origin."
+
+[[feature]]
+id = "100"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Session touch operations now refresh last_activity_at and expires_at consistently."
+
+[[feature]]
+id = "101"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Auto-created session TTL is now runtime-configurable with source-traceable resolution."
+
+[[feature]]
+id = "102"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Read-only diagnostics skip session auto-activation side effects."
+
+[[feature]]
+id = "103"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Config validation now detects unknown TOML keys with actionable diagnostics."
+
+[[feature]]
+id = "104"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Provider-required field checks are harmonized into mandatory config validation semantics."
+
+[[feature]]
+id = "105"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Index config contract documentation now matches implemented TOML-based runtime behavior."
+
+[[feature]]
+id = "106"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Policy-disabled LLM stages are excluded from fallback analytics inflation."
+
+[[feature]]
+id = "107"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Protocol redaction now preserves non-secret token_usage counters."
+
+[[feature]]
+id = "108"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Logs protocol settings now resolve via central config foundation with local precedence support."
+
+[[feature]]
+id = "109"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Logs capability filter choices are now derived from canonical capability model."
+
+[[feature]]
+id = "110"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Config diagnostics now validate logs.protocol settings explicitly."
+
+[[feature]]
+id = "112"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init non-mutating/failed flows no longer create marker or run-history side effects."
+
+[[feature]]
+id = "113"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init invalid-target failures now enforce strict no-write behavior."
+
+[[feature]]
+id = "114"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init baseline output and doctor provider-required checks are now coherent."
+
+[[feature]]
+id = "118"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Shared init defaults now align with central config foundation to prevent drift."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -868,6 +996,146 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Framework graph refs now reject malformed schema/version payloads and surface explicit per-ref validation warnings."
+
+[[issue]]
+id = "3"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Runtime set now preserves unknown scope keys during repo/user writes."
+
+[[issue]]
+id = "4"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Session scope source metadata is now consistent with effective source origin."
+
+[[issue]]
+id = "7"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Policy-disabled query summary paths no longer inflate LLM fallback analytics."
+
+[[issue]]
+id = "8"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Protocol redaction now retains non-secret token_usage metadata."
+
+[[issue]]
+id = "11"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Feature 002 index config contract now matches implemented TOML runtime behavior."
+
+[[issue]]
+id = "41"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Session touch operations now refresh activity and expiry timestamps."
+
+[[issue]]
+id = "42"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Session auto-create TTL now resolves from runtime settings instead of fixed constant."
+
+[[issue]]
+id = "43"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Doctor/config-validate now preserve read-only contract without session side effects."
+
+[[issue]]
+id = "44"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Config validation now reports unknown keys deterministically."
+
+[[issue]]
+id = "45"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Provider-required field checks are now mandatory in config validation."
+
+[[issue]]
+id = "46"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Logs protocol settings now use central config resolution."
+
+[[issue]]
+id = "47"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Logs capability filter choices are now sourced from capability model."
+
+[[issue]]
+id = "48"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Logs protocol settings are now validated by doctor/config validate."
+
+[[issue]]
+id = "49"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init non-mutating flows no longer create .forge marker via run history."
+
+[[issue]]
+id = "50"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init invalid target failures now enforce no-write behavior."
+
+[[issue]]
+id = "51"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init baseline defaults now align with doctor provider-required checks."
+
+[[issue]]
+id = "52"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init safety/template regression matrix was added to quality gates."
+
+[[issue]]
+id = "53"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init template/options are now derived from a shared canonical registry."
+
+[[issue]]
+id = "54"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init now onboards source scope and framework policy settings."
+
+[[issue]]
+id = "55"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init defaults now share central config foundation to prevent drift."
 
 [[issue]]
 id = "6"
