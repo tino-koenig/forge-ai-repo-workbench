@@ -76,8 +76,8 @@ Status values:
 | 064 | README v2: Value, Trust & Control Positioning | 2026-04-04 | defined | - | [064-readme-v2-value-trust-and-control.md](/Users/tino/PhpstormProjects/forge/docs/features/064-readme-v2-value-trust-and-control.md) |
 | 065 | User Documentation Delivery on GitHub (DE/EN) | 2026-04-04 | defined | - | [065-user-documentation-delivery-de-en-on-github.md](/Users/tino/PhpstormProjects/forge/docs/features/065-user-documentation-delivery-de-en-on-github.md) |
 | 066 | Docs MVP on GitHub Pages with MkDocs Material (DE/EN) | 2026-04-04 | defined | - | [066-docs-mvp-mkdocs-landing-de-en.md](/Users/tino/PhpstormProjects/forge/docs/features/066-docs-mvp-mkdocs-landing-de-en.md) |
-| 067 | Index-Aware Retrieval Scope Contract | 2026-04-04 | defined | - | [067-index-aware-retrieval-scope-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/067-index-aware-retrieval-scope-contract.md) |
-| 068 | Query Deterministic Symbol-First Resolution | 2026-04-04 | defined | - | [068-query-deterministic-symbol-first-resolution.md](/Users/tino/PhpstormProjects/forge/docs/features/068-query-deterministic-symbol-first-resolution.md) |
+| 067 | Index-Aware Retrieval Scope Contract | 2026-04-04 | implemented | 2026-04-04 | [067-index-aware-retrieval-scope-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/067-index-aware-retrieval-scope-contract.md) |
+| 068 | Query Deterministic Symbol-First Resolution | 2026-04-04 | implemented | 2026-04-04 | [068-query-deterministic-symbol-first-resolution.md](/Users/tino/PhpstormProjects/forge/docs/features/068-query-deterministic-symbol-first-resolution.md) |
 | 069 | Index Contract and Observability Doctor | 2026-04-04 | defined | - | [069-index-contract-and-observability-doctor.md](/Users/tino/PhpstormProjects/forge/docs/features/069-index-contract-and-observability-doctor.md) |
 | 070 | Graph Schema Validation and Compatibility Contract | 2026-04-04 | defined | - | [070-graph-schema-validation-and-compatibility-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/070-graph-schema-validation-and-compatibility-contract.md) |
 | 071 | Graph Health and Debug Surface | 2026-04-04 | defined | - | [071-graph-health-and-debug-surface.md](/Users/tino/PhpstormProjects/forge/docs/features/071-graph-health-and-debug-surface.md) |
@@ -170,6 +170,8 @@ Status values:
 - 061: Added top-level `forge set/get` commands with alias normalization, canonical runtime key support, session/repo/user scope reads+writes, and resolved source tracing (`--source`, including `session:<name>`).
 - 062: Added runtime settings foundation with canonical registry, deterministic resolver (cli/session/repo/user/toml/default precedence), source tracing, and bootstrap/config wiring.
 - 063: Added named repo-local session store with TTL, auto-create on runtime-consuming commands, session command group, revive flow, bounded context retention, and resolver source integration (`session:<name>`).
+- 067: Query now enforces index participation state in default content retrieval and exposes the effective retrieval scope in structured output.
+- 068: Query now runs deterministic symbol-first resolution for definition/location intents with explicit symbol-stage evidence and output metadata.
 - 077: Query content retrieval now uses boundary-aware token matching instead of naive substring checks, with regression coverage for identifier-location queries.
 - 078: Planner lead/support priority is now transparently transferred to deterministic retrieval order with observable effective terms and weights in query output.
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.

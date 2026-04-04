@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import time
 
-from core.analysis_primitives import load_index_entry_map, load_index_path_class_map, path_class_weight
+from core.analysis_primitives import index_allows_path, load_index_entry_map, load_index_path_class_map, path_class_weight
 from core.capability_model import CommandRequest, EffectClass, Profile
 from core.effects import ExecutionSession
 from core.framework_profiles import FrameworkProfile, load_framework_registry, select_framework_profile
@@ -22,6 +22,7 @@ from core.mode_capability_contract import evaluate_action_eligibility
 from core.output_contracts import build_contract, emit_contract_json
 from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import TEXT_FILE_EXTENSIONS, iter_repo_files, read_text_file
+import tomli
 
 
 STOP_WORDS = {
@@ -495,6 +496,48 @@ def derive_exact_fallback_terms(question: str, profile: Profile) -> list[str]:
     return deduped[:15]
 
 
+def _load_query_source_policy(repo_root: Path) -> tuple[str, str]:
+    local_path = repo_root / ".forge" / "config.local.toml"
+    repo_path = repo_root / ".forge" / "config.toml"
+    candidates: list[tuple[Path, str]] = [
+        (local_path, "config.local.toml"),
+        (repo_path, "config.toml"),
+    ]
+    for path, label in candidates:
+        if not path.exists():
+            continue
+        try:
+            payload = tomli.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomli.TOMLDecodeError):
+            continue
+        raw = (
+            payload.get("query", {})
+            .get("source_policy", {})
+            .get("source_scope_default")
+            if isinstance(payload, dict)
+            else None
+        )
+        normalized = str(raw).strip().lower() if raw is not None else ""
+        if normalized in {"repo_only", "all"}:
+            return normalized, label
+    return "repo_only", "default"
+
+
+def _is_definition_lookup_query(question: str, planner) -> bool:
+    lowered = question.lower()
+    if planner is not None:
+        intent = str(getattr(planner, "intent", "") or "").lower()
+        if any(token in intent for token in ("definition", "locate", "location")):
+            return True
+        entity_types = {str(item).lower() for item in (getattr(planner, "entity_types", []) or [])}
+        if entity_types.intersection({"function", "class", "variable"}):
+            return True
+    return bool(
+        re.search(r"\b(where|defined|definition|declaration|implement(?:ed|ation)?)\b", lowered)
+        or re.search(r"\b(wo|definiert|definition|deklaration|implementierung)\b", lowered)
+    )
+
+
 def has_write_request_intent(question: str) -> bool:
     lowered = question.lower()
     if any(token in lowered for token in ("write ", "modify ", "create ", "apply patch", "git add", "commit ")):
@@ -815,28 +858,118 @@ def _collect_graph_matches(
     return matches, source_meta
 
 
+def _effective_path_class(
+    rel_path: str,
+    *,
+    path_classes: dict[str, str],
+    index_entry_map: dict[str, dict[str, object]],
+    source_type: str,
+) -> str:
+    if rel_path in path_classes:
+        return path_classes[rel_path]
+    if index_entry_map and source_type == "repo":
+        # When index exists, non-indexed repo paths should not be silently up-classified.
+        return "index_exclude"
+    return "normal"
+
+
+def _build_symbol_first_matches(
+    *,
+    index_entry_map: dict[str, dict[str, object]],
+    anchor_terms: list[str],
+    weight_map: dict[str, int],
+) -> tuple[dict[str, list[Evidence]], dict[str, int]]:
+    if not index_entry_map or not anchor_terms:
+        return {}, {}
+    out: dict[str, list[Evidence]] = {}
+    counters = {"exact": 0, "prefix": 0}
+    normalized_anchors: list[str] = []
+    seen: set[str] = set()
+    for raw in anchor_terms:
+        term = " ".join(raw.strip().split()).lower()
+        if not term or term in seen:
+            continue
+        seen.add(term)
+        normalized_anchors.append(term)
+    if not normalized_anchors:
+        return out, counters
+
+    for rel, entry in index_entry_map.items():
+        raw_symbols = entry.get("top_level_symbols")
+        if not isinstance(raw_symbols, list) or not raw_symbols:
+            continue
+        symbols = [str(item).strip().lower() for item in raw_symbols if str(item).strip()]
+        if not symbols:
+            continue
+        hits: list[Evidence] = []
+        for term in normalized_anchors:
+            base_weight = max(1, weight_map.get(term, 1))
+            for symbol in symbols:
+                if symbol == term:
+                    hits.append(
+                        Evidence(
+                            line=0,
+                            text=f"symbol_exact: {symbol}",
+                            term=term,
+                            source="symbol_match",
+                            weight=40 * base_weight,
+                        )
+                    )
+                    counters["exact"] += 1
+                    break
+                if len(term) >= 4 and symbol.startswith(term):
+                    hits.append(
+                        Evidence(
+                            line=0,
+                            text=f"symbol_prefix: {symbol}",
+                            term=term,
+                            source="symbol_match",
+                            weight=20 * base_weight,
+                        )
+                    )
+                    counters["prefix"] += 1
+                    break
+        if hits:
+            out[rel] = hits[:3]
+    return out, counters
+
+
 def collect_matches(
     root: Path,
     terms: list[str],
     session: ExecutionSession,
     *,
     index_entry_map: dict[str, dict[str, object]],
+    path_classes: dict[str, str] | None = None,
+    include_non_index_participating: bool = False,
+    symbol_first_terms: list[str] | None = None,
     term_weights: dict[str, int] | None = None,
     framework_profile: FrameworkProfile | None = None,
     repo_graph: dict[str, object] | None = None,
     framework_graphs: dict[str, dict[str, object]] | None = None,
-) -> tuple[dict[str, list[Evidence]], dict[str, SourceMetadata], list[str]]:
+) -> tuple[dict[str, list[Evidence]], dict[str, SourceMetadata], list[str], dict[str, int]]:
     results: dict[str, list[Evidence]] = {}
     source_meta: dict[str, SourceMetadata] = {}
     warnings: list[str] = []
+    symbol_first_counts: dict[str, int] = {"exact": 0, "prefix": 0}
     if not terms:
-        return results, source_meta, warnings
+        return results, source_meta, warnings, symbol_first_counts
 
     weight_map = term_weights or {}
+    path_classes = path_classes or {}
     repo_files = iter_repo_files(root, session)
     rel_paths = [str(path.relative_to(root)) for path in repo_files]
     for file_path in repo_files:
         rel = str(file_path.relative_to(root))
+        if index_entry_map:
+            path_class = _effective_path_class(
+                rel,
+                path_classes=path_classes,
+                index_entry_map=index_entry_map,
+                source_type="repo",
+            )
+            if not include_non_index_participating and not index_allows_path(path_class):
+                continue
         content = read_text_file(file_path, session)
         if not content:
             continue
@@ -889,6 +1022,17 @@ def collect_matches(
 
     # Symbol retrieval from index metadata.
     if index_entry_map:
+        if symbol_first_terms:
+            symbol_first, symbol_first_counts = _build_symbol_first_matches(
+                index_entry_map=index_entry_map,
+                anchor_terms=symbol_first_terms,
+                weight_map=weight_map,
+            )
+            for rel, evidences in symbol_first.items():
+                existing = results.setdefault(rel, [])
+                existing.extend(evidences)
+                source_meta.setdefault(rel, SourceMetadata(source_type="repo", source_origin="repo"))
+
         structural_terms: list[tuple[str, int]] = []
         seen_terms: dict[str, int] = {}
         for term in terms:
@@ -975,7 +1119,7 @@ def collect_matches(
         existing.extend(evidences[:3])
         if path_key in graph_source_meta:
             source_meta.setdefault(path_key, graph_source_meta[path_key])
-    return results, source_meta, warnings
+    return results, source_meta, warnings, symbol_first_counts
 
 
 def score_candidate(
@@ -1100,19 +1244,36 @@ def rank_candidates(
     source_meta_map = source_meta_map or {}
     preliminary_source_types: dict[str, str] = {}
     for rel_path in matches:
-        path_class = path_classes.get(rel_path, "normal")
+        source_meta = source_meta_map.get(rel_path)
+        source_type = classify_source_type(
+            rel_path,
+            path_class=path_classes.get(rel_path, "normal"),
+            index_entry=index_entry_map.get(rel_path),
+            source_meta=source_meta,
+        )
+        path_class = _effective_path_class(
+            rel_path,
+            path_classes=path_classes,
+            index_entry_map=index_entry_map,
+            source_type=source_type,
+        )
         preliminary_source_types[rel_path] = classify_source_type(
             rel_path,
             path_class=path_class,
             index_entry=index_entry_map.get(rel_path),
-            source_meta=source_meta_map.get(rel_path),
+            source_meta=source_meta,
         )
     prefer_repo_sources = any(value == "repo" for value in preliminary_source_types.values())
 
     ranked: list[Candidate] = []
     for rel_path, evidences in matches.items():
-        path_class = path_classes.get(rel_path, "normal")
         source_type = preliminary_source_types.get(rel_path, "repo")
+        path_class = _effective_path_class(
+            rel_path,
+            path_classes=path_classes,
+            index_entry_map=index_entry_map,
+            source_type=source_type,
+        )
         source_meta = source_meta_map.get(rel_path)
         retrieval_sources = sorted({item.source for item in evidences})
         ranked.append(
@@ -1169,6 +1330,7 @@ def _expand_matches_with_search_action(
     matches: dict[str, list[Evidence]],
     index_entry_map: dict[str, dict[str, object]],
     path_classes: dict[str, str],
+    include_non_index_participating: bool,
     terms: list[str],
     max_new_candidates: int,
     source_scope: str,
@@ -1181,7 +1343,14 @@ def _expand_matches_with_search_action(
     for rel, entry in index_entry_map.items():
         if rel in existing_paths:
             continue
-        inferred_class = path_classes.get(rel, "normal")
+        inferred_class = _effective_path_class(
+            rel,
+            path_classes=path_classes,
+            index_entry_map=index_entry_map,
+            source_type="repo",
+        )
+        if not include_non_index_participating and not index_allows_path(inferred_class):
+            continue
         source_type = classify_source_type(rel, path_class=inferred_class, index_entry=entry)
         if source_scope == "repo_only" and source_type != "repo":
             continue
@@ -1613,6 +1782,19 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 print("Index: not available, using direct repository scan only")
     elif not is_json:
         print("Index: skipped in simple profile")
+    source_scope_default, source_scope_default_source = _load_query_source_policy(repo_root)
+    include_non_index_participating = source_scope_default == "all"
+    symbol_first_triggered = _is_definition_lookup_query(question, planner)
+    symbol_first_terms: list[str] = []
+    if symbol_first_triggered:
+        anchors = planner.lead_terms if planner is not None else terms
+        for item in anchors:
+            normalized = " ".join(str(item).strip().split()).lower()
+            if not normalized:
+                continue
+            if _is_symbol_like_term(normalized) or len(normalized) >= 6:
+                symbol_first_terms.append(normalized)
+        symbol_first_terms = symbol_first_terms[:4]
 
     framework_registry = load_framework_registry(repo_root, session)
     requested_framework_profile = getattr(args, "framework_profile", None)
@@ -1645,11 +1827,14 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         {"term": term, "weight": term_weights.get(term, 1)}
         for term in terms
     ]
-    matches, source_meta_map, source_warnings = collect_matches(
+    matches, source_meta_map, source_warnings, symbol_first_counts = collect_matches(
         repo_root,
         terms,
         session,
         index_entry_map=index_entry_map,
+        path_classes=path_classes,
+        include_non_index_participating=include_non_index_participating,
+        symbol_first_terms=symbol_first_terms,
         term_weights=term_weights,
         framework_profile=framework_profile,
         repo_graph=repo_graph,
@@ -1877,6 +2062,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 matches=matches,
                 index_entry_map=index_entry_map,
                 path_classes=path_classes,
+                include_non_index_participating=include_non_index_participating,
                 terms=terms,
                 max_new_candidates=min(12, llm_settings.query_orchestrator_max_files),
                 source_scope=source_scope,
@@ -2329,6 +2515,19 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 }
             ),
         },
+        "retrieval_scope": {
+            "index_present": bool(index_entry_map),
+            "source_scope_default": source_scope_default,
+            "source_scope_default_source": source_scope_default_source,
+            "include_non_index_participating": include_non_index_participating,
+            "index_participation_enforced": bool(index_entry_map) and not include_non_index_participating,
+        },
+        "symbol_resolution": {
+            "triggered": symbol_first_triggered,
+            "anchor_terms": symbol_first_terms,
+            "exact_hits": symbol_first_counts.get("exact", 0),
+            "prefix_hits": symbol_first_counts.get("prefix", 0),
+        },
         "policy_violations": policy_violations,
         "action_orchestration": {
             "catalog": ["search", "read", "explain", "rank", "summarize", "stop"],
@@ -2481,6 +2680,17 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             print(f"Code variants: {', '.join(planner.code_variants[:8])}")
         if planner_usage.get("fallback_reason"):
             print(f"Fallback: {planner_usage['fallback_reason']}")
+        print("\n--- Retrieval Scope ---")
+        print(f"Index present: {bool(index_entry_map)}")
+        print(f"Source scope default: {source_scope_default} ({source_scope_default_source})")
+        print(f"Include index-excluded: {include_non_index_participating}")
+        print(f"Index participation enforced: {bool(index_entry_map) and not include_non_index_participating}")
+        print("\n--- Symbol Resolution ---")
+        print(f"Triggered: {symbol_first_triggered}")
+        if symbol_first_terms:
+            print(f"Anchor terms: {', '.join(symbol_first_terms[:8])}")
+        print(f"Exact hits: {symbol_first_counts.get('exact', 0)}")
+        print(f"Prefix hits: {symbol_first_counts.get('prefix', 0)}")
 
         if ask_mode:
             print("\n--- Ask Preset ---")

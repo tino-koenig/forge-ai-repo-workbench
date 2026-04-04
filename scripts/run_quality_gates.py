@@ -1753,6 +1753,69 @@ def gate_query_planner_priority_transfer(repo_root: Path) -> None:
         assert_true(first_weight >= value, "planner priority: lead term weight must not be lower than following terms")
 
 
+def gate_query_index_scope_and_symbol_first(repo_root: Path) -> None:
+    vendor_dir = repo_root / "vendor" / "noisepkg"
+    src_dir = repo_root / "src"
+    vendor_dir.mkdir(parents=True, exist_ok=True)
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (vendor_dir / "noisy.py").write_text(
+        (
+            "def function_definition_location_module_class_variable_api_call_config():\n"
+            "    return 'noise'\n"
+        ),
+        encoding="utf-8",
+    )
+    (src_dir / "enricher.py").write_text(
+        (
+            "def enrich_detailed_context(payload: str) -> str:\n"
+            "    return payload.strip()\n"
+        ),
+        encoding="utf-8",
+    )
+    run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "index"], cwd=ROOT)
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "Wo",
+                "ist",
+                "enrich_detailed_context",
+                "definiert?",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    sections = payload.get("sections", {})
+    scope = sections.get("retrieval_scope", {})
+    assert_true(scope.get("index_present") is True, "index scope: expected index_present=true")
+    assert_true(
+        scope.get("index_participation_enforced") is True,
+        "index scope: expected index participation enforcement by default",
+    )
+    likely = sections.get("likely_locations", [])
+    assert_true(isinstance(likely, list) and likely, "index scope: expected likely_locations")
+    likely_paths = [item.get("path") for item in likely if isinstance(item, dict)]
+    assert_true(likely_paths[0] == "src/enricher.py", "index scope: expected defining file as top result")
+    assert_true(
+        not any(isinstance(path, str) and path.startswith("vendor/") for path in likely_paths[:5]),
+        "index scope: vendor/index_exclude paths must not dominate default top results",
+    )
+    symbol_resolution = sections.get("symbol_resolution", {})
+    assert_true(symbol_resolution.get("triggered") is True, "symbol-first: expected triggered=true")
+    assert_true(
+        int(symbol_resolution.get("exact_hits", 0)) >= 1,
+        "symbol-first: expected at least one exact symbol hit for anchor term",
+    )
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -3757,6 +3820,7 @@ def run_all_gates() -> None:
         gate_cross_lingual_query(temp_repo)
         gate_query_token_aware_matching(temp_repo)
         gate_query_planner_priority_transfer(temp_repo)
+        gate_query_index_scope_and_symbol_first(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)

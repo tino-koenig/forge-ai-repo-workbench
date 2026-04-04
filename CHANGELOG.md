@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- features 067/068 / issue 9: query now enforces index participation (`index_exclude`/`hard_ignore`) for default content retrieval, adds deterministic symbol-first definition resolution with explicit `symbol_exact` evidence, and exposes `retrieval_scope`/`symbol_resolution` sections in output
 - feature 078 / issue 21: query exposes planner-to-retrieval transfer (`effective_retrieval_terms`, `effective_term_weights`) and keeps lead anchors deterministically ahead of generic terms, with dedicated regression gate coverage
 - feature 077 / issue 20: query content retrieval (repo + framework-local) now uses boundary-aware token matching instead of naive substring checks, preventing false-positive hits like `ist` in `exists`/`list` and adding a dedicated regression gate
 - feature 115 / issue 52: init-qualitaetsgates als matrix erweitert (overwrite-block/force, template-output-contract je template, source-policy-persistenz) und damit sicherheits-/drift-absicherung im standard-gate-pipeline verankert

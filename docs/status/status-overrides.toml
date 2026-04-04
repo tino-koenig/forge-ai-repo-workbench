@@ -427,6 +427,20 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Planner lead/support priority is now transparently transferred to deterministic retrieval order with observable effective terms and weights in query output."
 
+[[feature]]
+id = "067"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query now enforces index participation state in default content retrieval and exposes the effective retrieval scope in structured output."
+
+[[feature]]
+id = "068"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query now runs deterministic symbol-first resolution for definition/location intents with explicit symbol-stage evidence and output metadata."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -462,3 +476,10 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Made planner priority transfer auditable and deterministic by exposing effective retrieval term order and weights, ensuring lead anchors stay first."
+
+[[issue]]
+id = "9"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query content scan now honors index participation and combines this with symbol-first resolution for definition queries."
