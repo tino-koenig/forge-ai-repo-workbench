@@ -99,6 +99,16 @@ _CONFIG_SCHEMA: dict[str, Any] = {
     },
 }
 
+DEFAULT_QUERY_PLANNER_ENABLED = True
+DEFAULT_QUERY_PLANNER_MAX_TERMS = 12
+DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS = 8
+DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS = 2500
+DEFAULT_QUERY_ORCHESTRATOR_ENABLED = True
+DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS = 2
+DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES = 8
+DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS = 1200
+DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS = 2500
+
 
 @dataclass(frozen=True)
 class ResolvedLLMConfig:
@@ -318,17 +328,17 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             output_language="auto",
             prompt_profile="strict_read_only",
             system_template_path=_default_system_template(),
-            query_planner_enabled=True,
+            query_planner_enabled=DEFAULT_QUERY_PLANNER_ENABLED,
             query_planner_mode="optional",
-            query_planner_max_terms=12,
-            query_planner_max_code_variants=8,
-            query_planner_max_latency_ms=2500,
-            query_orchestrator_enabled=True,
+            query_planner_max_terms=DEFAULT_QUERY_PLANNER_MAX_TERMS,
+            query_planner_max_code_variants=DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS,
+            query_planner_max_latency_ms=DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
+            query_orchestrator_enabled=DEFAULT_QUERY_ORCHESTRATOR_ENABLED,
             query_orchestrator_mode="optional",
-            query_orchestrator_max_iterations=2,
-            query_orchestrator_max_files=8,
-            query_orchestrator_max_tokens=1200,
-            query_orchestrator_max_wall_time_ms=2500,
+            query_orchestrator_max_iterations=DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS,
+            query_orchestrator_max_files=DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES,
+            query_orchestrator_max_tokens=DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS,
+            query_orchestrator_max_wall_time_ms=DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS,
             observability_enabled=False,
             observability_level="minimal",
             observability_retention_count=1000,
@@ -357,17 +367,17 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             output_language="auto",
             prompt_profile="strict_read_only",
             system_template_path=_default_system_template(),
-            query_planner_enabled=True,
+            query_planner_enabled=DEFAULT_QUERY_PLANNER_ENABLED,
             query_planner_mode="optional",
-            query_planner_max_terms=12,
-            query_planner_max_code_variants=8,
-            query_planner_max_latency_ms=2500,
-            query_orchestrator_enabled=True,
+            query_planner_max_terms=DEFAULT_QUERY_PLANNER_MAX_TERMS,
+            query_planner_max_code_variants=DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS,
+            query_planner_max_latency_ms=DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
+            query_orchestrator_enabled=DEFAULT_QUERY_ORCHESTRATOR_ENABLED,
             query_orchestrator_mode="optional",
-            query_orchestrator_max_iterations=2,
-            query_orchestrator_max_files=8,
-            query_orchestrator_max_tokens=1200,
-            query_orchestrator_max_wall_time_ms=2500,
+            query_orchestrator_max_iterations=DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS,
+            query_orchestrator_max_files=DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES,
+            query_orchestrator_max_tokens=DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS,
+            query_orchestrator_max_wall_time_ms=DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS,
             observability_enabled=False,
             observability_level="minimal",
             observability_retention_count=1000,
@@ -490,7 +500,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("toml_local", _nested_get(local_payload, "llm.query_planner.enabled")),
             ("toml", _nested_get(payload, "llm.query_planner.enabled")),
-            ("default", True),
+            ("default", DEFAULT_QUERY_PLANNER_ENABLED),
         ]
     )
     planner_mode_raw, source["query_planner_mode"] = _first_non_none(
@@ -504,33 +514,35 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("toml_local", _nested_get(local_payload, "llm.query_planner.max_terms")),
             ("toml", _nested_get(payload, "llm.query_planner.max_terms")),
-            ("default", 12),
+            ("default", DEFAULT_QUERY_PLANNER_MAX_TERMS),
         ]
     )
     planner_max_code_variants_raw, source["query_planner_max_code_variants"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_planner.max_code_variants")),
             ("toml", _nested_get(payload, "llm.query_planner.max_code_variants")),
-            ("default", 8),
+            ("default", DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS),
         ]
     )
     planner_max_latency_ms_raw, source["query_planner_max_latency_ms"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_planner.max_latency_ms")),
             ("toml", _nested_get(payload, "llm.query_planner.max_latency_ms")),
-            ("default", 2500),
+            ("default", DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS),
         ]
     )
-    query_planner_enabled = _bool_or_default(planner_enabled_raw, True)
+    query_planner_enabled = _bool_or_default(planner_enabled_raw, DEFAULT_QUERY_PLANNER_ENABLED)
     query_planner_mode = str(planner_mode_raw).strip().lower()
-    query_planner_max_terms = _int_or_default(planner_max_terms_raw, 12)
-    query_planner_max_code_variants = _int_or_default(planner_max_code_variants_raw, 8)
-    query_planner_max_latency_ms = _int_or_default(planner_max_latency_ms_raw, 2500)
+    query_planner_max_terms = _int_or_default(planner_max_terms_raw, DEFAULT_QUERY_PLANNER_MAX_TERMS)
+    query_planner_max_code_variants = _int_or_default(
+        planner_max_code_variants_raw, DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS
+    )
+    query_planner_max_latency_ms = _int_or_default(planner_max_latency_ms_raw, DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS)
     orchestrator_enabled_raw, source["query_orchestrator_enabled"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_orchestrator.enabled")),
             ("toml", _nested_get(payload, "llm.query_orchestrator.enabled")),
-            ("default", True),
+            ("default", DEFAULT_QUERY_ORCHESTRATOR_ENABLED),
         ]
     )
     orchestrator_mode_raw, source["query_orchestrator_mode"] = _first_non_none(
@@ -544,36 +556,42 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         [
             ("toml_local", _nested_get(local_payload, "llm.query_orchestrator.max_iterations")),
             ("toml", _nested_get(payload, "llm.query_orchestrator.max_iterations")),
-            ("default", 2),
+            ("default", DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS),
         ]
     )
     orchestrator_max_files_raw, source["query_orchestrator_max_files"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_orchestrator.max_files")),
             ("toml", _nested_get(payload, "llm.query_orchestrator.max_files")),
-            ("default", 8),
+            ("default", DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES),
         ]
     )
     orchestrator_max_tokens_raw, source["query_orchestrator_max_tokens"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_orchestrator.max_tokens")),
             ("toml", _nested_get(payload, "llm.query_orchestrator.max_tokens")),
-            ("default", 1200),
+            ("default", DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS),
         ]
     )
     orchestrator_max_wall_time_ms_raw, source["query_orchestrator_max_wall_time_ms"] = _first_non_none(
         [
             ("toml_local", _nested_get(local_payload, "llm.query_orchestrator.max_wall_time_ms")),
             ("toml", _nested_get(payload, "llm.query_orchestrator.max_wall_time_ms")),
-            ("default", 2500),
+            ("default", DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS),
         ]
     )
-    query_orchestrator_enabled = _bool_or_default(orchestrator_enabled_raw, True)
+    query_orchestrator_enabled = _bool_or_default(orchestrator_enabled_raw, DEFAULT_QUERY_ORCHESTRATOR_ENABLED)
     query_orchestrator_mode = str(orchestrator_mode_raw).strip().lower()
-    query_orchestrator_max_iterations = _int_or_default(orchestrator_max_iterations_raw, 2)
-    query_orchestrator_max_files = _int_or_default(orchestrator_max_files_raw, 8)
-    query_orchestrator_max_tokens = _int_or_default(orchestrator_max_tokens_raw, 1200)
-    query_orchestrator_max_wall_time_ms = _int_or_default(orchestrator_max_wall_time_ms_raw, 2500)
+    query_orchestrator_max_iterations = _int_or_default(
+        orchestrator_max_iterations_raw, DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS
+    )
+    query_orchestrator_max_files = _int_or_default(orchestrator_max_files_raw, DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES)
+    query_orchestrator_max_tokens = _int_or_default(
+        orchestrator_max_tokens_raw, DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS
+    )
+    query_orchestrator_max_wall_time_ms = _int_or_default(
+        orchestrator_max_wall_time_ms_raw, DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS
+    )
 
     observability_enabled_raw, source["observability_enabled"] = _first_non_none(
         [

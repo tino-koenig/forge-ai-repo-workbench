@@ -13,6 +13,15 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from core.config import (
+    DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES,
+    DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS,
+    DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS,
+    DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS,
+    DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS,
+    DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
+    DEFAULT_QUERY_PLANNER_MAX_TERMS,
+)
 from core.protocol_log import append_protocol_events
 import tomli
 
@@ -882,6 +891,58 @@ def gate_init_invalid_target_no_write(repo_root: Path) -> None:
         )
     finally:
         shutil.rmtree(base, ignore_errors=True)
+
+
+def gate_init_default_alignment_with_config_foundation(repo_root: Path) -> None:
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--repo-root",
+            str(repo_root),
+            "init",
+            "--template",
+            "balanced",
+            "--non-interactive",
+            "--force",
+        ],
+        cwd=ROOT,
+    )
+    config_path = repo_root / ".forge" / "config.toml"
+    payload = tomli.loads(config_path.read_text(encoding="utf-8"))
+    llm = payload.get("llm")
+    planner = llm.get("query_planner") if isinstance(llm, dict) else {}
+    orchestrator = llm.get("query_orchestrator") if isinstance(llm, dict) else {}
+    assert_true(
+        isinstance(planner, dict) and planner.get("max_terms") == DEFAULT_QUERY_PLANNER_MAX_TERMS,
+        "init defaults: query_planner.max_terms should match config foundation",
+    )
+    assert_true(
+        isinstance(planner, dict) and planner.get("max_code_variants") == DEFAULT_QUERY_PLANNER_MAX_CODE_VARIANTS,
+        "init defaults: query_planner.max_code_variants should match config foundation",
+    )
+    assert_true(
+        isinstance(planner, dict) and planner.get("max_latency_ms") == DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
+        "init defaults: query_planner.max_latency_ms should match config foundation",
+    )
+    assert_true(
+        isinstance(orchestrator, dict)
+        and orchestrator.get("max_iterations") == DEFAULT_QUERY_ORCHESTRATOR_MAX_ITERATIONS,
+        "init defaults: query_orchestrator.max_iterations should match config foundation",
+    )
+    assert_true(
+        isinstance(orchestrator, dict) and orchestrator.get("max_files") == DEFAULT_QUERY_ORCHESTRATOR_MAX_FILES,
+        "init defaults: query_orchestrator.max_files should match config foundation",
+    )
+    assert_true(
+        isinstance(orchestrator, dict) and orchestrator.get("max_tokens") == DEFAULT_QUERY_ORCHESTRATOR_MAX_TOKENS,
+        "init defaults: query_orchestrator.max_tokens should match config foundation",
+    )
+    assert_true(
+        isinstance(orchestrator, dict)
+        and orchestrator.get("max_wall_time_ms") == DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS,
+        "init defaults: query_orchestrator.max_wall_time_ms should match config foundation",
+    )
 
 
 def gate_named_session_context_and_ttl(repo_root: Path) -> None:
@@ -3026,6 +3087,7 @@ def run_all_gates() -> None:
         gate_runtime_scope_round_trip_preservation(temp_repo)
         gate_init_non_mutating_flows(temp_repo)
         gate_init_invalid_target_no_write(temp_repo)
+        gate_init_default_alignment_with_config_foundation(temp_repo)
         gate_named_session_context_and_ttl(temp_repo)
         gate_env_file_autoload(temp_repo)
         gate_prompt_profile_policy(temp_repo)
