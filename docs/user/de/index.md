@@ -13,5 +13,3 @@ Willkommen in der Forge-Nutzerdokumentation.
 - [Rezepte](recipes.md)
 - [Fehlerbehebung](troubleshooting.md)
 - [FAQ](faq.md)
-
-Englische Version: [EN index](../en/index.md)

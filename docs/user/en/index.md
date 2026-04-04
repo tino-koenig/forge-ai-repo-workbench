@@ -13,5 +13,3 @@ Welcome to Forge user documentation.
 - [Recipes](recipes.md)
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
-
-German version: [DE index](../de/index.md)
