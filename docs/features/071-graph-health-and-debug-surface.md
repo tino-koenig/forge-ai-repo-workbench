@@ -39,3 +39,27 @@ Graph behavior is central for query/explain quality but currently hard to audit 
 - Graph health checks are available in CLI diagnostics.
 - Output is actionable and references concrete artifact paths/ref ids.
 - Regression tests assert warning/error paths for invalid graph scenarios.
+
+## Implemented Behavior (Current)
+
+- Query and explain now expose explicit framework-ref graph health signals in `sections.graph_usage`:
+  - `framework_graph_refs_validation` (`valid` / `invalid` / `missing`)
+  - `framework_graph_refs_loaded` (validated refs only)
+  - `framework_graph_refs_warnings` (actionable warning messages with ref id/path context)
+- Framework ref payloads are validated with the same minimal graph schema/version contract used for repo graph payloads.
+- Invalid framework refs are rejected from active graph usage instead of being treated as loaded.
+
+## How To Validate Quickly
+
+1. Run `forge index` to generate a valid repo graph.
+2. Configure framework refs in `.forge/config.toml` with one valid graph JSON and one invalid dict payload.
+3. Run:
+   - `forge --output-format json query "compute_price"`
+4. Verify under `sections.graph_usage`:
+   - invalid ref is absent from `framework_graph_refs_loaded`
+   - `framework_graph_refs_validation` is `invalid`
+   - warning list contains `invalid schema/version`.
+
+## Known Limits / Notes
+
+- The current health surface is integrated in query/explain graph usage reporting and regression gates; a dedicated doctor/status graph-health panel is still a follow-up improvement.

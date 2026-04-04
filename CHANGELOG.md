@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 071 / issue 13: framework graph refs now enforce schema/version validation on load, exclude invalid refs from active usage, and expose per-ref validation warnings in query/explain `graph_usage`
 - feature 070 / issue 12: repo graph load now validates schema/version compatibility, rejects invalid payloads deterministically, and exposes graph validation state/warnings in query/explain graph_usage
 - feature 097 / issue 40: describe regressions now run through dedicated quality-gate matrix covering unresolved-target contract, symbol-anchor evidence, ranking-noise control, runtime-policy, and orchestrator compatibility
 - feature 096 / issue 39: describe analysis/scan limits moved to runtime settings with source-traceable `sections.describe_policy` and dedicated regression coverage

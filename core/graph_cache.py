@@ -106,15 +106,33 @@ def load_repo_graph_with_warnings(repo_root: Path, session: ExecutionSession) ->
     graph_path = repo_root / ".forge" / "graph.json"
     if not graph_path.exists():
         return None, []
-    session.record_effect(EffectClass.READ_ONLY, f"read graph cache {graph_path}")
-    try:
-        payload = json.loads(graph_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None, [f"repo graph invalid: unreadable graph artifact at {graph_path}"]
-    validated, warning = _validate_graph_payload(payload, label=f"repo graph {graph_path}")
+    validated, warning = _load_graph_payload_from_path(
+        graph_path=graph_path,
+        session=session,
+        effect_label=f"read graph cache {graph_path}",
+        validation_label=f"repo graph {graph_path}",
+    )
     if validated is None:
         return None, [f"repo graph invalid: {warning}"]
     return validated, []
+
+
+def _load_graph_payload_from_path(
+    *,
+    graph_path: Path,
+    session: ExecutionSession,
+    effect_label: str,
+    validation_label: str,
+) -> tuple[dict[str, object] | None, str | None]:
+    session.record_effect(EffectClass.READ_ONLY, effect_label)
+    try:
+        payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None, f"{validation_label}: unreadable graph artifact at {graph_path}"
+    validated, warning = _validate_graph_payload(payload, label=validation_label)
+    if validated is None:
+        return None, warning
+    return validated, None
 
 
 def load_framework_graph_references(
@@ -143,14 +161,14 @@ def load_framework_graph_references(
         if not graph_path.exists():
             warnings.append(f"framework graph ref missing: {ref_id} -> {graph_path}")
             continue
-        session.record_effect(EffectClass.READ_ONLY, f"read framework graph {graph_path}")
-        try:
-            graph_payload = json.loads(graph_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-            warnings.append(f"framework graph ref unreadable: {ref_id} -> {graph_path}")
-            continue
-        if not isinstance(graph_payload, dict):
-            warnings.append(f"framework graph ref invalid payload: {ref_id}")
+        graph_payload, validation_warning = _load_graph_payload_from_path(
+            graph_path=graph_path,
+            session=session,
+            effect_label=f"read framework graph {graph_path}",
+            validation_label=f"framework graph ref {ref_id} {graph_path}",
+        )
+        if graph_payload is None:
+            warnings.append(f"framework graph ref invalid schema/version: {ref_id} -> {graph_path} ({validation_warning})")
             continue
         loaded[ref_id] = graph_payload
     return loaded, warnings

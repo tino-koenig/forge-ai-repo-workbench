@@ -616,6 +616,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Repo graph loading now enforces schema/version validation with explicit graph_usage validation state and warnings."
 
+[[feature]]
+id = "071"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Framework graph refs now enforce schema/version validation with explicit graph_usage validation and per-ref warnings."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -840,6 +847,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Repo graph schema/version is now validated at load; invalid/incompatible payloads are rejected with explicit validation warnings."
+
+[[issue]]
+id = "13"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Framework graph refs now reject malformed schema/version payloads and surface explicit per-ref validation warnings."
 
 [[issue]]
 id = "6"

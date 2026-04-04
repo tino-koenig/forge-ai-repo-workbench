@@ -1380,7 +1380,13 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "repo_graph_loaded": repo_graph is not None,
             "repo_graph_validation": "valid" if repo_graph is not None else ("invalid" if repo_graph_warnings else "missing"),
             "repo_graph_warnings": repo_graph_warnings,
+            "framework_graph_refs_validation": (
+                "valid"
+                if framework_graphs and not framework_graph_warnings
+                else ("invalid" if framework_graph_warnings else "missing")
+            ),
             "framework_graph_refs_loaded": sorted(framework_graphs.keys()),
+            "framework_graph_refs_warnings": framework_graph_warnings,
         },
         "role_classification": {"role": role, "reason": rationale},
         "related_files": [str(path) for path in related],

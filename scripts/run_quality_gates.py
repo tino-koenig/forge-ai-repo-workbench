@@ -5303,6 +5303,63 @@ def gate_graph_schema_validation_and_compatibility(repo_root: Path) -> None:
     assert_true(restored_usage.get("repo_graph_validation") == "valid", "graph schema: expected repo_graph_validation=valid")
 
 
+def gate_framework_graph_reference_schema_validation(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    run_cmd(["python3", str(FORGE), "--repo-root", str(repo_root), "index"], cwd=ROOT)
+    graph_path = forge_dir / "graph.json"
+    assert_true(graph_path.exists(), "framework graph refs: expected .forge/graph.json after index")
+
+    valid_ref_path = forge_dir / "framework-valid.json"
+    invalid_ref_path = forge_dir / "framework-invalid.json"
+    valid_ref_path.write_text(graph_path.read_text(encoding="utf-8"), encoding="utf-8")
+    invalid_ref_path.write_text(json.dumps({"foo": 1}), encoding="utf-8")
+
+    config_path = forge_dir / "config.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[graph.framework_refs]",
+                f'valid = "{valid_ref_path}"',
+                f'invalid = "{invalid_ref_path}"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    query_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    graph_usage = query_payload.get("sections", {}).get("graph_usage", {})
+    loaded_refs = graph_usage.get("framework_graph_refs_loaded", [])
+    warnings = graph_usage.get("framework_graph_refs_warnings", [])
+    assert_true(isinstance(loaded_refs, list), "framework graph refs: expected list of loaded refs")
+    assert_true("valid" in loaded_refs, "framework graph refs: expected valid ref to be loaded")
+    assert_true("invalid" not in loaded_refs, "framework graph refs: invalid ref must not be loaded")
+    assert_true(
+        graph_usage.get("framework_graph_refs_validation") == "invalid",
+        "framework graph refs: expected invalid validation when at least one ref is malformed",
+    )
+    assert_true(
+        isinstance(warnings, list) and any("invalid schema/version: invalid" in str(item) for item in warnings),
+        "framework graph refs: expected invalid schema/version warning for malformed ref",
+    )
+
+
 def gate_explicit_mode_transition_workflows(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -5639,6 +5696,7 @@ def run_all_gates() -> None:
         gate_index_explain_summary_enrichment(temp_repo)
         gate_graph_cache_and_consumption(temp_repo)
         gate_graph_schema_validation_and_compatibility(temp_repo)
+        gate_framework_graph_reference_schema_validation(temp_repo)
         gate_explicit_mode_transition_workflows(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
