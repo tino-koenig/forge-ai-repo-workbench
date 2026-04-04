@@ -3051,6 +3051,48 @@ def gate_describe_symbol_anchor_evidence(repo_root: Path) -> None:
     )
 
 
+def gate_describe_important_file_scope_policy(repo_root: Path) -> None:
+    (repo_root / "README.md").write_text("# Root Readme\n\nPrimary project docs.\n", encoding="utf-8")
+    (repo_root / "pyproject.toml").write_text("[project]\nname='demo'\nversion='0.1.0'\n", encoding="utf-8")
+    noisy_dir = repo_root / "tests" / "fixtures" / "noise"
+    noisy_dir.mkdir(parents=True, exist_ok=True)
+    (noisy_dir / "README.md").write_text("# Noisy Fixture Readme\n", encoding="utf-8")
+    (noisy_dir / "main.py").write_text("def fixture_main():\n    return 1\n", encoding="utf-8")
+
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    sections = payload.get("sections", {})
+    important_files = sections.get("important_files", [])
+    assert_true(isinstance(important_files, list) and important_files, "describe scope policy: expected non-empty important_files")
+    assert_true(
+        not str(important_files[0]).startswith("tests/fixtures/"),
+        "describe scope policy: first important file should prefer primary repo scope over fixture subtree",
+    )
+    rationale = sections.get("important_file_rationale", [])
+    assert_true(isinstance(rationale, list) and rationale, "describe scope policy: expected important_file_rationale metadata")
+    assert_true(
+        any(
+            isinstance(item, dict)
+            and str(item.get("path", "")).startswith("tests/fixtures/")
+            and "fixture_or_test_subtree_deprioritized" in [str(x) for x in item.get("rationale", [])]
+            for item in rationale
+        ),
+        "describe scope policy: expected explicit fixture subtree deprioritization rationale",
+    )
+
+
 def gate_external_review_rules(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -5353,6 +5395,7 @@ def run_all_gates() -> None:
         gate_mixed_fixture_describe(temp_repo_mixed)
         gate_describe_explicit_unresolved_target_contract(temp_repo)
         gate_describe_symbol_anchor_evidence(temp_repo)
+        gate_describe_important_file_scope_policy(temp_repo)
         gate_doctor_config_validate_matrix_malformed(temp_repo_malformed)
         gate_doctor_config_validate_unknown_keys(temp_repo_unknown_cfg)
         gate_doctor_config_validate_provider_required_fields(temp_repo_provider_required)

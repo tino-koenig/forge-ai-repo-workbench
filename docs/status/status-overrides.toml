@@ -581,6 +581,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe symbol targets now include deterministic symbol-anchor evidence with explicit uncertainty when requested-symbol anchor is missing."
 
+[[feature]]
+id = "094"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Describe important-file ranking now applies scope-aware deterministic policy and exposes per-path rationale metadata."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -770,6 +777,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe symbol evidence is now anchored to requested symbol signatures, with explicit uncertainty note when anchor is missing."
+
+[[issue]]
+id = "37"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Describe important-file selection now deprioritizes fixture/test subtree noise and emits ranking rationale metadata."
 
 [[issue]]
 id = "6"

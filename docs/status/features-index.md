@@ -103,7 +103,7 @@ Status values:
 | 091 | Review Quality Gate Matrix Extension | 2026-04-04 | implemented | 2026-04-04 | [091-review-quality-gate-matrix-extension.md](/Users/tino/PhpstormProjects/forge/docs/features/091-review-quality-gate-matrix-extension.md) |
 | 092 | Describe Target Resolution Contract for Explicit Unresolved Inputs | 2026-04-04 | implemented | 2026-04-04 | [092-describe-target-resolution-contract-for-explicit-unresolved-inputs.md](/Users/tino/PhpstormProjects/forge/docs/features/092-describe-target-resolution-contract-for-explicit-unresolved-inputs.md) |
 | 093 | Describe Symbol-Anchor Evidence Contract | 2026-04-04 | implemented | 2026-04-04 | [093-describe-symbol-anchor-evidence-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/093-describe-symbol-anchor-evidence-contract.md) |
-| 094 | Describe Important-File Ranking Scope Policy | 2026-04-04 | defined | - | [094-describe-important-file-ranking-scope-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/094-describe-important-file-ranking-scope-policy.md) |
+| 094 | Describe Important-File Ranking Scope Policy | 2026-04-04 | implemented | 2026-04-04 | [094-describe-important-file-ranking-scope-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/094-describe-important-file-ranking-scope-policy.md) |
 | 095 | Describe Adoption of Central Mode Orchestrator | 2026-04-04 | defined | - | [095-describe-adoption-of-central-mode-orchestrator.md](/Users/tino/PhpstormProjects/forge/docs/features/095-describe-adoption-of-central-mode-orchestrator.md) |
 | 096 | Describe Runtime Settings Surface for Analysis Policy | 2026-04-04 | defined | - | [096-describe-runtime-settings-surface-for-analysis-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/096-describe-runtime-settings-surface-for-analysis-policy.md) |
 | 097 | Describe Quality Gate Matrix Extension | 2026-04-04 | defined | - | [097-describe-quality-gate-matrix-extension.md](/Users/tino/PhpstormProjects/forge/docs/features/097-describe-quality-gate-matrix-extension.md) |
@@ -194,6 +194,7 @@ Status values:
 - 091: Added integrated review quality-gate matrix covering target-resolution, noise-control, orchestrator trace, and rule-interaction regressions.
 - 092: Describe now returns an explicit unresolved-target contract for unresolved explicit payloads while preserving implicit repo overview behavior.
 - 093: Describe symbol targets now include deterministic symbol-anchor evidence with explicit uncertainty when requested-symbol anchor is missing.
+- 094: Describe important-file ranking now applies scope-aware deterministic policy and exposes per-path rationale metadata.
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.
 - 115: Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence.
 - 116: Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate.

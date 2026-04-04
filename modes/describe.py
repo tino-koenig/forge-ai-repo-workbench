@@ -129,6 +129,10 @@ def files_from_index_payload(repo_root: Path, index_payload: dict[str, object] |
 
 
 def find_important_files(files: list[Path], repo_root: Path) -> list[Path]:
+    return [item["path"] for item in rank_important_files(files, repo_root, limit=10)]
+
+
+def rank_important_files(files: list[Path], repo_root: Path, limit: int = 10) -> list[dict[str, object]]:
     important_names = {
         "readme.md",
         "license",
@@ -138,23 +142,58 @@ def find_important_files(files: list[Path], repo_root: Path) -> list[Path]:
         "main.py",
         "setup.py",
     }
-    important: list[Path] = []
+    preferred_top = {"src", "core", "modes", "cmd"}
+    noise_markers = {"tests", "test", "fixtures", "fixture", "example", "examples", "sample", "samples"}
+    ranked: list[dict[str, object]] = []
     for path in files:
         rel = path.relative_to(repo_root)
         name = rel.name.lower()
+        parts = [part.lower() for part in rel.parts]
+        score = 0
+        rationale: list[str] = []
+
         if name in important_names:
-            important.append(rel)
-        elif len(rel.parts) <= 2 and ("cli" in name or "main" in name):
-            important.append(rel)
-    # dedupe preserving order
-    seen: set[Path] = set()
-    result: list[Path] = []
-    for path in important:
-        if path in seen:
+            score += 30
+            rationale.append("conventional_entry_or_config_name")
+        if len(parts) == 1:
+            score += 12
+            rationale.append("root_proximity")
+        elif len(parts) == 2:
+            score += 8
+            rationale.append("near_root_proximity")
+        elif len(parts) >= 4:
+            score -= 2
+        if parts and parts[0] in preferred_top:
+            score += 6
+            rationale.append("primary_project_area")
+        if len(parts) <= 2 and ("cli" in name or "main" in name):
+            score += 8
+            rationale.append("entrypoint_like_name")
+        if any(marker in parts for marker in noise_markers):
+            score -= 18
+            rationale.append("fixture_or_test_subtree_deprioritized")
+        if name.startswith("test_") or "/tests/" in f"/{'/'.join(parts)}/":
+            score -= 6
+            rationale.append("test_like_path_deprioritized")
+
+        if score <= 0:
             continue
-        seen.add(path)
-        result.append(path)
-    return result[:10]
+        ranked.append({"path": rel, "score": score, "rationale": rationale})
+
+    ranked.sort(key=lambda item: (-int(item["score"]), str(item["path"])))
+    deduped: list[dict[str, object]] = []
+    seen_paths: set[Path] = set()
+    for item in ranked:
+        rel_path = item["path"]
+        if not isinstance(rel_path, Path):
+            continue
+        if rel_path in seen_paths:
+            continue
+        seen_paths.add(rel_path)
+        deduped.append(item)
+        if len(deduped) >= limit:
+            break
+    return deduped
 
 
 def infer_repo_summary(
@@ -208,7 +247,8 @@ def collect_repo_sections(
     directories = directories_from_index_payload(index_payload)
     if not directories:
         directories = top_directories(files, repo_root)
-    important = find_important_files(files, repo_root)
+    ranked_important = rank_important_files(files, repo_root, limit=10)
+    important = [item["path"] for item in ranked_important if isinstance(item.get("path"), Path)]
     architecture_notes: list[str] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         if any(path.relative_to(repo_root).parts and path.relative_to(repo_root).parts[0] == "cmd" for path in files):
@@ -226,6 +266,14 @@ def collect_repo_sections(
             "framework_hints": frameworks,
         },
         "important_files": [str(path) for path in important],
+        "important_file_rationale": [
+            {
+                "path": str(item["path"]),
+                "score": item["score"],
+                "rationale": item["rationale"],
+            }
+            for item in ranked_important
+        ],
         "architecture_notes": architecture_notes,
     }
     if request.profile == Profile.DETAILED:
@@ -300,7 +348,8 @@ def print_repo_description(
     directories = directories_from_index_payload(index_payload)
     if not directories:
         directories = top_directories(files, repo_root)
-    important = find_important_files(files, repo_root)
+    ranked_important = rank_important_files(files, repo_root, limit=10)
+    important = [item["path"] for item in ranked_important if isinstance(item.get("path"), Path)]
     print("\n--- Summary ---")
     print(summary)
 

@@ -26,3 +26,21 @@ Repository-level describe may select "important files" from nested fixture/examp
 ## Linked Features
 
 - [Feature 094 - Describe Important-File Ranking Scope Policy](/Users/tino/PhpstormProjects/forge/docs/features/094-describe-important-file-ranking-scope-policy.md)
+
+## Implemented Behavior (Current)
+
+- Describe important-file ranking now uses explicit scope-aware deterministic signals and de-prioritizes fixture/test/example subtree paths.
+- Repository-level `important_files` and next-step hints now favor primary repo entry/config candidates.
+- Describe now exposes auditable ranking rationale in `sections.important_file_rationale`.
+- Regression coverage added via `gate_describe_important_file_scope_policy`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_describe_important_file_scope_policy` passes.
+
+## Known Limits / Notes
+
+- Scope policy is deterministic and conservative; it does not rely on hidden learned weighting.

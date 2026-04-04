@@ -19,3 +19,25 @@ Constrain repository-level important-file ranking to prefer primary project scop
 - Important-file output favors primary repo entry/config paths in fixture-heavy repos.
 - Next-step suggestions are less noisy and more actionable.
 - Regression tests cover fixture-dense repositories.
+
+## Implemented Behavior (Current)
+
+- Describe repository-level important-file selection now uses deterministic ranking with scope-aware policy:
+  - root/near-root proximity
+  - primary project area hints (`src/`, `core/`, `modes/`, `cmd/`)
+  - conventional entry/config filenames
+  - explicit fixture/test/example subtree de-prioritization
+- Describe now emits rationale metadata in `sections.important_file_rationale` with per-path score and rationale tags.
+- `sections.important_files` and next-step suggestions now prefer primary repository scope over nested fixture trees by default.
+- Added regression gate `gate_describe_important_file_scope_policy`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_describe_important_file_scope_policy` passes.
+
+## Known Limits / Notes
+
+- Ranking is deterministic and lexical/scope-based; it intentionally avoids hidden model-dependent reordering.
