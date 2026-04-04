@@ -51,3 +51,39 @@ Preferred workstation model:
 - global `forge` invocation is documented for user mode
 - update and uninstall paths are documented
 - docs explicitly state binary packaging is not part of this feature
+
+## Implemented Behavior (Current)
+
+- Workstation/user installation is documented via `pipx` as the default path.
+- Global invocation as `forge ...` is documented for user mode.
+- Explicit update (`pipx upgrade`) and uninstall (`pipx uninstall`) flows are documented.
+- Documentation states that native/binary packaging is out of scope in this phase.
+
+## How To Use
+
+Install Forge for workstation usage:
+
+```bash
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+pipx install forge-repo-tool
+forge --help
+```
+
+Upgrade Forge:
+
+```bash
+pipx upgrade forge-repo-tool
+```
+
+Uninstall Forge:
+
+```bash
+pipx uninstall forge-repo-tool
+```
+
+## Known Limits / Notes
+
+- This feature defines workstation distribution only; developer setup remains venv + editable install (feature 041).
+- `pipx` installs the package in an isolated environment; repository-specific behavior still comes from each target repo (`.forge`), not machine-global mutable state.
+- Native/binary packaging remains intentionally out of scope.

@@ -51,7 +51,7 @@ Status values:
 | 039 | Index Explain Summary Enrichment | 2026-04-03 | implemented | 2026-04-03 | [039-index-explain-summary-enrichment.md](/Users/tino/PhpstormProjects/forge/docs/features/039-index-explain-summary-enrichment.md) |
 | 040 | Explicit Mode Transition Workflows | 2026-04-03 | implemented | 2026-04-03 | [040-explicit-mode-transition-workflows.md](/Users/tino/PhpstormProjects/forge/docs/features/040-explicit-mode-transition-workflows.md) |
 | 041 | Development Installation and Invocation Model | 2026-04-03 | implemented | 2026-04-03 | [041-development-installation-and-invocation-model.md](/Users/tino/PhpstormProjects/forge/docs/features/041-development-installation-and-invocation-model.md) |
-| 042 | Workstation Installation and Pipx Distribution | 2026-04-03 | defined | - | [042-workstation-installation-and-pipx-distribution.md](/Users/tino/PhpstormProjects/forge/docs/features/042-workstation-installation-and-pipx-distribution.md) |
+| 042 | Workstation Installation and Pipx Distribution | 2026-04-03 | implemented | 2026-04-04 | [042-workstation-installation-and-pipx-distribution.md](/Users/tino/PhpstormProjects/forge/docs/features/042-workstation-installation-and-pipx-distribution.md) |
 | 043 | Repository Context Discovery via Forge Marker | 2026-04-03 | implemented | 2026-04-03 | [043-repository-context-discovery-via-forge-marker.md](/Users/tino/PhpstormProjects/forge/docs/features/043-repository-context-discovery-via-forge-marker.md) |
 | 044 | Forge Init Team Templates and Interactive Onboarding | 2026-04-03 | implemented | 2026-04-03 | [044-forge-init-team-templates-and-interactive-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/044-forge-init-team-templates-and-interactive-onboarding.md) |
 | 045 | Run History Always JSON Contract | 2026-04-03 | implemented | 2026-04-03 | [045-run-history-always-json-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/045-run-history-always-json-contract.md) |
@@ -94,6 +94,7 @@ Status values:
 - 039: Index now stores optional explain summary metadata with incremental recomputation; query consumes summaries read-only.
 - 040: Added explicit transition policy graph and gate enforcement for --from-run workflows with traceable transition metadata and confirmation policy.
 - 041: Added pyproject console script (`forge`), module entrypoint (`python -m forge`), and documented editable-install dev workflow.
+- 042: Documented pipx as default workstation installation path with global forge invocation plus explicit upgrade/uninstall flows; binary packaging remains out of scope.
 - 043: CLI now resolves repo context via nearest ancestor .forge marker, with explicit init guidance when missing.
 - 044: Added `forge init` with template selection, interactive/non-interactive flows, preview/overwrite safeguards, and repo-owned .forge file generation.
 - 045: Run history now persists structured output.contract for every non-runs capability execution (text and json modes).

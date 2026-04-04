@@ -233,8 +233,10 @@ notes = "Added pyproject console script (`forge`), module entrypoint (`python -m
 
 [[feature]]
 id = "042"
-status = "defined"
+status = "implemented"
 defined_on = "2026-04-03"
+implemented_on = "2026-04-04"
+notes = "Documented pipx as default workstation installation path with global forge invocation plus explicit upgrade/uninstall flows; binary packaging remains out of scope."
 
 [[feature]]
 id = "043"

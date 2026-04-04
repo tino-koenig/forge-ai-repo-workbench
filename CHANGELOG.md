@@ -20,6 +20,7 @@ All notable changes to Forge should be documented in this file.
 - feature 040: explicit mode-transition policy graph with transition gates, confirmation control, and traceable from-run transition metadata
 - feature 045: run history now always stores structured `output.contract` across text and json capability runs
 - feature 041: added packaging-based development invocation model (`forge` console script + `python -m forge` compatibility)
+- feature 042: documented workstation/user installation via `pipx` with global `forge` invocation plus explicit upgrade/uninstall lifecycle
 - feature 043: repository context now resolves via nearest ancestor `.forge/` marker (auto-discovery from cwd or `--repo-root`) with explicit `forge init` guidance when missing
 - feature 044: added `forge init` with interactive and non-interactive template setup, dry-run/overwrite safeguards, and generated repository-owned `.forge` baseline files
 - feature 049: query action orchestration now executes as a bounded iterative state machine with explicit per-iteration trace and deterministic done reasons

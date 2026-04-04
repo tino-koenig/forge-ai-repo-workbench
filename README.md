@@ -158,6 +158,34 @@ Compatibility invocation:
 - `python -m forge <mode> ...`
 - `python forge.py <mode> ...` (legacy compatibility path)
 
+## Workstation Installation (pipx)
+
+Recommended user/workstation installation outside a development checkout:
+
+```bash
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+pipx install forge-repo-tool
+forge --help
+```
+
+Update path:
+
+```bash
+pipx upgrade forge-repo-tool
+```
+
+Uninstall path:
+
+```bash
+pipx uninstall forge-repo-tool
+```
+
+Notes:
+- `pipx` is the default workstation distribution target.
+- Binary/native packaging is currently out of scope.
+- Repository behavior remains repo-driven via `.forge` in the target repository.
+
 ## Human-First Output Views
 
 Text output supports explicit view modes:
