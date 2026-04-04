@@ -2537,6 +2537,88 @@ def gate_log_filtering_and_llm_query_analytics(repo_root: Path) -> None:
     )
 
 
+def gate_llm_fallback_analytics_policy_disabled_not_counted(repo_root: Path) -> None:
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--output-format",
+            "json",
+            "--llm-provider",
+            "mock",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "compute_price",
+        ],
+        cwd=ROOT,
+    )
+    runs = load_runs_json(repo_root)
+    run_id = int(runs[-1].get("id", 0)) if runs else 0
+    assert_true(run_id > 0, "llm fallback analytics: expected valid last run id")
+    run_logs = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "logs", "run", str(run_id)],
+            cwd=ROOT,
+        ).stdout
+    )
+    timeline = run_logs.get("sections", {}).get("timeline", [])
+    assert_true(isinstance(timeline, list), "llm fallback analytics: expected logs timeline list")
+    disabled_refine = [
+        item
+        for item in timeline
+        if isinstance(item, dict)
+        and str(item.get("step_type")) == "llm"
+        and str(item.get("step_name")) == "summary_refinement"
+    ]
+    assert_true(
+        not disabled_refine,
+        "llm fallback analytics: policy-disabled summary_refinement must not emit llm events",
+    )
+
+    env = os.environ.copy()
+    env["FORGE_LLM_PROVIDER"] = "openai_compatible"
+    env["FORGE_LLM_BASE_URL"] = "http://127.0.0.1:1/v1"
+    env["FORGE_LLM_MODEL"] = "gpt-test"
+    env["FORGE_LLM_API_KEY"] = "test-key"
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--output-format",
+            "json",
+            "--repo-root",
+            str(repo_root),
+            "query",
+            "compute_price_attempt_failure",
+        ],
+        cwd=ROOT,
+        env=env,
+    )
+    llm_stats = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "logs",
+                "--step-type",
+                "llm",
+                "stats",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    counts_by_status = llm_stats.get("sections", {}).get("stats", {}).get("counts_by_status", {})
+    assert_true(
+        isinstance(counts_by_status, dict) and int(counts_by_status.get("fallback", 0)) > 0,
+        "llm fallback analytics: expected real attempted llm fallback to remain visible",
+    )
+
+
 def gate_protocol_log_redaction_privacy_guards(repo_root: Path) -> None:
     secret_value = "SUPER_SECRET_TOKEN_1234567890"
     api_key_value = "sk-ABCDEFGHIJKLMNOPQRSTUVWX1234567890"
@@ -3285,6 +3367,7 @@ def run_all_gates() -> None:
         gate_protocol_log_config_local_precedence(temp_repo_protocol_local)
         gate_logs_viewer_and_run_focused_inspection(temp_repo)
         gate_log_filtering_and_llm_query_analytics(temp_repo)
+        gate_llm_fallback_analytics_policy_disabled_not_counted(temp_repo)
         gate_protocol_log_redaction_privacy_guards(temp_repo)
 
 

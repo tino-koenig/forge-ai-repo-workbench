@@ -111,7 +111,7 @@ def llm_step_events_from_usage(
     attempted = bool(usage.get("attempted"))
     used = bool(usage.get("used"))
     fallback_reason = usage.get("fallback_reason")
-    if not attempted and not used and not fallback_reason:
+    if not attempted and not used:
         return []
     latency = usage.get("latency_ms")
     duration_ms = int(latency) if isinstance(latency, int) and latency >= 0 else 0
