@@ -2641,6 +2641,12 @@ def gate_protocol_log_redaction_privacy_guards(repo_root: Path) -> None:
                         "api_key": api_key_value,
                         "user_prompt": f"token={secret_value} prompt body with secret",
                         "mixed_text": f"Authorization:Bearer {secret_value}; sk={api_key_value}",
+                        "token_usage": {
+                            "prompt_tokens": 123,
+                            "completion_tokens": 45,
+                            "total_tokens": 168,
+                            "source": "provider_response",
+                        },
                     },
                 }
             ],
@@ -2658,6 +2664,10 @@ def gate_protocol_log_redaction_privacy_guards(repo_root: Path) -> None:
     assert_true("Bearer " not in content, "protocol redaction: bearer token leaked into protocol log")
     assert_true("token=SUPER_SECRET_TOKEN_1234567890" not in content, "protocol redaction: raw prompt secret leaked")
     assert_true("sha256:" in content, "protocol redaction: expected prompt hash marker in redacted output")
+    assert_true("\"token_usage\"" in content, "protocol redaction: expected token_usage metadata to be retained")
+    assert_true("\"prompt_tokens\": 123" in content, "protocol redaction: expected prompt_tokens to be retained")
+    assert_true("\"completion_tokens\": 45" in content, "protocol redaction: expected completion_tokens to be retained")
+    assert_true("\"total_tokens\": 168" in content, "protocol redaction: expected total_tokens to be retained")
 
 
 def gate_evidence_quality(repo_root: Path) -> None:

@@ -35,6 +35,13 @@ _SENSITIVE_KEY_FRAGMENTS = (
 )
 _PROMPT_KEY_FRAGMENTS = ("prompt", "system_message", "user_message")
 _ALLOWLIST_PROMPT_KEYS = ("prompt_template", "prompt_profile")
+_NON_SECRET_TOKEN_USAGE_KEYS = {
+    "token_usage",
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "source",
+}
 _BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._\-+/=]+\b", re.IGNORECASE)
 _AUTH_RE = re.compile(r"\bAuthorization\s*:\s*[^\s,;]+", re.IGNORECASE)
 _OPENAI_KEY_RE = re.compile(r"\bsk-[A-Za-z0-9]{16,}\b")
@@ -150,6 +157,8 @@ def _redact_string(value: str, known_secrets: list[str]) -> str:
 
 def _is_sensitive_key(key: str) -> bool:
     lowered = key.lower()
+    if lowered in _NON_SECRET_TOKEN_USAGE_KEYS:
+        return False
     return any(fragment in lowered for fragment in _SENSITIVE_KEY_FRAGMENTS)
 
 
