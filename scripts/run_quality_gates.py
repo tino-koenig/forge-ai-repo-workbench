@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,7 +25,8 @@ from core.config import (
     DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
     DEFAULT_QUERY_PLANNER_MAX_TERMS,
 )
-from core.capability_model import Capability
+from core.capability_model import Capability, CommandRequest, Profile
+from core.effects import ExecutionSession
 from core.init_foundation import (
     INIT_INDEX_ENRICHMENT_CHOICES,
     INIT_OUTPUT_LANGUAGE_CHOICES,
@@ -5303,6 +5306,32 @@ def gate_graph_schema_validation_and_compatibility(repo_root: Path) -> None:
     assert_true(restored_usage.get("repo_graph_validation") == "valid", "graph schema: expected repo_graph_validation=valid")
 
 
+def gate_index_persists_graph_build_warning(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+
+    from modes import index as index_mode  # local import to keep gate patch scope explicit
+
+    request = CommandRequest(capability=Capability.INDEX, profile=Profile.STANDARD, payload="")
+    session = ExecutionSession(request=request)
+    args = SimpleNamespace(repo_root=str(repo_root), payload="")
+
+    with patch.object(index_mode, "build_repo_graph", side_effect=RuntimeError("forced graph failure for gate")):
+        exit_code = index_mode.run(request, args, session)
+    assert_true(exit_code == 0, "index warning persistence: index run should still return success on graph failure")
+
+    index_path = forge_dir / "index.json"
+    assert_true(index_path.exists(), "index warning persistence: expected .forge/index.json to exist")
+    index_payload = parse_json_output(index_path.read_text(encoding="utf-8"))
+    graph_meta = index_payload.get("graph", {})
+    assert_true(isinstance(graph_meta, dict), "index warning persistence: expected graph metadata object in index payload")
+    warning = str(graph_meta.get("warning", ""))
+    assert_true(
+        "graph build skipped due to error: forced graph failure for gate" in warning,
+        "index warning persistence: expected persisted graph warning in index.json after graph build failure",
+    )
+
+
 def gate_framework_graph_reference_schema_validation(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -5696,6 +5725,7 @@ def run_all_gates() -> None:
         gate_index_explain_summary_enrichment(temp_repo)
         gate_graph_cache_and_consumption(temp_repo)
         gate_graph_schema_validation_and_compatibility(temp_repo)
+        gate_index_persists_graph_build_warning(temp_repo)
         gate_framework_graph_reference_schema_validation(temp_repo)
         gate_explicit_mode_transition_workflows(temp_repo)
         gate_effect_boundaries(temp_repo)

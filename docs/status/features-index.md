@@ -78,7 +78,7 @@ Status values:
 | 066 | Docs MVP on GitHub Pages with MkDocs Material (DE/EN) | 2026-04-04 | defined | - | [066-docs-mvp-mkdocs-landing-de-en.md](/Users/tino/PhpstormProjects/forge/docs/features/066-docs-mvp-mkdocs-landing-de-en.md) |
 | 067 | Index-Aware Retrieval Scope Contract | 2026-04-04 | implemented | 2026-04-04 | [067-index-aware-retrieval-scope-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/067-index-aware-retrieval-scope-contract.md) |
 | 068 | Query Deterministic Symbol-First Resolution | 2026-04-04 | implemented | 2026-04-04 | [068-query-deterministic-symbol-first-resolution.md](/Users/tino/PhpstormProjects/forge/docs/features/068-query-deterministic-symbol-first-resolution.md) |
-| 069 | Index Contract and Observability Doctor | 2026-04-04 | defined | - | [069-index-contract-and-observability-doctor.md](/Users/tino/PhpstormProjects/forge/docs/features/069-index-contract-and-observability-doctor.md) |
+| 069 | Index Contract and Observability Doctor | 2026-04-04 | implemented | 2026-04-04 | [069-index-contract-and-observability-doctor.md](/Users/tino/PhpstormProjects/forge/docs/features/069-index-contract-and-observability-doctor.md) |
 | 070 | Graph Schema Validation and Compatibility Contract | 2026-04-04 | implemented | 2026-04-04 | [070-graph-schema-validation-and-compatibility-contract.md](/Users/tino/PhpstormProjects/forge/docs/features/070-graph-schema-validation-and-compatibility-contract.md) |
 | 071 | Graph Health and Debug Surface | 2026-04-04 | implemented | 2026-04-04 | [071-graph-health-and-debug-surface.md](/Users/tino/PhpstormProjects/forge/docs/features/071-graph-health-and-debug-surface.md) |
 | 072 | Ask Web Access Policy and Settings Integration | 2026-04-04 | implemented | 2026-04-04 | [072-ask-web-access-policy-and-settings-integration.md](/Users/tino/PhpstormProjects/forge/docs/features/072-ask-web-access-policy-and-settings-integration.md) |
@@ -172,6 +172,7 @@ Status values:
 - 063: Added named repo-local session store with TTL, auto-create on runtime-consuming commands, session command group, revive flow, bounded context retention, and resolver source integration (`session:<name>`).
 - 067: Query now enforces index participation state in default content retrieval and exposes the effective retrieval scope in structured output.
 - 068: Query now runs deterministic symbol-first resolution for definition/location intents with explicit symbol-stage evidence and output metadata.
+- 069: Index artifacts now persist graph build failure warnings in index.json to keep persisted graph-status metadata auditable.
 - 070: Repo graph loading now enforces schema/version validation with explicit graph_usage validation state and warnings.
 - 071: Framework graph refs now enforce schema/version validation with explicit graph_usage validation and per-ref warnings.
 - 072: Ask web presets now enforce runtime access.web gating with explicit policy-block metadata and regression coverage.

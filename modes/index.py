@@ -438,4 +438,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         data.setdefault("graph", {})
         if isinstance(data["graph"], dict):
             data["graph"]["warning"] = graph_warning
+            write_forge_file(
+                root=repo_root,
+                relative_path="index.json",
+                content=json.dumps(data, indent=2, sort_keys=True),
+                session=session,
+            )
     return 0

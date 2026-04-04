@@ -617,6 +617,13 @@ implemented_on = "2026-04-04"
 notes = "Repo graph loading now enforces schema/version validation with explicit graph_usage validation state and warnings."
 
 [[feature]]
+id = "069"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Index artifacts now persist graph build failure warnings in index.json to keep persisted graph-status metadata auditable."
+
+[[feature]]
 id = "071"
 status = "implemented"
 defined_on = "2026-04-04"
@@ -847,6 +854,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Repo graph schema/version is now validated at load; invalid/incompatible payloads are rejected with explicit validation warnings."
+
+[[issue]]
+id = "10"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Index now persists graph build warning metadata in .forge/index.json when graph generation fails."
 
 [[issue]]
 id = "13"
