@@ -18,6 +18,14 @@ FAMILY_MAP = {
     "execution": ["execution.profile"],
     "access": ["access.web", "access.write"],
     "session": ["session.default_ttl_minutes"],
+    "explain": [
+        "explain.evidence.max_items",
+        "explain.edges.max_items",
+        "explain.settings.max_items",
+        "explain.defaults.max_items",
+        "explain.outputs.max_items",
+        "explain.symbols.max_items",
+    ],
 }
 KEY_ALIASES = {
     "llm mode": "llm.mode",
@@ -32,6 +40,13 @@ KEY_ALIASES = {
     "session default ttl": "session.default_ttl_minutes",
     "session.default.ttl.minutes": "session.default_ttl_minutes",
     "session.default_ttl_minutes": "session.default_ttl_minutes",
+    "explain evidence max items": "explain.evidence.max_items",
+    "explain.evidence.max.items": "explain.evidence.max_items",
+    "explain.edges.max.items": "explain.edges.max_items",
+    "explain.settings.max.items": "explain.settings.max_items",
+    "explain.defaults.max.items": "explain.defaults.max_items",
+    "explain.outputs.max.items": "explain.outputs.max_items",
+    "explain.symbols.max.items": "explain.symbols.max_items",
 }
 
 

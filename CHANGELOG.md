@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 085 / issue 28: explain-limits auf runtime-settings umgestellt und als source-traceable `sections.explain_limits` kontrakt sichtbar gemacht
 - feature 084 / issue 27: explain-facet-analyse in zentrale core-foundation ausgelagert (`core/explain_analysis_foundation.py`) und mode-lokale duplikate entfernt
 - feature 083 / issue 26: explain:uses normalisiert direction vertraglich auf inbound und zeigt direction_requested/direction_effective explizit im contract
 - feature 082 / issue 25: explain:outputs nutzt jetzt nur producer-semantik (write/log/emit) statt passiver pfad-string-treffer; false-positive-regression-gate hinzugefuegt

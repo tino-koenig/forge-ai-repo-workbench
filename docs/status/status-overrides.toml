@@ -518,6 +518,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Extracted explain facet-analysis primitives into core/explain_analysis_foundation.py and removed duplicate local extractor implementations from mode layer."
 
+[[feature]]
+id = "085"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added runtime-configurable explain facet limits with source-traceable explain_limits output and override/default regression coverage."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -644,6 +651,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Refactored explain facet-analysis logic into shared core foundation module with dedicated regression gate enforcement."
+
+[[issue]]
+id = "28"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Explain analysis caps are now runtime-configurable via canonical keys and emitted with source tracing in explain_limits."
 
 [[issue]]
 id = "6"

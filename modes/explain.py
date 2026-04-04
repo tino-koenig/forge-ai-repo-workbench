@@ -79,6 +79,29 @@ ROLE_MARKERS = {
 }
 
 
+def _resolve_runtime_int(
+    args,
+    key: str,
+    default: int,
+    *,
+    min_value: int = 1,
+    max_value: int = 200,
+) -> tuple[int, str]:
+    values = getattr(args, "runtime_settings_values", {})
+    sources = getattr(args, "runtime_settings_sources", {})
+    raw = values.get(key) if isinstance(values, dict) else None
+    source = str(sources.get(key) or "default") if isinstance(sources, dict) else "default"
+    if raw is None:
+        return default, "default"
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return default, "default"
+    if parsed < min_value or parsed > max_value:
+        return default, "default"
+    return parsed, source
+
+
 def classify_role(rel_path: Path, content: str, index_entry: dict[str, object] | None) -> tuple[str, str]:
     lowered_path = str(rel_path).lower()
     lowered_content = content.lower()
@@ -1030,6 +1053,48 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         return 0
 
     rel_target = target.path.relative_to(repo_root)
+    evidence_limit, evidence_limit_source = _resolve_runtime_int(
+        args,
+        "explain.evidence.max_items",
+        12,
+        min_value=1,
+        max_value=200,
+    )
+    edges_limit, edges_limit_source = _resolve_runtime_int(
+        args,
+        "explain.edges.max_items",
+        24,
+        min_value=1,
+        max_value=200,
+    )
+    settings_limit, settings_limit_source = _resolve_runtime_int(
+        args,
+        "explain.settings.max_items",
+        20,
+        min_value=1,
+        max_value=200,
+    )
+    defaults_limit, defaults_limit_source = _resolve_runtime_int(
+        args,
+        "explain.defaults.max_items",
+        24,
+        min_value=1,
+        max_value=200,
+    )
+    outputs_limit, outputs_limit_source = _resolve_runtime_int(
+        args,
+        "explain.outputs.max_items",
+        20,
+        min_value=1,
+        max_value=200,
+    )
+    symbols_limit, symbols_limit_source = _resolve_runtime_int(
+        args,
+        "explain.symbols.max_items",
+        24,
+        min_value=1,
+        max_value=200,
+    )
     index_entries = {}
     path_classes: dict[str, str] = {}
     index_status: str | None = None
@@ -1043,7 +1108,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     index_entry = index_entries.get(str(rel_target))
 
     role, rationale = classify_role(rel_target, target.content, index_entry)
-    evidence = gather_evidence_for_target(target, request)
+    evidence = gather_evidence_for_target(target, request)[:evidence_limit]
     related: list[Path] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         for cycle in iter_bounded_cycles(max_iterations=1, max_wall_time_ms=800):
@@ -1101,7 +1166,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if warnings and is_full(view):
             uncertainties.extend(warnings[:3])
 
-    symbol_facts = extract_symbol_facts(rel_target, target.content) if explain_focus == "symbols" else []
+    symbol_facts = extract_symbol_facts(rel_target, target.content)[:symbols_limit] if explain_focus == "symbols" else []
     dependency_edges_out: list[Edge] = []
     dependency_edges_in: list[Edge] = []
     resource_edges: list[Edge] = []
@@ -1205,12 +1270,15 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             )
         if explain_source_scope in {"framework_only", "all"} and not framework_graphs and explain_source_scope == "framework_only":
             uncertainties.append("no framework graph refs configured; graph scope degraded")
+    dependency_edges_out = dependency_edges_out[:edges_limit]
+    dependency_edges_in = dependency_edges_in[:edges_limit]
+    resource_edges = resource_edges[:edges_limit]
     settings_influences = (
-        extract_settings_influences(rel_target, target.content) if explain_focus == "settings" else []
+        extract_settings_influences(rel_target, target.content)[:settings_limit] if explain_focus == "settings" else []
     )
-    default_values = extract_default_values(rel_target, target.content) if explain_focus == "defaults" else []
-    llm_participation = extract_llm_participation(rel_target, target.content) if explain_focus == "llm" else []
-    output_surfaces = extract_output_surfaces(rel_target, target.content) if explain_focus == "outputs" else []
+    default_values = extract_default_values(rel_target, target.content)[:defaults_limit] if explain_focus == "defaults" else []
+    llm_participation = extract_llm_participation(rel_target, target.content)[:settings_limit] if explain_focus == "llm" else []
+    output_surfaces = extract_output_surfaces(rel_target, target.content)[:outputs_limit] if explain_focus == "outputs" else []
     focus_answer = build_focus_answer(
         focus=explain_focus,
         rel_target=rel_target,
@@ -1245,6 +1313,24 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "direction_requested": explain_direction_requested,
             "direction_effective": explain_direction,
             "source_scope": explain_source_scope,
+        },
+        "explain_limits": {
+            "values": {
+                "evidence_max_items": evidence_limit,
+                "edges_max_items": edges_limit,
+                "settings_max_items": settings_limit,
+                "defaults_max_items": defaults_limit,
+                "outputs_max_items": outputs_limit,
+                "symbols_max_items": symbols_limit,
+            },
+            "sources": {
+                "evidence_max_items": evidence_limit_source,
+                "edges_max_items": edges_limit_source,
+                "settings_max_items": settings_limit_source,
+                "defaults_max_items": defaults_limit_source,
+                "outputs_max_items": outputs_limit_source,
+                "symbols_max_items": symbols_limit_source,
+            },
         },
         "graph_usage": {
             "repo_graph_loaded": repo_graph is not None,
@@ -1500,6 +1586,15 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if explain_direction_requested != explain_direction:
             print(f"Direction requested: {explain_direction_requested}")
         print(f"Source scope: {explain_source_scope}")
+        print(
+            "Limits: "
+            f"evidence={evidence_limit} ({evidence_limit_source}), "
+            f"edges={edges_limit} ({edges_limit_source}), "
+            f"settings={settings_limit} ({settings_limit_source}), "
+            f"defaults={defaults_limit} ({defaults_limit_source}), "
+            f"outputs={outputs_limit} ({outputs_limit_source}), "
+            f"symbols={symbols_limit} ({symbols_limit_source})"
+        )
     if from_run_meta:
         print("\n--- From Run ---")
         print(f"Source run id: {from_run_meta['source_run_id']}")

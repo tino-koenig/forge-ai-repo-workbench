@@ -129,6 +129,54 @@ RUNTIME_SETTINGS_REGISTRY: dict[str, RuntimeSettingSpec] = {
         scope_support=frozenset({"session", "repo", "user"}),
         description="Base token accounting for explain-handler execution.",
     ),
+    "explain.evidence.max_items": RuntimeSettingSpec(
+        key="explain.evidence.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=12,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum explain evidence items retained in contract/output.",
+    ),
+    "explain.edges.max_items": RuntimeSettingSpec(
+        key="explain.edges.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=24,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum dependency/resource edges retained per explain edge section.",
+    ),
+    "explain.settings.max_items": RuntimeSettingSpec(
+        key="explain.settings.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=20,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum settings influence entries in explain settings facet.",
+    ),
+    "explain.defaults.max_items": RuntimeSettingSpec(
+        key="explain.defaults.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=24,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum default-value entries in explain defaults facet.",
+    ),
+    "explain.outputs.max_items": RuntimeSettingSpec(
+        key="explain.outputs.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=20,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum output-surface entries in explain outputs facet.",
+    ),
+    "explain.symbols.max_items": RuntimeSettingSpec(
+        key="explain.symbols.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=24,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum symbol entries in explain symbols facet.",
+    ),
 }
 
 
@@ -210,6 +258,12 @@ def expand_runtime_alias(
         "query.orchestrator.handler.read.token.cost.per.line": "query.orchestrator.handler.read.token_cost_per_line",
         "query.orchestrator.handler.search.token.cost.per.match": "query.orchestrator.handler.search.token_cost_per_match",
         "query.orchestrator.handler.explain.base.token.cost": "query.orchestrator.handler.explain.base_token_cost",
+        "explain.evidence.max.items": "explain.evidence.max_items",
+        "explain.edges.max.items": "explain.edges.max_items",
+        "explain.settings.max.items": "explain.settings.max_items",
+        "explain.defaults.max.items": "explain.defaults.max_items",
+        "explain.outputs.max.items": "explain.outputs.max_items",
+        "explain.symbols.max.items": "explain.symbols.max_items",
     }
 
     if key_norm == "output":

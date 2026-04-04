@@ -4113,6 +4113,169 @@ def gate_explain_analysis_foundation_extraction(repo_root: Path) -> None:
     )
 
 
+def gate_explain_runtime_limit_settings(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    fixture_path = repo_root / "src" / "explain_limits_fixture.py"
+    fixture_path.write_text(
+        "\n".join(
+            [
+                "import os",
+                "DEFAULT_ALPHA = 1",
+                "DEFAULT_BETA = 2",
+                "DEFAULT_GAMMA = 3",
+                "value_a = _int_or_default(raw_a, 10)",
+                "value_b = _int_or_default(raw_b, 20)",
+                "def alpha():",
+                "    print('hello')",
+                "def beta():",
+                "    print('world')",
+                "def gamma():",
+                "    print('!')",
+                "def build(args, settings):",
+                "    getattr(args, 'mode', None)",
+                "    getattr(args, 'level', None)",
+                "    os.environ.get('FORGE_TOKEN')",
+                "    _nested_get(payload, 'llm.mode')",
+                "    settings.query_orchestrator_mode",
+                "    settings.query_orchestrator_max_iterations",
+                "    return 0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (forge_dir / "runtime.toml").write_text(
+        "\n".join(
+            [
+                '"explain.evidence.max_items" = 2',
+                '"explain.edges.max_items" = 3',
+                '"explain.settings.max_items" = 2',
+                '"explain.defaults.max_items" = 2',
+                '"explain.outputs.max_items" = 1',
+                '"explain.symbols.max_items" = 1',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    outputs_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:outputs",
+                "src/explain_limits_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    out_sections = outputs_payload.get("sections", {})
+    out_surfaces = out_sections.get("output_surfaces", [])
+    out_limits = out_sections.get("explain_limits", {})
+    out_values = out_limits.get("values", {}) if isinstance(out_limits, dict) else {}
+    out_sources = out_limits.get("sources", {}) if isinstance(out_limits, dict) else {}
+    assert_true(isinstance(out_surfaces, list) and len(out_surfaces) <= 1, "explain runtime limits: outputs must honor explain.outputs.max_items")
+    assert_true(out_values.get("outputs_max_items") == 1, "explain runtime limits: expected outputs_max_items=1")
+    assert_true(out_sources.get("outputs_max_items") == "repo", "explain runtime limits: expected outputs_max_items source=repo")
+
+    symbols_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:symbols",
+                "src/explain_limits_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    symbols = symbols_payload.get("sections", {}).get("symbols", [])
+    assert_true(isinstance(symbols, list) and len(symbols) <= 1, "explain runtime limits: symbols must honor explain.symbols.max_items")
+
+    deps_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:dependencies",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    deps_sections = deps_payload.get("sections", {})
+    deps_out = deps_sections.get("dependency_edges_out", [])
+    deps_in = deps_sections.get("dependency_edges_in", [])
+    assert_true(isinstance(deps_out, list) and len(deps_out) <= 3, "explain runtime limits: dependency_edges_out must honor explain.edges.max_items")
+    assert_true(isinstance(deps_in, list) and len(deps_in) <= 3, "explain runtime limits: dependency_edges_in must honor explain.edges.max_items")
+
+    settings_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:settings",
+                "src/explain_limits_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    settings_items = settings_payload.get("sections", {}).get("settings_influences", [])
+    assert_true(
+        isinstance(settings_items, list) and len(settings_items) <= 2,
+        "explain runtime limits: settings_influences must honor explain.settings.max_items",
+    )
+
+    (forge_dir / "runtime.toml").write_text("", encoding="utf-8")
+    defaults_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:defaults",
+                "src/explain_limits_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    defaults_limits = defaults_payload.get("sections", {}).get("explain_limits", {})
+    defaults_sources = defaults_limits.get("sources", {}) if isinstance(defaults_limits, dict) else {}
+    assert_true(
+        defaults_sources.get("defaults_max_items") == "default",
+        "explain runtime limits: expected defaults_max_items source=default without runtime override",
+    )
+
+
 def gate_mode_capability_contract_query_read_only(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     payload = parse_json_output(
@@ -4700,6 +4863,7 @@ def run_all_gates() -> None:
         gate_explain_output_surface_precision(temp_repo)
         gate_explain_facet_semantics_validation(temp_repo)
         gate_explain_analysis_foundation_extraction(temp_repo)
+        gate_explain_runtime_limit_settings(temp_repo)
         gate_mode_capability_contract_query_read_only(temp_repo)
         gate_query_action_orchestration(temp_repo)
         gate_adaptive_query_explain_feedback(temp_repo)
