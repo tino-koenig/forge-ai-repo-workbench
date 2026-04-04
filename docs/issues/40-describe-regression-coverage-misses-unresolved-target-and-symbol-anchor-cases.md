@@ -26,3 +26,25 @@ Current quality gates cover baseline contract shape for describe but miss critic
 ## Linked Features
 
 - [Feature 097 - Describe Quality Gate Matrix Extension](/Users/tino/PhpstormProjects/forge/docs/features/097-describe-quality-gate-matrix-extension.md)
+
+## Implemented Behavior (Current)
+
+- Describe regressions now include a dedicated matrix gate (`gate_describe_quality_gate_matrix`).
+- The matrix enforces:
+  - explicit unresolved-target contract
+  - symbol-anchor evidence behavior
+  - important-file ranking noise control
+  - runtime policy application and source tracing
+  - orchestrator-trace compatibility
+- Matrix is integrated into standard quality-gate execution.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_describe_quality_gate_matrix` passes.
+
+## Known Limits / Notes
+
+- Coverage remains deterministic and fixture-based, complementing broader smoke tests.

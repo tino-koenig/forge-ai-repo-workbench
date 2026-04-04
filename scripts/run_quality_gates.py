@@ -4931,6 +4931,14 @@ def gate_describe_central_orchestrator_adoption(repo_root: Path) -> None:
         assert_true(expected in action_names, f"describe orchestrator: missing expected action '{expected}'")
 
 
+def gate_describe_quality_gate_matrix(repo_root: Path) -> None:
+    gate_describe_explicit_unresolved_target_contract(repo_root)
+    gate_describe_symbol_anchor_evidence(repo_root)
+    gate_describe_important_file_scope_policy(repo_root)
+    gate_describe_runtime_policy_settings(repo_root)
+    gate_describe_central_orchestrator_adoption(repo_root)
+
+
 def gate_review_quality_gate_matrix(repo_root: Path, repo_rules: Path, repo_rules_invalid: Path) -> None:
     gate_review_path_like_target_resolution_contract(repo_root)
     gate_review_runtime_policy_settings(repo_root)
@@ -5541,10 +5549,7 @@ def run_all_gates() -> None:
         gate_fallback_with_and_without_index(temp_repo)
         gate_frontend_fixture(temp_repo_frontend)
         gate_mixed_fixture_describe(temp_repo_mixed)
-        gate_describe_explicit_unresolved_target_contract(temp_repo)
-        gate_describe_symbol_anchor_evidence(temp_repo)
-        gate_describe_important_file_scope_policy(temp_repo)
-        gate_describe_runtime_policy_settings(temp_repo)
+        gate_describe_quality_gate_matrix(temp_repo)
         gate_doctor_config_validate_matrix_malformed(temp_repo_malformed)
         gate_doctor_config_validate_unknown_keys(temp_repo_unknown_cfg)
         gate_doctor_config_validate_provider_required_fields(temp_repo_provider_required)

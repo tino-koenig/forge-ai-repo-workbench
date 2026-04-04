@@ -106,7 +106,7 @@ Status values:
 | 094 | Describe Important-File Ranking Scope Policy | 2026-04-04 | implemented | 2026-04-04 | [094-describe-important-file-ranking-scope-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/094-describe-important-file-ranking-scope-policy.md) |
 | 095 | Describe Adoption of Central Mode Orchestrator | 2026-04-04 | implemented | 2026-04-04 | [095-describe-adoption-of-central-mode-orchestrator.md](/Users/tino/PhpstormProjects/forge/docs/features/095-describe-adoption-of-central-mode-orchestrator.md) |
 | 096 | Describe Runtime Settings Surface for Analysis Policy | 2026-04-04 | implemented | 2026-04-04 | [096-describe-runtime-settings-surface-for-analysis-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/096-describe-runtime-settings-surface-for-analysis-policy.md) |
-| 097 | Describe Quality Gate Matrix Extension | 2026-04-04 | defined | - | [097-describe-quality-gate-matrix-extension.md](/Users/tino/PhpstormProjects/forge/docs/features/097-describe-quality-gate-matrix-extension.md) |
+| 097 | Describe Quality Gate Matrix Extension | 2026-04-04 | implemented | 2026-04-04 | [097-describe-quality-gate-matrix-extension.md](/Users/tino/PhpstormProjects/forge/docs/features/097-describe-quality-gate-matrix-extension.md) |
 | 098 | Runtime Scope Round-Trip Preservation for Unknown Keys | 2026-04-04 | defined | - | [098-runtime-scope-round-trip-preservation-for-unknown-keys.md](/Users/tino/PhpstormProjects/forge/docs/features/098-runtime-scope-round-trip-preservation-for-unknown-keys.md) |
 | 099 | Runtime Session Source Metadata Consistency | 2026-04-04 | defined | - | [099-runtime-session-source-metadata-consistency.md](/Users/tino/PhpstormProjects/forge/docs/features/099-runtime-session-source-metadata-consistency.md) |
 | 100 | Session Activity Refresh Contract for Touch Operations | 2026-04-04 | defined | - | [100-session-activity-refresh-contract-for-touch-operations.md](/Users/tino/PhpstormProjects/forge/docs/features/100-session-activity-refresh-contract-for-touch-operations.md) |
@@ -197,6 +197,7 @@ Status values:
 - 094: Describe important-file ranking now applies scope-aware deterministic policy and exposes per-path rationale metadata.
 - 095: Describe now exposes central orchestrator trace/runtime metadata under action_orchestration using the shared mode orchestrator engine.
 - 096: Describe policy limits are now runtime-configurable and source-traceable in sections.describe_policy.
+- 097: Added integrated describe quality-gate matrix covering unresolved-target, symbol-anchor, ranking-noise, runtime-policy, and orchestrator-trace regressions.
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.
 - 115: Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence.
 - 116: Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate.

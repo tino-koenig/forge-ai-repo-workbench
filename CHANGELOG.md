@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 097 / issue 40: describe regressions now run through dedicated quality-gate matrix covering unresolved-target contract, symbol-anchor evidence, ranking-noise control, runtime-policy, and orchestrator compatibility
 - feature 096 / issue 39: describe analysis/scan limits moved to runtime settings with source-traceable `sections.describe_policy` and dedicated regression coverage
 - feature 095 / issue 38: describe now emits central orchestrator trace metadata (`action_orchestration`) via shared mode-orchestrator engine with dedicated regression coverage
 - feature 094 / issue 37: describe important-file ranking now applies scope-aware deterministic policy (including fixture/test subtree de-prioritization) and emits rationale metadata

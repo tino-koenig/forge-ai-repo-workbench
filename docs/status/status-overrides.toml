@@ -602,6 +602,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe policy limits are now runtime-configurable and source-traceable in sections.describe_policy."
 
+[[feature]]
+id = "097"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added integrated describe quality-gate matrix covering unresolved-target, symbol-anchor, ranking-noise, runtime-policy, and orchestrator-trace regressions."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -812,6 +819,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe scan/output policy thresholds are now runtime-configurable with source-traceable policy metadata."
+
+[[issue]]
+id = "40"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Describe regression suite now includes an integrated quality-gate matrix for unresolved-target and symbol-anchor correctness plus policy/orchestrator compatibility."
 
 [[issue]]
 id = "6"
