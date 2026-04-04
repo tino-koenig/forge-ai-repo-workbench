@@ -483,6 +483,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Removed stale ask compatibility logic from query mode, aligned ask CLI wording with dedicated routing, and added boundary regression gate coverage."
 
+[[feature]]
+id = "075"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added explicit ask/web quality-gate matrix including policy block, freshness divergence, provenance, boundary routing, and deterministic no-network fallback."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -567,6 +574,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Completed ask/query boundary cleanup with explicit routing and stale-query-ask-section regression coverage."
+
+[[issue]]
+id = "18"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added ask/web regression gate coverage for blocked policy, freshness divergence, provenance typing, boundary routing, and no-network fallback."
 
 [[issue]]
 id = "6"

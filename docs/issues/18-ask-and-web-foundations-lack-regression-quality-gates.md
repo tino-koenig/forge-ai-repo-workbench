@@ -22,3 +22,28 @@ Observed behavior:
 ## Linked Features
 
 - [075-ask-and-web-quality-gates.md](/Users/tino/PhpstormProjects/forge/docs/features/075-ask-and-web-quality-gates.md)
+
+## Implemented Behavior (Current)
+
+- Ask/web regression gates were added and integrated into `run_all_gates`.
+- Coverage now includes:
+  - policy-blocked path (`access.web=false`),
+  - docs/latest freshness divergence,
+  - provenance source typing,
+  - ask/query routing boundary contract,
+  - deterministic no-network provider-failure fallback.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Confirm these gates pass:
+  - `gate_ask_web_access_policy`
+  - `gate_ask_latest_freshness_policy`
+  - `gate_ask_source_aware_provenance`
+  - `gate_ask_query_boundary_cleanup`
+  - `gate_ask_no_network_fallback`
+
+## Known Limits / Notes
+
+- No-network validation uses local proxy blocking to avoid flaky dependence on external connectivity.

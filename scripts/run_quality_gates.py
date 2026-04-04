@@ -2286,6 +2286,70 @@ def gate_ask_query_boundary_cleanup(repo_root: Path) -> None:
     )
 
 
+def gate_ask_no_network_fallback(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "runtime.toml").write_text('"access.web" = true\n', encoding="utf-8")
+
+    blocked_env = dict(os.environ)
+    blocked_env.update(
+        {
+            "HTTP_PROXY": "http://127.0.0.1:9",
+            "HTTPS_PROXY": "http://127.0.0.1:9",
+            "ALL_PROXY": "http://127.0.0.1:9",
+            "NO_PROXY": "",
+        }
+    )
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "ask:docs",
+                "typo3",
+                "routing",
+                "guide",
+            ],
+            cwd=ROOT,
+            env=blocked_env,
+        ).stdout
+    )
+    sections = payload.get("sections", {})
+    ask = sections.get("ask", {}) if isinstance(sections, dict) else {}
+    search = ask.get("search", {}) if isinstance(ask, dict) else {}
+    retrieval = ask.get("retrieval", {}) if isinstance(ask, dict) else {}
+    provenance = sections.get("provenance", {}) if isinstance(sections, dict) else {}
+    uncertainty = payload.get("uncertainty", [])
+
+    assert_true(isinstance(search, dict), "ask no-network: expected search section")
+    assert_true(search.get("used") is False, "ask no-network: search should not be marked as used")
+    fallback_reason = str(search.get("fallback_reason") or "")
+    assert_true(
+        fallback_reason.startswith("search provider failure:"),
+        "ask no-network: expected deterministic search provider failure fallback",
+    )
+    assert_true(isinstance(retrieval, dict), "ask no-network: expected retrieval section")
+    assert_true(retrieval.get("used") is False, "ask no-network: retrieval should not be marked as used")
+    assert_true(
+        retrieval.get("fallback_reason") == "no candidates",
+        "ask no-network: retrieval fallback should indicate no candidates after failed search",
+    )
+    assert_true(
+        provenance.get("evidence_source") == "none",
+        "ask no-network: provenance should classify evidence source as none",
+    )
+    assert_true(
+        any(isinstance(item, str) and item.startswith("Web search fallback: search provider failure:") for item in uncertainty),
+        "ask no-network: uncertainty should expose web search fallback diagnostic",
+    )
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -4298,6 +4362,7 @@ def run_all_gates() -> None:
         gate_ask_latest_freshness_policy(temp_repo)
         gate_ask_source_aware_provenance(temp_repo)
         gate_ask_query_boundary_cleanup(temp_repo)
+        gate_ask_no_network_fallback(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)
