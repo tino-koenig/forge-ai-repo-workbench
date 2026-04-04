@@ -13,6 +13,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from core.protocol_log import append_protocol_events
 
 ROOT = Path(__file__).resolve().parents[1]
 FORGE = ROOT / "forge.py"
@@ -1494,6 +1495,47 @@ def gate_log_filtering_and_llm_query_analytics(repo_root: Path) -> None:
     )
 
 
+def gate_protocol_log_redaction_privacy_guards(repo_root: Path) -> None:
+    secret_value = "SUPER_SECRET_TOKEN_1234567890"
+    api_key_value = "sk-ABCDEFGHIJKLMNOPQRSTUVWX1234567890"
+    os.environ["FORGE_TEST_SECRET"] = secret_value
+    os.environ["FORGE_TEST_API_KEY"] = api_key_value
+    try:
+        warning = append_protocol_events(
+            repo_root,
+            [
+                {
+                    "event_id": "evt_synthetic_secret_probe",
+                    "run_id": 999001,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "capability": "query",
+                    "step_name": "secret_probe",
+                    "step_type": "llm",
+                    "status": "fallback",
+                    "metadata": {
+                        "authorization": f"Bearer {secret_value}",
+                        "api_key": api_key_value,
+                        "user_prompt": f"token={secret_value} prompt body with secret",
+                        "mixed_text": f"Authorization:Bearer {secret_value}; sk={api_key_value}",
+                    },
+                }
+            ],
+        )
+        assert_true(warning is None, f"protocol redaction: unexpected append warning: {warning}")
+    finally:
+        os.environ.pop("FORGE_TEST_SECRET", None)
+        os.environ.pop("FORGE_TEST_API_KEY", None)
+
+    events_file = repo_root / ".forge" / "logs" / "events.jsonl"
+    assert_true(events_file.exists(), "protocol redaction: expected events.jsonl to exist")
+    content = events_file.read_text(encoding="utf-8")
+    assert_true(secret_value not in content, "protocol redaction: secret env value leaked into protocol log")
+    assert_true(api_key_value not in content, "protocol redaction: api key leaked into protocol log")
+    assert_true("Bearer " not in content, "protocol redaction: bearer token leaked into protocol log")
+    assert_true("token=SUPER_SECRET_TOKEN_1234567890" not in content, "protocol redaction: raw prompt secret leaked")
+    assert_true("sha256:" in content, "protocol redaction: expected prompt hash marker in redacted output")
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -2119,6 +2161,7 @@ def run_all_gates() -> None:
         gate_protocol_log_storage_jsonl(temp_repo)
         gate_logs_viewer_and_run_focused_inspection(temp_repo)
         gate_log_filtering_and_llm_query_analytics(temp_repo)
+        gate_protocol_log_redaction_privacy_guards(temp_repo)
 
 
 def main() -> int:

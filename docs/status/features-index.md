@@ -43,7 +43,7 @@ Status values:
 | 031 | Protocol Log Storage (JSONL First) | 2026-04-03 | implemented | 2026-04-04 | [031-protocol-log-storage-jsonl-first.md](/Users/tino/PhpstormProjects/forge/docs/features/031-protocol-log-storage-jsonl-first.md) |
 | 032 | Log Viewer and Run-Focused Inspection | 2026-04-03 | implemented | 2026-04-04 | [032-log-viewer-and-run-focused-inspection.md](/Users/tino/PhpstormProjects/forge/docs/features/032-log-viewer-and-run-focused-inspection.md) |
 | 033 | Log Filtering and LLM Query Analytics | 2026-04-03 | implemented | 2026-04-04 | [033-log-filtering-and-llm-query-analytics.md](/Users/tino/PhpstormProjects/forge/docs/features/033-log-filtering-and-llm-query-analytics.md) |
-| 034 | Log Redaction and Privacy Guards | 2026-04-03 | defined | - | [034-log-redaction-and-privacy-guards.md](/Users/tino/PhpstormProjects/forge/docs/features/034-log-redaction-and-privacy-guards.md) |
+| 034 | Log Redaction and Privacy Guards | 2026-04-03 | implemented | 2026-04-04 | [034-log-redaction-and-privacy-guards.md](/Users/tino/PhpstormProjects/forge/docs/features/034-log-redaction-and-privacy-guards.md) |
 | 035 | LLM Output Language Control | 2026-04-03 | implemented | 2026-04-03 | [035-llm-output-language-control.md](/Users/tino/PhpstormProjects/forge/docs/features/035-llm-output-language-control.md) |
 | 036 | Mode Capability Contract and Read-Only Enforcement | 2026-04-03 | implemented | 2026-04-03 | [036-mode-capability-contract-and-read-only-enforcement.md](/Users/tino/PhpstormProjects/forge/docs/features/036-mode-capability-contract-and-read-only-enforcement.md) |
 | 037 | Bounded LLM Action Orchestration | 2026-04-03 | implemented | 2026-04-03 | [037-bounded-llm-action-orchestration.md](/Users/tino/PhpstormProjects/forge/docs/features/037-bounded-llm-action-orchestration.md) |
@@ -86,6 +86,7 @@ Status values:
 - 031: Added protocol JSONL storage at .forge/logs/events.jsonl with configurable size/age/count retention and timestamped rotation archives.
 - 032: Added read-only logs viewer commands (tail/run/show) over protocol JSONL with run-focused timeline totals and JSON/text output.
 - 033: Added logs filtering and stats analytics (counts, p50/p95, slowest steps, fallback rate, provider/model usage) from persisted protocol events.
+- 034: Added deterministic protocol-log redaction pipeline with secret/token masking, prompt hash+length handling, and synthetic leak regression gate.
 - 035: LLM output language control via CLI/env/TOML and prompt propagation.
 - 036: Added central mode-action contract, executor enforcement wiring, and query planner boundary notes for blocked write intent.
 - 037: Added bounded query action orchestration with catalog decisions, budgets, fallback handling, and done_reason.

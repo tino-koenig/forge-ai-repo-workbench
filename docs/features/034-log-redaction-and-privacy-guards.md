@@ -61,3 +61,33 @@ Operational logging must remain safe by default for real-world usage.
 - redaction is enforced for all protocol log events
 - secret-leak regression tests are in quality gates
 - docs clearly describe what is and is not persisted
+
+## Implemented Behavior (Current)
+
+- Implementation status: implemented.
+- Traceability: `CHANGELOG.md` references feature 034; status/implemented date are tracked in `docs/status/features-index.md`.
+- Protocol log redaction is enforced before event write in `core/protocol_log.py`.
+- Redaction pipeline covers:
+  - sensitive-key masking (`api_key`, `authorization`, `token`, `secret`, `password`, etc.)
+  - bearer/auth-header pattern scrubbing in free text
+  - API-key-like pattern scrubbing (`sk-...`)
+  - replacement of known secret env var values in payload strings
+  - bounded text length for persisted string fields
+- Prompt/content handling:
+  - prompt-like keys are redacted to deterministic metadata (`hash` + `length`) by default
+  - optional temporary local override via `logs.protocol.allow_full_prompt_until` (ISO-8601) with warning marker
+- On redaction failure, logging continues with fallback event payloads; no raw pass-through.
+
+## How To Validate Quickly
+
+- Synthetic probe via quality gate:
+  - `python3 scripts/run_quality_gates.py` (or targeted gate execution)
+- Manual spot-check:
+  - run a capability to generate events
+  - inspect `.forge/logs/events.jsonl`
+  - verify secrets/tokens are absent and prompt hashes are present (`sha256:` marker)
+
+## Known Limits / Notes
+
+- Redaction is deterministic and local; it is not a full DLP engine.
+- Event archives (`events-*.jsonl`) preserve already-redacted lines from active-log rotation.

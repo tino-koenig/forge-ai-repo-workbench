@@ -178,7 +178,9 @@ notes = "Added logs filtering and stats analytics (counts, p50/p95, slowest step
 
 [[feature]]
 id = "034"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-04"
+notes = "Added deterministic protocol-log redaction pipeline with secret/token masking, prompt hash+length handling, and synthetic leak regression gate."
 
 [[feature]]
 id = "035"
