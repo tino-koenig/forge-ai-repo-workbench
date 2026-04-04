@@ -392,6 +392,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage."
 
+[[feature]]
+id = "116"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate."
+
 # Issue examples:
 # [[issue]]
 # id = "12"

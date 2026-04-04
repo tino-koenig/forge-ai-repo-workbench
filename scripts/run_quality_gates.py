@@ -23,6 +23,12 @@ from core.config import (
     DEFAULT_QUERY_PLANNER_MAX_TERMS,
 )
 from core.capability_model import Capability
+from core.init_foundation import (
+    INIT_INDEX_ENRICHMENT_CHOICES,
+    INIT_OUTPUT_LANGUAGE_CHOICES,
+    INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_TEMPLATE_CHOICES,
+)
 from core.protocol_analytics_foundation import apply_filters as apply_protocol_filters
 from core.protocol_analytics_foundation import build_run_totals as build_protocol_run_totals
 from core.protocol_analytics_foundation import stats_payload as build_protocol_stats_payload
@@ -1854,6 +1860,39 @@ def gate_protocol_analytics_foundation_unit() -> None:
     assert_true(totals.get("fallback_count") == 1, "protocol analytics foundation: expected fallback_count=1")
 
 
+def gate_init_parser_choices_from_registry() -> None:
+    import argparse
+
+    parser = build_parser()
+    subparsers = next((item for item in parser._actions if isinstance(item, argparse._SubParsersAction)), None)
+    assert_true(subparsers is not None, "init parser choices: expected subparser action")
+    init_parser = subparsers.choices.get("init") if hasattr(subparsers, "choices") else None
+    assert_true(init_parser is not None, "init parser choices: expected init subparser")
+
+    by_dest = {item.dest: item for item in init_parser._actions if getattr(item, "dest", None)}
+    template_choices = tuple(by_dest["template"].choices or ())
+    output_language_choices = tuple(by_dest["output_language"].choices or ())
+    review_strictness_choices = tuple(by_dest["review_strictness"].choices or ())
+    index_enrichment_choices = tuple(by_dest["index_enrichment"].choices or ())
+
+    assert_true(
+        template_choices == INIT_TEMPLATE_CHOICES,
+        "init parser choices: template choices must match init foundation registry",
+    )
+    assert_true(
+        output_language_choices == INIT_OUTPUT_LANGUAGE_CHOICES,
+        "init parser choices: output-language choices must match init foundation",
+    )
+    assert_true(
+        review_strictness_choices == INIT_REVIEW_STRICTNESS_CHOICES,
+        "init parser choices: review-strictness choices must match init foundation",
+    )
+    assert_true(
+        index_enrichment_choices == INIT_INDEX_ENRICHMENT_CHOICES,
+        "init parser choices: index-enrichment choices must match init foundation",
+    )
+
+
 def gate_doctor_config_validate_unknown_keys(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -3454,6 +3493,7 @@ def run_all_gates() -> None:
         gate_index_config_contract_docs()
         gate_logs_capability_filter_choices_from_model()
         gate_protocol_analytics_foundation_unit()
+        gate_init_parser_choices_from_registry()
         gate_external_review_rules(temp_repo_rules)
         gate_external_review_rules_invalid(temp_repo_rules_invalid)
         gate_from_run_references(temp_repo)

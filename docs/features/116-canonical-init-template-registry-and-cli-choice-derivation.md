@@ -20,3 +20,18 @@ Use one canonical init template/option registry and derive CLI parser choices fr
 - No duplicated template-id literal lists remain between CLI and mode runtime.
 - Template changes propagate automatically to parser validation/help.
 - Regression test enforces parser/runtime registry consistency.
+
+## Implemented Behavior (Current)
+
+- Canonical init registry moved to [core/init_foundation.py](/Users/tino/PhpstormProjects/forge/core/init_foundation.py).
+- CLI `forge init` choices (`--template`, `--output-language`, `--review-strictness`, `--index-enrichment`) now derive from shared init foundation constants.
+- `modes/init.py` resolves templates from the same shared registry.
+
+## How To Validate Quickly
+
+- Run `forge init --help` and verify option choices are shown as expected.
+- Run `python3 scripts/run_quality_gates.py` and confirm the init parser-choice drift gate passes.
+
+## Known Limits / Notes
+
+- This feature centralizes template/choice contracts; it does not change generated init file semantics by itself.

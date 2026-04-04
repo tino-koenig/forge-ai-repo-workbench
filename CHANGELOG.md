@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 116 / issue 53: init-template- und option-domains wurden in eine zentrale foundation (`core/init_foundation.py`) ueberfuehrt; CLI-choices und init-mode nutzen nun dieselbe registry inkl. drift-gate
 - feature 111: logs-filtering und protocol-analytics wurden in eine zentrale foundation (`core/protocol_analytics_foundation.py`) extrahiert; `modes/logs.py` ist nun ein duenner adapter bei stabilem output-contract
 - feature 109 / issue 47: `forge logs --capability`-choices werden nun aus `core.capability_model.Capability` abgeleitet; ein quality-gate prueft parser/model-drift deterministisch
 - feature 107 / issue 8: protocol-log-redaction behaelt nicht-sensitive `token_usage`-zaehler (`prompt_tokens`, `completion_tokens`, `total_tokens`, `source`) bei und maskiert weiterhin secrets/auth-token deterministisch

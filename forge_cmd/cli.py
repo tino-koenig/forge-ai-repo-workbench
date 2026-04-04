@@ -12,6 +12,12 @@ import time
 from core.capability_model import Capability, build_request
 from core.capability_model import CommandRequest, Profile
 from core.env_loader import load_env_file
+from core.init_foundation import (
+    INIT_INDEX_ENRICHMENT_CHOICES,
+    INIT_OUTPUT_LANGUAGE_CHOICES,
+    INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_TEMPLATE_CHOICES,
+)
 from core.output_contracts import consume_last_contract, reset_last_contract
 from core.session_store import (
     ensure_active_session,
@@ -191,7 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser = subparsers.add_parser("init", help="Initialize Forge configuration in a repository")
     init_parser.add_argument(
         "--template",
-        choices=("balanced", "strict-review", "lightweight"),
+        choices=INIT_TEMPLATE_CHOICES,
         help="Init template id (default: balanced)",
     )
     init_parser.add_argument(
@@ -216,17 +222,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "--output-language",
-        choices=("auto", "de", "en"),
+        choices=INIT_OUTPUT_LANGUAGE_CHOICES,
         help="Override generated llm.prompt.output_language",
     )
     init_parser.add_argument(
         "--review-strictness",
-        choices=("balanced", "strict"),
+        choices=INIT_REVIEW_STRICTNESS_CHOICES,
         help="Override generated review baseline strictness",
     )
     init_parser.add_argument(
         "--index-enrichment",
-        choices=("enabled", "disabled"),
+        choices=INIT_INDEX_ENRICHMENT_CHOICES,
         help="Override generated index enrichment setting",
     )
     init_parser.add_argument(

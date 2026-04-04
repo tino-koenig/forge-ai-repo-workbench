@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -18,50 +17,15 @@ from core.config import (
     DEFAULT_QUERY_PLANNER_MAX_LATENCY_MS,
     DEFAULT_QUERY_PLANNER_MAX_TERMS,
 )
+from core.init_foundation import (
+    INIT_OUTPUT_LANGUAGE_CHOICES,
+    INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_TEMPLATES,
+    INIT_TEMPLATE_CHOICES,
+    InitTemplate,
+)
 from core.output_contracts import build_contract, emit_contract_json
 from core.repo_io import write_forge_file
-
-
-@dataclass(frozen=True)
-class InitTemplate:
-    template_id: str
-    description: str
-    planner_mode: str
-    orchestrator_mode: str
-    index_enrichment_enabled: bool
-    output_language: str
-    review_strictness: str
-
-
-TEMPLATES: dict[str, InitTemplate] = {
-    "balanced": InitTemplate(
-        template_id="balanced",
-        description="Recommended default for most teams (planner/orchestrator optional).",
-        planner_mode="optional",
-        orchestrator_mode="optional",
-        index_enrichment_enabled=True,
-        output_language="auto",
-        review_strictness="balanced",
-    ),
-    "strict-review": InitTemplate(
-        template_id="strict-review",
-        description="Stricter review defaults and stronger review baseline rule severity.",
-        planner_mode="optional",
-        orchestrator_mode="optional",
-        index_enrichment_enabled=True,
-        output_language="auto",
-        review_strictness="strict",
-    ),
-    "lightweight": InitTemplate(
-        template_id="lightweight",
-        description="Lower-cost defaults with planner/orchestrator off and minimal enrichment.",
-        planner_mode="off",
-        orchestrator_mode="off",
-        index_enrichment_enabled=False,
-        output_language="auto",
-        review_strictness="balanced",
-    ),
-}
 
 MANAGED_REPO_FILES = (
     "config.toml",
@@ -234,7 +198,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "status": "templates_listed",
             "templates": [
                 {"id": t.template_id, "description": t.description}
-                for t in TEMPLATES.values()
+                for t in INIT_TEMPLATES.values()
             ]
         }
         summary = "Available init templates listed."
@@ -276,10 +240,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     selected_template = args.template or "balanced"
     if interactive and not args.template:
         print("Select Forge init template:")
-        for item in TEMPLATES.values():
+        for item in INIT_TEMPLATES.values():
             print(f"- {item.template_id}: {item.description}")
-        selected_template = _prompt_choice("Template", sorted(TEMPLATES.keys()), "balanced")
-    if selected_template not in TEMPLATES:
+        selected_template = _prompt_choice("Template", list(INIT_TEMPLATE_CHOICES), "balanced")
+    if selected_template not in INIT_TEMPLATES:
         summary = f"Unknown template: {selected_template}"
         contract = build_contract(
             capability=request.capability.value,
@@ -295,7 +259,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         else:
             print(summary)
         return 1
-    template = TEMPLATES[selected_template]
+    template = INIT_TEMPLATES[selected_template]
 
     output_language = args.output_language or template.output_language
     review_strictness = args.review_strictness or template.review_strictness
@@ -304,8 +268,10 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         index_enrichment_enabled = args.index_enrichment == "enabled"
 
     if interactive:
-        output_language = _prompt_choice("Output language", ["auto", "de", "en"], output_language)
-        review_strictness = _prompt_choice("Review strictness", ["balanced", "strict"], review_strictness)
+        output_language = _prompt_choice("Output language", list(INIT_OUTPUT_LANGUAGE_CHOICES), output_language)
+        review_strictness = _prompt_choice(
+            "Review strictness", list(INIT_REVIEW_STRICTNESS_CHOICES), review_strictness
+        )
         index_enrichment_enabled = _prompt_yes_no(
             "Enable index explain-summary enrichment?",
             default=index_enrichment_enabled,
