@@ -1647,6 +1647,56 @@ def gate_doctor_config_validate_read_only_sessions(repo_root: Path) -> None:
     )
 
 
+def gate_doctor_config_validate_unknown_keys(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'providr = "openai_compatible"\n'
+        ),
+        encoding="utf-8",
+    )
+    doctor = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "doctor"],
+            cwd=ROOT,
+        ).stdout
+    )
+    cfg_validate = parse_json_output(
+        run_cmd(
+            ["python3", str(FORGE), "--output-format", "json", "--repo-root", str(repo_root), "config", "validate"],
+            cwd=ROOT,
+        ).stdout
+    )
+    doctor_checks = doctor.get("sections", {}).get("checks", [])
+    cfg_checks = cfg_validate.get("sections", {}).get("checks", [])
+    doctor_validation = [item for item in doctor_checks if isinstance(item, dict) and item.get("key") == "config_validation"]
+    cfg_validation = [item for item in cfg_checks if isinstance(item, dict) and item.get("key") == "config_validation"]
+    assert_true(
+        doctor_validation and doctor_validation[0].get("status") == "fail",
+        "doctor unknown-keys: config_validation should fail",
+    )
+    assert_true(
+        cfg_validation and cfg_validation[0].get("status") == "fail",
+        "config validate unknown-keys: config_validation should fail",
+    )
+    doctor_detail = str(doctor_validation[0].get("detail", ""))
+    cfg_detail = str(cfg_validation[0].get("detail", ""))
+    assert_true(
+        "config.toml: unknown key 'llm.providr'" in doctor_detail,
+        "doctor unknown-keys: expected unknown key detail",
+    )
+    assert_true(
+        "did you mean 'llm.provider'" in doctor_detail,
+        "doctor unknown-keys: expected key suggestion",
+    )
+    assert_true(
+        "config.toml: unknown key 'llm.providr'" in cfg_detail,
+        "config validate unknown-keys: expected unknown key detail",
+    )
+
+
 def gate_frontend_fixture(frontend_repo: Path) -> None:
     describe_payload = parse_json_output(
         run_cmd(
@@ -2903,6 +2953,7 @@ def run_all_gates() -> None:
         temp_repo_frontend = Path(temp_dir) / "repo-frontend"
         temp_repo_mixed = Path(temp_dir) / "repo-mixed"
         temp_repo_malformed = Path(temp_dir) / "repo-malformed"
+        temp_repo_unknown_cfg = Path(temp_dir) / "repo-unknown-cfg"
         temp_repo_promptfail = Path(temp_dir) / "repo-promptfail"
         temp_repo_rules = Path(temp_dir) / "repo-rules"
         temp_repo_rules_invalid = Path(temp_dir) / "repo-rules-invalid"
@@ -2910,6 +2961,7 @@ def run_all_gates() -> None:
         shutil.copytree(FIXTURE_FRONTEND_SRC, temp_repo_frontend)
         shutil.copytree(FIXTURE_MIXED_SRC, temp_repo_mixed)
         shutil.copytree(FIXTURE_MALFORMED_SRC, temp_repo_malformed)
+        shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_unknown_cfg)
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_promptfail)
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules)
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules_invalid)
@@ -2950,6 +3002,7 @@ def run_all_gates() -> None:
         gate_frontend_fixture(temp_repo_frontend)
         gate_mixed_fixture_describe(temp_repo_mixed)
         gate_doctor_config_validate_matrix_malformed(temp_repo_malformed)
+        gate_doctor_config_validate_unknown_keys(temp_repo_unknown_cfg)
         gate_doctor_config_validate_read_only_sessions(temp_repo)
         gate_external_review_rules(temp_repo_rules)
         gate_external_review_rules_invalid(temp_repo_rules_invalid)

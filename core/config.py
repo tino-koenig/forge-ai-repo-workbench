@@ -3,12 +3,101 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import get_close_matches
 from pathlib import Path
 import os
 from typing import Any
 
 import tomli
 from core.prompt_profiles import ALLOWED_PROMPT_PROFILES
+
+_CONFIG_SCHEMA: dict[str, Any] = {
+    "llm": {
+        "provider": None,
+        "openai_compatible": {
+            "base_url": None,
+            "model": None,
+            "timeout_s": None,
+            "api_key_env": None,
+        },
+        "request": {
+            "context_budget_tokens": None,
+            "max_output_tokens": None,
+            "temperature": None,
+        },
+        "prompt": {
+            "output_language": None,
+            "profile": None,
+            "system_template": None,
+        },
+        "query_planner": {
+            "enabled": None,
+            "mode": None,
+            "max_terms": None,
+            "max_code_variants": None,
+            "max_latency_ms": None,
+        },
+        "query_orchestrator": {
+            "enabled": None,
+            "mode": None,
+            "max_iterations": None,
+            "max_files": None,
+            "max_tokens": None,
+            "max_wall_time_ms": None,
+        },
+        "observability": {
+            "enabled": None,
+            "level": None,
+            "retention_count": None,
+            "max_file_mb": None,
+        },
+        "cost_tracking": {
+            "enabled": None,
+            "warn_cost_per_request": None,
+            "warn_tokens_per_request": None,
+        },
+        "pricing": {
+            "input_per_1k": None,
+            "output_per_1k": None,
+            "currency": None,
+        },
+    },
+    "index": {
+        "enrichment": {
+            "enabled": None,
+            "summary_version": None,
+            "max_summary_chars": None,
+        },
+    },
+    "runs": {
+        "retention": {
+            "keep_last": None,
+            "max_age_days": None,
+            "max_file_mb": None,
+        },
+    },
+    "graph": {
+        "framework_refs": {"*": None},
+    },
+    "logs": {
+        "protocol": {
+            "max_file_size_bytes": None,
+            "max_event_age_days": None,
+            "max_events_count": None,
+            "allow_full_prompt_until": None,
+        },
+    },
+    "transitions": {
+        "require_confirmation": None,
+        "gates": {
+            "review_to_test_min_severity": None,
+            "test_to_fix_require_failure": None,
+        },
+    },
+    "session": {
+        "default_ttl_minutes": None,
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -137,6 +226,52 @@ def _normalize_output_language(value: Any) -> str:
         if not (1 <= len(part) <= 8 and part.isalnum()):
             return "invalid"
     return "-".join(parts)
+
+
+def _collect_schema_paths(schema: dict[str, Any], prefix: str = "") -> set[str]:
+    paths: set[str] = set()
+    for key, child in schema.items():
+        if key == "*":
+            continue
+        current = f"{prefix}.{key}" if prefix else key
+        paths.add(current)
+        if isinstance(child, dict):
+            paths.update(_collect_schema_paths(child, current))
+    return paths
+
+
+def _find_unknown_config_keys(
+    payload: dict[str, Any],
+    *,
+    schema: dict[str, Any],
+    source_label: str,
+) -> list[str]:
+    known_paths = sorted(_collect_schema_paths(schema))
+    findings: list[str] = []
+
+    def walk(node: dict[str, Any], node_schema: dict[str, Any], prefix: str = "") -> None:
+        for key, value in node.items():
+            if not isinstance(key, str):
+                continue
+            current = f"{prefix}.{key}" if prefix else key
+            if key in node_schema:
+                next_schema = node_schema.get(key)
+                if isinstance(next_schema, dict) and isinstance(value, dict):
+                    walk(value, next_schema, current)
+                continue
+            if "*" in node_schema:
+                wildcard_schema = node_schema.get("*")
+                if isinstance(wildcard_schema, dict) and isinstance(value, dict):
+                    walk(value, wildcard_schema, current)
+                continue
+            suggestion = get_close_matches(current, known_paths, n=1, cutoff=0.72)
+            if suggestion:
+                findings.append(f"{source_label}: unknown key '{current}' (did you mean '{suggestion[0]}'?)")
+            else:
+                findings.append(f"{source_label}: unknown key '{current}'")
+
+    walk(payload, schema)
+    return findings
 
 
 def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
@@ -533,6 +668,10 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         pricing_currency = "USD"
 
     validation_errors: list[str] = []
+    validation_errors.extend(_find_unknown_config_keys(payload, schema=_CONFIG_SCHEMA, source_label="config.toml"))
+    validation_errors.extend(
+        _find_unknown_config_keys(local_payload, schema=_CONFIG_SCHEMA, source_label="config.local.toml")
+    )
     if provider is not None and provider not in {"openai_compatible", "mock"}:
         validation_errors.append(f"unknown provider '{provider}'")
     if timeout_s <= 0:
