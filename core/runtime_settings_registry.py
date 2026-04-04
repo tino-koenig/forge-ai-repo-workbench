@@ -81,6 +81,54 @@ RUNTIME_SETTINGS_REGISTRY: dict[str, RuntimeSettingSpec] = {
         scope_support=frozenset({"session", "repo", "user"}),
         description="Default TTL for auto-created sessions in minutes.",
     ),
+    "query.orchestrator.progress.threshold": RuntimeSettingSpec(
+        key="query.orchestrator.progress.threshold",
+        value_type="float",
+        allowed_values=None,
+        default=1.5,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Minimum progress score required to reset no-progress streak.",
+    ),
+    "query.orchestrator.progress.no_progress_streak_limit": RuntimeSettingSpec(
+        key="query.orchestrator.progress.no_progress_streak_limit",
+        value_type="int",
+        allowed_values=None,
+        default=2,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum consecutive no-progress iterations before stop.",
+    ),
+    "query.orchestrator.handler.read.max_batch": RuntimeSettingSpec(
+        key="query.orchestrator.handler.read.max_batch",
+        value_type="int",
+        allowed_values=None,
+        default=3,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of top candidates read per read-handler pass.",
+    ),
+    "query.orchestrator.handler.read.token_cost_per_line": RuntimeSettingSpec(
+        key="query.orchestrator.handler.read.token_cost_per_line",
+        value_type="int",
+        allowed_values=None,
+        default=40,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Token accounting coefficient per collected read context line.",
+    ),
+    "query.orchestrator.handler.search.token_cost_per_match": RuntimeSettingSpec(
+        key="query.orchestrator.handler.search.token_cost_per_match",
+        value_type="int",
+        allowed_values=None,
+        default=20,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Token accounting coefficient per search-expanded candidate.",
+    ),
+    "query.orchestrator.handler.explain.base_token_cost": RuntimeSettingSpec(
+        key="query.orchestrator.handler.explain.base_token_cost",
+        value_type="int",
+        allowed_values=None,
+        default=80,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Base token accounting for explain-handler execution.",
+    ),
 }
 
 
@@ -157,6 +205,11 @@ def expand_runtime_alias(
         "session default ttl": "session.default_ttl_minutes",
         "session.default.ttl.minutes": "session.default_ttl_minutes",
         "session.default_ttl_minutes": "session.default_ttl_minutes",
+        "query.orchestrator.progress.no.progress.streak.limit": "query.orchestrator.progress.no_progress_streak_limit",
+        "query.orchestrator.handler.read.max.batch": "query.orchestrator.handler.read.max_batch",
+        "query.orchestrator.handler.read.token.cost.per.line": "query.orchestrator.handler.read.token_cost_per_line",
+        "query.orchestrator.handler.search.token.cost.per.match": "query.orchestrator.handler.search.token_cost_per_match",
+        "query.orchestrator.handler.explain.base.token.cost": "query.orchestrator.handler.explain.base_token_cost",
     }
 
     if key_norm == "output":

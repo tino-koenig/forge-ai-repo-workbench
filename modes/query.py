@@ -523,6 +523,24 @@ def _load_query_source_policy(repo_root: Path) -> tuple[str, str]:
     return "repo_only", "default"
 
 
+def _resolve_runtime_number(args, key: str, default: int | float, *, kind: str) -> tuple[int | float, str]:
+    values = getattr(args, "runtime_settings_values", {})
+    sources = getattr(args, "runtime_settings_sources", {})
+    raw = values.get(key) if isinstance(values, dict) else None
+    source = str(sources.get(key) or "default") if isinstance(sources, dict) else "default"
+    if raw is None:
+        return default, "default"
+    try:
+        value = float(raw) if kind == "float" else int(raw)
+    except (TypeError, ValueError):
+        return default, "default"
+    if kind == "int" and int(value) <= 0:
+        return default, "default"
+    if kind == "float" and float(value) < 0:
+        return default, "default"
+    return value, source
+
+
 def _is_definition_lookup_query(question: str, planner) -> bool:
     lowered = question.lower()
     if planner is not None:
@@ -1886,9 +1904,49 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     orchestration_fallback_reason: str | None = None
     adaptive_continue_triggered = False
     no_progress_streak = 0
-    no_progress_streak_limit = 2
+    no_progress_streak_limit_raw, no_progress_streak_limit_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.progress.no_progress_streak_limit",
+        2,
+        kind="int",
+    )
+    no_progress_streak_limit = int(no_progress_streak_limit_raw)
     search_noop_streak = 0
-    progress_threshold = 1.5
+    progress_threshold_raw, progress_threshold_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.progress.threshold",
+        1.5,
+        kind="float",
+    )
+    progress_threshold = float(progress_threshold_raw)
+    read_max_batch_raw, read_max_batch_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.handler.read.max_batch",
+        3,
+        kind="int",
+    )
+    read_max_batch = int(read_max_batch_raw)
+    read_token_cost_raw, read_token_cost_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.handler.read.token_cost_per_line",
+        40,
+        kind="int",
+    )
+    read_token_cost_per_line = int(read_token_cost_raw)
+    search_token_cost_raw, search_token_cost_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.handler.search.token_cost_per_match",
+        20,
+        kind="int",
+    )
+    search_token_cost_per_match = int(search_token_cost_raw)
+    explain_base_cost_raw, explain_base_cost_source = _resolve_runtime_number(
+        args,
+        "query.orchestrator.handler.explain.base_token_cost",
+        80,
+        kind="int",
+    )
+    explain_base_token_cost = int(explain_base_cost_raw)
     budget_tokens_used = 0
     budget_files_used = 0
 
@@ -2090,7 +2148,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
                 candidates = rerank_with_explain_feedback(candidates, explain_feedback)
                 action_applied = True
-                budget_tokens_used += min(added_candidates * 20, 240)
+                budget_tokens_used += min(added_candidates * search_token_cost_per_match, 240)
                 handler_detail = f"search expanded candidate pool by {added_candidates} path-hint matches (scope={source_scope})"
             else:
                 handler_status = "noop"
@@ -2113,9 +2171,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     source_scope_reason = "read denied by budget caps"
                 else:
                     start_idx = 1 if adaptive_continue else 0
-                    # enrich_detailed_context reads at most three candidates per call.
-                    max_read_batch = 3
-                    inspect_size = max(1, min(len(candidates) - start_idx, remaining_files, max_read_batch))
+                    inspect_size = max(1, min(len(candidates) - start_idx, remaining_files, read_max_batch))
                     inspect_slice = candidates[start_idx : start_idx + inspect_size]
                     if inspect_slice:
                         if all(item.source_type == "repo" for item in inspect_slice):
@@ -2127,7 +2183,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                         source_scope_reason = "read scope derived from selected candidate slice"
                     budget_files_used += len(inspect_slice)
                     bounded_details = enrich_detailed_context(repo_root, inspect_slice, session)
-                    extra_limit = min(len(bounded_details), remaining_tokens // 40)
+                    extra_limit = min(len(bounded_details), remaining_tokens // max(1, read_token_cost_per_line))
                     for raw in bounded_details[:extra_limit]:
                         if raw.count(":") < 2:
                             continue
@@ -2147,7 +2203,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                             }
                         )
                         action_applied = True
-                    budget_tokens_used += extra_limit * 40
+                    budget_tokens_used += extra_limit * read_token_cost_per_line
                     if bounded_details:
                         detailed_lines.extend(bounded_details[:12])
                     if action_applied:
@@ -2166,7 +2222,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 explain_feedback = build_explain_feedback(question=question, candidates=candidates[:12])
                 candidates = rerank_with_explain_feedback(candidates, explain_feedback)
                 action_applied = True
-                budget_tokens_used += min(80, llm_settings.query_orchestrator_max_tokens // 8)
+                budget_tokens_used += min(explain_base_token_cost, llm_settings.query_orchestrator_max_tokens // 8)
                 handler_detail = "explain feedback recomputed for top candidates"
                 source_scope = "top_candidates"
                 source_scope_reason = "explain ran on bounded top candidate set"
@@ -2541,6 +2597,26 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "progress_policy": {
                 "threshold": progress_threshold,
                 "no_progress_streak_limit": no_progress_streak_limit,
+                "sources": {
+                    "threshold": progress_threshold_source,
+                    "no_progress_streak_limit": no_progress_streak_limit_source,
+                },
+            },
+            "handler_policy": {
+                "read": {
+                    "max_batch": read_max_batch,
+                    "token_cost_per_line": read_token_cost_per_line,
+                    "source_max_batch": read_max_batch_source,
+                    "source_token_cost_per_line": read_token_cost_source,
+                },
+                "search": {
+                    "token_cost_per_match": search_token_cost_per_match,
+                    "source_token_cost_per_match": search_token_cost_source,
+                },
+                "explain": {
+                    "base_token_cost": explain_base_token_cost,
+                    "source_base_token_cost": explain_base_cost_source,
+                },
             },
             "decisions": [
                 {
@@ -2717,6 +2793,18 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
 
         print("\n--- Action Orchestration ---")
         print(f"Done reason: {orchestration_done_reason}")
+        print(
+            "Progress policy: "
+            f"threshold={progress_threshold} ({progress_threshold_source}), "
+            f"no_progress_streak_limit={no_progress_streak_limit} ({no_progress_streak_limit_source})"
+        )
+        print(
+            "Handler policy: "
+            f"read.max_batch={read_max_batch} ({read_max_batch_source}), "
+            f"read.token_cost_per_line={read_token_cost_per_line} ({read_token_cost_source}), "
+            f"search.token_cost_per_match={search_token_cost_per_match} ({search_token_cost_source}), "
+            f"explain.base_token_cost={explain_base_token_cost} ({explain_base_cost_source})"
+        )
         if orchestration_decisions:
             for idx, decision in enumerate(orchestration_decisions, start=1):
                 print(

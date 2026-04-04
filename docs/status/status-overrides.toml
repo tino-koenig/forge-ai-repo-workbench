@@ -448,6 +448,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Added central bounded orchestration foundation in core and wired reuse in query and explain modes."
 
+[[feature]]
+id = "080"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query orchestration progress/cost policy is now runtime-resolved with source-traceable output and dedicated override/default regression coverage."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -497,3 +504,10 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Query now uses shared core orchestration cycle control, and explain reuses the same foundation."
+
+[[issue]]
+id = "23"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Moved query orchestration progress and handler-cost coefficients to runtime settings with explicit source tracing."

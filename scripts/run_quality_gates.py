@@ -1859,6 +1859,113 @@ def gate_central_mode_orchestrator_foundation(repo_root: Path) -> None:
     )
 
 
+def gate_query_orchestrator_policy_settings(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    runtime_path = forge_dir / "runtime.toml"
+    runtime_path.write_text(
+        (
+            '"query.orchestrator.progress.threshold" = 0.75\n'
+            '"query.orchestrator.progress.no_progress_streak_limit" = 3\n'
+            '"query.orchestrator.handler.read.max_batch" = 1\n'
+            '"query.orchestrator.handler.read.token_cost_per_line" = 5\n'
+            '"query.orchestrator.handler.search.token_cost_per_match" = 7\n'
+            '"query.orchestrator.handler.explain.base_token_cost" = 11\n'
+        ),
+        encoding="utf-8",
+    )
+    configured_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    orchestration = configured_payload.get("sections", {}).get("action_orchestration", {})
+    progress = orchestration.get("progress_policy", {}) if isinstance(orchestration, dict) else {}
+    handlers = orchestration.get("handler_policy", {}) if isinstance(orchestration, dict) else {}
+    assert_true(progress.get("threshold") == 0.75, "orchestrator policy: expected configured threshold")
+    assert_true(
+        progress.get("no_progress_streak_limit") == 3,
+        "orchestrator policy: expected configured no_progress_streak_limit",
+    )
+    sources = progress.get("sources", {}) if isinstance(progress, dict) else {}
+    assert_true(sources.get("threshold") == "repo", "orchestrator policy: threshold source should be repo runtime")
+    assert_true(
+        sources.get("no_progress_streak_limit") == "repo",
+        "orchestrator policy: no_progress_streak_limit source should be repo runtime",
+    )
+    read_policy = handlers.get("read", {}) if isinstance(handlers, dict) else {}
+    search_policy = handlers.get("search", {}) if isinstance(handlers, dict) else {}
+    explain_policy = handlers.get("explain", {}) if isinstance(handlers, dict) else {}
+    assert_true(read_policy.get("max_batch") == 1, "orchestrator policy: expected read.max_batch override")
+    assert_true(read_policy.get("token_cost_per_line") == 5, "orchestrator policy: expected read.token_cost_per_line override")
+    assert_true(search_policy.get("token_cost_per_match") == 7, "orchestrator policy: expected search.token_cost_per_match override")
+    assert_true(explain_policy.get("base_token_cost") == 11, "orchestrator policy: expected explain.base_token_cost override")
+    assert_true(read_policy.get("source_max_batch") == "repo", "orchestrator policy: read.max_batch source should be repo")
+    assert_true(
+        read_policy.get("source_token_cost_per_line") == "repo",
+        "orchestrator policy: read.token_cost_per_line source should be repo",
+    )
+    assert_true(
+        search_policy.get("source_token_cost_per_match") == "repo",
+        "orchestrator policy: search token source should be repo",
+    )
+    assert_true(
+        explain_policy.get("source_base_token_cost") == "repo",
+        "orchestrator policy: explain token source should be repo",
+    )
+
+    runtime_path.unlink()
+    default_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    default_orchestration = default_payload.get("sections", {}).get("action_orchestration", {})
+    default_progress = default_orchestration.get("progress_policy", {}) if isinstance(default_orchestration, dict) else {}
+    default_handlers = default_orchestration.get("handler_policy", {}) if isinstance(default_orchestration, dict) else {}
+    assert_true(default_progress.get("threshold") == 1.5, "orchestrator policy: expected default threshold")
+    assert_true(
+        default_progress.get("no_progress_streak_limit") == 2,
+        "orchestrator policy: expected default no_progress_streak_limit",
+    )
+    default_sources = default_progress.get("sources", {}) if isinstance(default_progress, dict) else {}
+    assert_true(default_sources.get("threshold") == "default", "orchestrator policy: default threshold source expected")
+    assert_true(
+        default_sources.get("no_progress_streak_limit") == "default",
+        "orchestrator policy: default streak source expected",
+    )
+    default_read_policy = default_handlers.get("read", {}) if isinstance(default_handlers, dict) else {}
+    assert_true(default_read_policy.get("max_batch") == 3, "orchestrator policy: expected default read.max_batch")
+    assert_true(
+        default_read_policy.get("token_cost_per_line") == 40,
+        "orchestrator policy: expected default read.token_cost_per_line",
+    )
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -3865,6 +3972,7 @@ def run_all_gates() -> None:
         gate_query_planner_priority_transfer(temp_repo)
         gate_query_index_scope_and_symbol_first(temp_repo)
         gate_central_mode_orchestrator_foundation(temp_repo)
+        gate_query_orchestrator_policy_settings(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)
