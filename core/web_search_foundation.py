@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from html import unescape
 from pathlib import Path
 import re
@@ -27,6 +28,7 @@ class WebSearchPolicy:
     max_urls_returned: int
     max_search_time_ms: int
     provider: str
+    freshness_mode: str
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,7 @@ class WebSearchOutcome:
     fallback_reason: str | None
     provider: str
     policy: dict[str, object]
+    freshness: dict[str, object]
 
 
 def _host_from_url(raw: str) -> str:
@@ -83,6 +86,7 @@ def _normalize_url(raw: str) -> str | None:
 def build_web_search_policy(
     *,
     framework_profile: FrameworkProfile | None,
+    freshness_mode: str = "docs",
     max_queries: int = 3,
     max_urls_considered: int = 20,
     max_urls_returned: int = 8,
@@ -130,17 +134,34 @@ def build_web_search_policy(
         max_urls_returned=max(1, min(max_urls_returned, 20)),
         max_search_time_ms=max(300, min(max_search_time_ms, 15000)),
         provider="duckduckgo_html",
+        freshness_mode="latest" if freshness_mode == "latest" else "docs",
     )
     return policy, warnings
 
 
-def _build_query_plan(question: str, policy: WebSearchPolicy) -> list[str]:
+def _build_query_plan(question: str, policy: WebSearchPolicy) -> tuple[list[str], list[str]]:
     raw = " ".join(question.strip().split())
     if not raw:
-        return []
+        return [], []
     plan: list[str] = [raw]
+    recency_queries: list[str] = []
+    if policy.freshness_mode == "latest":
+        year = datetime.now(timezone.utc).year
+        recency_queries.extend([f"{raw} latest", f"{raw} {year}"])
+        plan.extend(recency_queries)
+    for entry in policy.entrypoints:
+        host = _host_from_url(entry)
+        if not host:
+            continue
+        if policy.freshness_mode == "latest":
+            plan.append(f"site:{host} {raw} latest")
+        else:
+            plan.append(f"site:{host} {raw}")
     for host in policy.allowed_hosts[: max(0, policy.max_queries - 1)]:
-        plan.append(f"site:{host} {raw}")
+        if policy.freshness_mode == "latest":
+            plan.append(f"site:{host} {raw} latest")
+        else:
+            plan.append(f"site:{host} {raw}")
     deduped: list[str] = []
     seen: set[str] = set()
     for query in plan:
@@ -152,7 +173,8 @@ def _build_query_plan(question: str, policy: WebSearchPolicy) -> list[str]:
         deduped.append(normalized)
         if len(deduped) >= policy.max_queries:
             break
-    return deduped
+    recency_used = [item for item in deduped if any(token in item.lower() for token in (" latest", str(datetime.now(timezone.utc).year)))]
+    return deduped, recency_used
 
 
 def _extract_duckduckgo_result_url(href: str) -> str | None:
@@ -215,10 +237,12 @@ def run_web_search(
                 "max_urls_considered": policy.max_urls_considered,
                 "max_urls_returned": policy.max_urls_returned,
                 "max_search_time_ms": policy.max_search_time_ms,
+                "freshness_mode": policy.freshness_mode,
             },
+            freshness={"mode": policy.freshness_mode, "recency_query_variants": []},
         )
 
-    plan = _build_query_plan(question, policy)
+    plan, recency_variants = _build_query_plan(question, policy)
     if not plan:
         return WebSearchOutcome(
             used=False,
@@ -234,7 +258,9 @@ def run_web_search(
                 "max_urls_considered": policy.max_urls_considered,
                 "max_urls_returned": policy.max_urls_returned,
                 "max_search_time_ms": policy.max_search_time_ms,
+                "freshness_mode": policy.freshness_mode,
             },
+            freshness={"mode": policy.freshness_mode, "recency_query_variants": recency_variants},
         )
 
     if session is not None:
@@ -293,7 +319,9 @@ def run_web_search(
                 "max_urls_considered": policy.max_urls_considered,
                 "max_urls_returned": policy.max_urls_returned,
                 "max_search_time_ms": policy.max_search_time_ms,
+                "freshness_mode": policy.freshness_mode,
             },
+            freshness={"mode": policy.freshness_mode, "recency_query_variants": recency_variants},
         )
 
     fallback_reason = None
@@ -315,6 +343,8 @@ def run_web_search(
             "max_urls_considered": policy.max_urls_considered,
             "max_urls_returned": policy.max_urls_returned,
             "max_search_time_ms": policy.max_search_time_ms,
+            "freshness_mode": policy.freshness_mode,
             "considered_count": considered,
         },
+        freshness={"mode": policy.freshness_mode, "recency_query_variants": recency_variants},
     )

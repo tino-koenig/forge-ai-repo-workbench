@@ -2095,6 +2095,83 @@ def gate_ask_web_access_policy(repo_root: Path) -> None:
     )
 
 
+def gate_ask_latest_freshness_policy(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "runtime.toml").write_text('"access.web" = true\n', encoding="utf-8")
+
+    docs_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "ask:docs",
+                "typo3",
+                "release",
+                "notes",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    latest_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "ask:latest",
+                "typo3",
+                "release",
+                "notes",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    docs_ask = docs_payload.get("sections", {}).get("ask", {})
+    latest_ask = latest_payload.get("sections", {}).get("ask", {})
+    docs_search = docs_ask.get("search", {}) if isinstance(docs_ask, dict) else {}
+    latest_search = latest_ask.get("search", {}) if isinstance(latest_ask, dict) else {}
+    docs_fresh = docs_ask.get("freshness", {}) if isinstance(docs_ask, dict) else {}
+    latest_fresh = latest_ask.get("freshness", {}) if isinstance(latest_ask, dict) else {}
+    docs_policy = docs_search.get("policy", {}) if isinstance(docs_search, dict) else {}
+    latest_policy = latest_search.get("policy", {}) if isinstance(latest_search, dict) else {}
+
+    assert_true(docs_fresh.get("mode") == "docs", "ask latest freshness: expected docs freshness mode")
+    assert_true(latest_fresh.get("mode") == "latest", "ask latest freshness: expected latest freshness mode")
+    assert_true(
+        latest_policy.get("freshness_mode") == "latest",
+        "ask latest freshness: expected search policy freshness_mode=latest",
+    )
+    assert_true(
+        docs_policy.get("freshness_mode") == "docs",
+        "ask latest freshness: expected docs policy freshness_mode=docs",
+    )
+    docs_queries = docs_search.get("query_plan", []) if isinstance(docs_search, dict) else []
+    latest_queries = latest_search.get("query_plan", []) if isinstance(latest_search, dict) else []
+    assert_true(isinstance(docs_queries, list), "ask latest freshness: expected docs query_plan list")
+    assert_true(isinstance(latest_queries, list), "ask latest freshness: expected latest query_plan list")
+    assert_true(
+        latest_queries != docs_queries,
+        "ask latest freshness: expected distinct query plan compared to ask:docs",
+    )
+    recency_variants = latest_fresh.get("recency_query_variants", []) if isinstance(latest_fresh, dict) else []
+    assert_true(
+        isinstance(recency_variants, list) and len(recency_variants) > 0,
+        "ask latest freshness: expected recency query variants for ask:latest",
+    )
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -4104,6 +4181,7 @@ def run_all_gates() -> None:
         gate_query_orchestrator_policy_settings(temp_repo)
         gate_query_llm_provenance_consistency(temp_repo)
         gate_ask_web_access_policy(temp_repo)
+        gate_ask_latest_freshness_policy(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)

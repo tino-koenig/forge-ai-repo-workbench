@@ -34,3 +34,22 @@ Expose freshness metadata, e.g.:
 ## Addresses Issues
 
 - [16-ask-latest-has-no-distinct-freshness-behavior.md](/Users/tino/PhpstormProjects/forge/docs/issues/16-ask-latest-has-no-distinct-freshness-behavior.md)
+
+## Implemented Behavior (Current)
+
+- Web search policy now supports explicit `freshness_mode` (`docs` or `latest`).
+- `ask:latest` uses dedicated recency query variants and distinct search-policy limits from `ask:docs`.
+- Ask contract now includes `sections.ask.freshness` with strategy and signal metadata.
+
+## How To Use
+
+- Use:
+  - `forge ask:latest "..."`
+- In JSON output, inspect:
+  - `sections.ask.search.policy.freshness_mode`
+  - `sections.ask.search.query_plan`
+  - `sections.ask.freshness`
+
+## Known Limits / Notes
+
+- Freshness confidence is conservative when only retrieval timestamps are available and no published/updated source metadata can be extracted.

@@ -24,3 +24,27 @@ This does not satisfy the promised freshness-focused intent of `ask:latest`.
 ## Linked Features
 
 - [073-ask-latest-freshness-policy.md](/Users/tino/PhpstormProjects/forge/docs/features/073-ask-latest-freshness-policy.md)
+
+## Implemented Behavior (Current)
+
+- `ask:latest` now runs with a dedicated freshness policy distinct from `ask:docs`.
+- Search policy now carries `freshness_mode` and latest-mode query planning includes recency variants.
+- Ask output exposes freshness strategy/signals in `sections.ask.freshness`:
+  - `mode`
+  - `recency_query_variants`
+  - per-source freshness signals (`retrieved_at`, with caveats when publish/update metadata is missing)
+  - `confidence_note`
+
+## How To Validate Quickly
+
+- Run with web access enabled:
+  - `FORGE_RUNTIME_SESSION_JSON='{"access.web":true}' python3 forge.py --output-format json --llm-provider mock ask:docs "typo3 release notes"`
+  - `FORGE_RUNTIME_SESSION_JSON='{"access.web":true}' python3 forge.py --output-format json --llm-provider mock ask:latest "typo3 release notes"`
+- Verify:
+  - `ask:latest` has `sections.ask.freshness.mode == "latest"`
+  - `ask:latest` includes non-empty `recency_query_variants`
+  - `ask:latest` query plan differs from `ask:docs`
+
+## Known Limits / Notes
+
+- Freshness currently relies on deterministic recency query variants plus retrieval timestamp; source-native published/updated metadata extraction is not yet implemented.

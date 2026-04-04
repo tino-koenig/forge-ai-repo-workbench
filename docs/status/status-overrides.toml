@@ -462,6 +462,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Ask web presets now enforce runtime access.web gating with explicit policy-block metadata and regression coverage."
 
+[[feature]]
+id = "073"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "ask:latest now applies distinct freshness-mode query strategy and exposes freshness signals in output contracts."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -525,6 +532,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Ask docs/latest now honor access.web and report deterministic policy-block metadata when denied."
+
+[[issue]]
+id = "16"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "ask:latest now diverges from ask:docs via freshness_mode policy and recency-aware query variants with explicit freshness contract metadata."
 
 [[issue]]
 id = "6"

@@ -60,7 +60,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             search_warnings.append(web_policy_blocked_reason)
             retrieval_warnings.append(web_policy_blocked_reason)
         else:
-            search_policy, policy_warnings = build_web_search_policy(framework_profile=framework_profile)
+            search_policy, policy_warnings = build_web_search_policy(
+                framework_profile=framework_profile,
+                freshness_mode="latest" if ask_preset == "latest" else "docs",
+                max_queries=4 if ask_preset == "latest" else 3,
+                max_urls_returned=10 if ask_preset == "latest" else 8,
+            )
             search_warnings.extend(policy_warnings)
             search_outcome = run_web_search(
                 question=question,
@@ -220,6 +225,33 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                         for item in (retrieval_outcome.sources if retrieval_outcome is not None else [])
                     ],
                     "citations": [item.url for item in (retrieval_outcome.sources if retrieval_outcome is not None else [])],
+                }
+                if ask_preset in {"docs", "latest"}
+                else None
+            ),
+            "freshness": (
+                {
+                    "mode": "latest" if ask_preset == "latest" else "docs",
+                    "recency_query_variants": (
+                        search_outcome.freshness.get("recency_query_variants", [])
+                        if search_outcome is not None
+                        else []
+                    ),
+                    "source_signals": [
+                        {
+                            "url": item.url,
+                            "published_at": None,
+                            "updated_at": None,
+                            "retrieved_at": item.retrieved_at,
+                            "signal_quality": "retrieved_only",
+                        }
+                        for item in (retrieval_outcome.sources if retrieval_outcome is not None else [])
+                    ],
+                    "confidence_note": (
+                        "low: no freshness metadata was extracted from sources"
+                        if retrieval_outcome is None or not retrieval_outcome.sources
+                        else "low: retrieved_at is available, but published/updated timestamps are missing"
+                    ),
                 }
                 if ask_preset in {"docs", "latest"}
                 else None
