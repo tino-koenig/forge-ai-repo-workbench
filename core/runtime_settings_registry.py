@@ -217,6 +217,46 @@ RUNTIME_SETTINGS_REGISTRY: dict[str, RuntimeSettingSpec] = {
         scope_support=frozenset({"session", "repo", "user"}),
         description="Maximum evidence lines retained per review finding.",
     ),
+    "describe.framework_hints.max_files": RuntimeSettingSpec(
+        key="describe.framework_hints.max_files",
+        value_type="int",
+        allowed_values=None,
+        default=80,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of files scanned for describe framework-hint detection.",
+    ),
+    "describe.languages.max_items": RuntimeSettingSpec(
+        key="describe.languages.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=6,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of languages emitted in describe technologies output.",
+    ),
+    "describe.components.max_items": RuntimeSettingSpec(
+        key="describe.components.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=6,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of describe key components emitted.",
+    ),
+    "describe.important_files.max_items": RuntimeSettingSpec(
+        key="describe.important_files.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=10,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of describe important files emitted.",
+    ),
+    "describe.symbols.max_items": RuntimeSettingSpec(
+        key="describe.symbols.max_items",
+        value_type="int",
+        allowed_values=None,
+        default=8,
+        scope_support=frozenset({"session", "repo", "user"}),
+        description="Maximum number of symbol entries emitted for describe file/symbol targets.",
+    ),
 }
 
 
@@ -309,6 +349,11 @@ def expand_runtime_alias(
         "review.findings.max.items": "review.findings.max_items",
         "review.related.max.targets": "review.related.max_targets",
         "review.evidence.max.per.finding": "review.evidence.max_per_finding",
+        "describe.framework.hints.max.files": "describe.framework_hints.max_files",
+        "describe.languages.max.items": "describe.languages.max_items",
+        "describe.components.max.items": "describe.components.max_items",
+        "describe.important.files.max.items": "describe.important_files.max_items",
+        "describe.symbols.max.items": "describe.symbols.max_items",
     }
 
     if key_norm == "output":

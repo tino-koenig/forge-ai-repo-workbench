@@ -595,6 +595,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe now exposes central orchestrator trace/runtime metadata under action_orchestration using the shared mode orchestrator engine."
 
+[[feature]]
+id = "096"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Describe policy limits are now runtime-configurable and source-traceable in sections.describe_policy."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -798,6 +805,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Describe now surfaces shared central orchestrator trace/runtime metadata with dedicated regression gate coverage."
+
+[[issue]]
+id = "39"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Describe scan/output policy thresholds are now runtime-configurable with source-traceable policy metadata."
 
 [[issue]]
 id = "6"

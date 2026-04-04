@@ -27,3 +27,21 @@ Describe uses hardcoded limits and thresholds for scan scope and output shaping,
 ## Linked Features
 
 - [Feature 096 - Describe Runtime Settings Surface for Analysis Policy](/Users/tino/PhpstormProjects/forge/docs/features/096-describe-runtime-settings-surface-for-analysis-policy.md)
+
+## Implemented Behavior (Current)
+
+- Describe analysis limits are now runtime-configurable through canonical describe policy keys.
+- Describe now emits source-traceable policy metadata in `sections.describe_policy`.
+- Runtime overrides now deterministically affect describe output shaping (components, symbols, important files).
+- Regression coverage added via `gate_describe_runtime_policy_settings`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_describe_runtime_policy_settings` passes.
+
+## Known Limits / Notes
+
+- Simple-profile framework-hint scanning keeps an additional conservative cap for stability.

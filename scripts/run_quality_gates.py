@@ -3093,6 +3093,113 @@ def gate_describe_important_file_scope_policy(repo_root: Path) -> None:
     )
 
 
+def gate_describe_runtime_policy_settings(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    fixture = repo_root / "src" / "describe_runtime_fixture.py"
+    fixture.write_text(
+        "\n".join(
+            [
+                "def a(): return 1",
+                "def b(): return 2",
+                "def c(): return 3",
+                "def d(): return 4",
+                "def e(): return 5",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    default_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+                "src/describe_runtime_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    default_policy = default_payload.get("sections", {}).get("describe_policy", {})
+    default_values = default_policy.get("values", {}) if isinstance(default_policy, dict) else {}
+    default_sources = default_policy.get("sources", {}) if isinstance(default_policy, dict) else {}
+    assert_true(default_values.get("framework_hints_max_files") == 80, "describe runtime policy: expected default framework_hints_max_files=80")
+    assert_true(default_values.get("languages_max_items") == 6, "describe runtime policy: expected default languages_max_items=6")
+    assert_true(default_values.get("components_max_items") == 6, "describe runtime policy: expected default components_max_items=6")
+    assert_true(default_values.get("important_files_max_items") == 10, "describe runtime policy: expected default important_files_max_items=10")
+    assert_true(default_values.get("symbols_max_items") == 8, "describe runtime policy: expected default symbols_max_items=8")
+    assert_true(default_sources.get("components_max_items") == "default", "describe runtime policy: expected default source for components max")
+
+    (forge_dir / "runtime.toml").write_text(
+        "\n".join(
+            [
+                '"describe.framework_hints.max_files" = 5',
+                '"describe.languages.max_items" = 1',
+                '"describe.components.max_items" = 2',
+                '"describe.important_files.max_items" = 1',
+                '"describe.symbols.max_items" = 2',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    override_target_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+                "src/describe_runtime_fixture.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    override_sections = override_target_payload.get("sections", {})
+    override_policy = override_sections.get("describe_policy", {})
+    override_values = override_policy.get("values", {}) if isinstance(override_policy, dict) else {}
+    override_sources = override_policy.get("sources", {}) if isinstance(override_policy, dict) else {}
+    assert_true(override_values.get("framework_hints_max_files") == 5, "describe runtime policy: expected framework_hints override")
+    assert_true(override_values.get("languages_max_items") == 1, "describe runtime policy: expected languages override")
+    assert_true(override_values.get("components_max_items") == 2, "describe runtime policy: expected components override")
+    assert_true(override_values.get("important_files_max_items") == 1, "describe runtime policy: expected important files override")
+    assert_true(override_values.get("symbols_max_items") == 2, "describe runtime policy: expected symbols override")
+    assert_true(override_sources.get("symbols_max_items") == "repo", "describe runtime policy: expected repo source for symbols max")
+
+    key_components = override_sections.get("key_components", [])
+    assert_true(
+        isinstance(key_components, list) and len(key_components) <= 2,
+        "describe runtime policy: expected components cap to limit key_components",
+    )
+
+    override_repo_payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "describe",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    important_files = override_repo_payload.get("sections", {}).get("important_files", [])
+    assert_true(
+        isinstance(important_files, list) and len(important_files) <= 1,
+        "describe runtime policy: expected important_files cap to limit repo overview output",
+    )
+
+
 def gate_external_review_rules(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -5437,6 +5544,7 @@ def run_all_gates() -> None:
         gate_describe_explicit_unresolved_target_contract(temp_repo)
         gate_describe_symbol_anchor_evidence(temp_repo)
         gate_describe_important_file_scope_policy(temp_repo)
+        gate_describe_runtime_policy_settings(temp_repo)
         gate_doctor_config_validate_matrix_malformed(temp_repo_malformed)
         gate_doctor_config_validate_unknown_keys(temp_repo_unknown_cfg)
         gate_doctor_config_validate_provider_required_fields(temp_repo_provider_required)

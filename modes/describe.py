@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 from core.analysis_primitives import (
@@ -40,13 +41,39 @@ LANGUAGE_BY_EXTENSION = {
     ".json": "JSON",
 }
 
-def detect_languages(files: list[Path]) -> list[str]:
+
+@dataclass(frozen=True)
+class DescribePolicy:
+    framework_hints_max_files: int
+    languages_max_items: int
+    components_max_items: int
+    important_files_max_items: int
+    symbols_max_items: int
+
+
+def _resolve_runtime_int(args, key: str, default: int, *, min_value: int = 1, max_value: int = 2000) -> tuple[int, str]:
+    values = getattr(args, "runtime_settings_values", {})
+    sources = getattr(args, "runtime_settings_sources", {})
+    raw = values.get(key) if isinstance(values, dict) else None
+    source = str(sources.get(key) or "default") if isinstance(sources, dict) else "default"
+    if raw is None:
+        return default, "default"
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return default, "default"
+    if parsed < min_value or parsed > max_value:
+        return default, "default"
+    return parsed, source
+
+
+def detect_languages(files: list[Path], limit: int) -> list[str]:
     counter: Counter[str] = Counter()
     for path in files:
         lang = LANGUAGE_BY_EXTENSION.get(path.suffix.lower())
         if lang:
             counter[lang] += 1
-    return [lang for lang, _count in counter.most_common(6)]
+    return [lang for lang, _count in counter.most_common(limit)]
 
 
 def detect_framework_hints(files: list[Path], repo_root: Path, session: ExecutionSession, limit: int) -> list[str]:
@@ -242,13 +269,17 @@ def collect_repo_sections(
     request: CommandRequest,
     session: ExecutionSession,
     index_payload: dict[str, object] | None,
+    policy: DescribePolicy,
 ) -> tuple[dict[str, object], str | None]:
-    languages = detect_languages(files)
-    frameworks = detect_framework_hints(files, repo_root, session, limit=80 if request.profile != Profile.SIMPLE else 25)
+    languages = detect_languages(files, policy.languages_max_items)
+    framework_scan_limit = policy.framework_hints_max_files
+    if request.profile == Profile.SIMPLE:
+        framework_scan_limit = min(framework_scan_limit, 25)
+    frameworks = detect_framework_hints(files, repo_root, session, limit=framework_scan_limit)
     directories = directories_from_index_payload(index_payload)
     if not directories:
         directories = top_directories(files, repo_root)
-    ranked_important = rank_important_files(files, repo_root, limit=10)
+    ranked_important = rank_important_files(files, repo_root, limit=policy.important_files_max_items)
     important = [item["path"] for item in ranked_important if isinstance(item.get("path"), Path)]
     architecture_notes: list[str] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
@@ -261,7 +292,10 @@ def collect_repo_sections(
 
     sections: dict[str, object] = {
         "target": {"kind": "repo", "path": "."},
-        "key_components": [{"path": directory, "file_count": count} for directory, count in directories[:6]],
+        "key_components": [
+            {"path": directory, "file_count": count}
+            for directory, count in directories[: policy.components_max_items]
+        ],
         "technologies": {
             "languages": languages,
             "framework_hints": frameworks,
@@ -291,6 +325,7 @@ def collect_target_sections(
     repo_root: Path,
     request: CommandRequest,
     session: ExecutionSession,
+    policy: DescribePolicy,
 ) -> dict[str, object]:
     rel = target.path.relative_to(repo_root)
     files: list[Path]
@@ -298,22 +333,22 @@ def collect_target_sections(
         files = list_directory_files(target.path, repo_root, session)
     else:
         files = [target.path]
-    languages = detect_languages(files)
+    languages = detect_languages(files, policy.languages_max_items)
 
     key_components: list[dict[str, object]] = []
     if target.kind == "directory":
         subdirs = Counter(p.relative_to(target.path).parts[0] for p in files if len(p.relative_to(target.path).parts) > 1)
-        for name, count in subdirs.most_common(6):
+        for name, count in subdirs.most_common(policy.components_max_items):
             key_components.append({"name": name, "file_count": count})
     else:
         content = read_text_file(target.path, session) or ""
         defs = re.findall(r"^\s*(?:def|class)\s+([A-Za-z0-9_]+)", content, flags=re.MULTILINE)
-        key_components = [{"symbol": name} for name in defs[:8]]
+        key_components = [{"symbol": name} for name in defs[: policy.symbols_max_items]]
 
     important_files: list[str] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
         if target.kind == "directory":
-            important_files = [str(item) for item in find_important_files(files, repo_root)[:8]]
+            important_files = [str(item) for item in find_important_files(files, repo_root)[: policy.important_files_max_items]]
         else:
             important_files = [str(rel)]
 
@@ -343,20 +378,24 @@ def print_repo_description(
     index_payload: dict[str, object] | None,
     summary: str,
     view: str,
+    policy: DescribePolicy,
 ) -> str | None:
-    languages = detect_languages(files)
-    frameworks = detect_framework_hints(files, repo_root, session, limit=80 if request.profile != Profile.SIMPLE else 25)
+    languages = detect_languages(files, policy.languages_max_items)
+    framework_scan_limit = policy.framework_hints_max_files
+    if request.profile == Profile.SIMPLE:
+        framework_scan_limit = min(framework_scan_limit, 25)
+    frameworks = detect_framework_hints(files, repo_root, session, limit=framework_scan_limit)
     directories = directories_from_index_payload(index_payload)
     if not directories:
         directories = top_directories(files, repo_root)
-    ranked_important = rank_important_files(files, repo_root, limit=10)
+    ranked_important = rank_important_files(files, repo_root, limit=policy.important_files_max_items)
     important = [item["path"] for item in ranked_important if isinstance(item.get("path"), Path)]
     print("\n--- Summary ---")
     print(summary)
 
     print("\n--- Key Components ---")
     if directories:
-        component_limit = 3 if view == "standard" else 6
+        component_limit = 3 if view == "standard" else policy.components_max_items
         for directory, count in directories[:component_limit]:
             print(f"- {directory}: {count} files")
     else:
@@ -400,6 +439,7 @@ def print_target_description(
     session: ExecutionSession,
     summary: str,
     view: str,
+    policy: DescribePolicy,
 ) -> None:
     rel = target.path.relative_to(repo_root)
     print("\n--- Summary ---")
@@ -411,12 +451,12 @@ def print_target_description(
     else:
         files = [target.path]
 
-    languages = detect_languages(files)
+    languages = detect_languages(files, policy.languages_max_items)
     print("\n--- Key Components ---")
     if target.kind == "directory":
         subdirs = Counter(p.relative_to(target.path).parts[0] for p in files if len(p.relative_to(target.path).parts) > 1)
         if subdirs:
-            for name, count in subdirs.most_common(6):
+            for name, count in subdirs.most_common(policy.components_max_items):
                 print(f"- {name}: {count} files")
         else:
             print("- Target directory has mostly flat file structure.")
@@ -424,7 +464,7 @@ def print_target_description(
         content = read_text_file(target.path, session) or ""
         defs = re.findall(r"^\s*(?:def|class)\s+([A-Za-z0-9_]+)", content, flags=re.MULTILINE)
         if defs:
-            symbol_limit = 4 if view == "standard" else 8
+            symbol_limit = 4 if view == "standard" else policy.symbols_max_items
             for name in defs[:symbol_limit]:
                 print(f"- symbol: {name}")
         else:
@@ -438,7 +478,7 @@ def print_target_description(
         if target.kind == "directory":
             important = find_important_files(files, repo_root)
             if important:
-                important_limit = 3 if view == "standard" else 8
+                important_limit = 3 if view == "standard" else policy.important_files_max_items
                 for item in important[:important_limit]:
                     print(f"- {item}")
             else:
@@ -569,6 +609,65 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         elif request.profile in {Profile.STANDARD, Profile.DETAILED}:
             print("Index: not available, scanning repository directly")
 
+    framework_hints_max_files, framework_hints_source = _resolve_runtime_int(
+        args,
+        "describe.framework_hints.max_files",
+        80,
+        min_value=1,
+        max_value=5000,
+    )
+    languages_max_items, languages_source = _resolve_runtime_int(
+        args,
+        "describe.languages.max_items",
+        6,
+        min_value=1,
+        max_value=100,
+    )
+    components_max_items, components_source = _resolve_runtime_int(
+        args,
+        "describe.components.max_items",
+        6,
+        min_value=1,
+        max_value=100,
+    )
+    important_files_max_items, important_files_source = _resolve_runtime_int(
+        args,
+        "describe.important_files.max_items",
+        10,
+        min_value=1,
+        max_value=100,
+    )
+    symbols_max_items, symbols_source = _resolve_runtime_int(
+        args,
+        "describe.symbols.max_items",
+        8,
+        min_value=1,
+        max_value=100,
+    )
+    describe_policy = DescribePolicy(
+        framework_hints_max_files=framework_hints_max_files,
+        languages_max_items=languages_max_items,
+        components_max_items=components_max_items,
+        important_files_max_items=important_files_max_items,
+        symbols_max_items=symbols_max_items,
+    )
+    describe_policy_section = {
+        "values": {
+            "framework_hints_max_files": describe_policy.framework_hints_max_files,
+            "languages_max_items": describe_policy.languages_max_items,
+            "components_max_items": describe_policy.components_max_items,
+            "important_files_max_items": describe_policy.important_files_max_items,
+            "symbols_max_items": describe_policy.symbols_max_items,
+        },
+        "sources": {
+            "framework_hints_max_files": framework_hints_source,
+            "languages_max_items": languages_source,
+            "components_max_items": components_source,
+            "important_files_max_items": important_files_source,
+            "symbols_max_items": symbols_source,
+        },
+    }
+
     if explicit_target and target.kind == "repo" and target.source == "fallback":
         summary = "Explicit describe target could not be resolved."
         uncertainty = [
@@ -579,9 +678,11 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         sections = {
             "target": {"kind": "unresolved", "path": request.payload, "source": "explicit_unresolved"},
             "important_files": [],
+            "important_file_rationale": [],
             "key_components": [],
             "technologies": {"languages": [], "framework_hints": []},
             "architecture_notes": [],
+            "describe_policy": describe_policy_section,
             "status": "unresolved_target",
             "action_orchestration": {
                 "catalog": orchestration_catalog,
@@ -665,7 +766,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         if not files:
             files = iter_repo_files(repo_root, session)
         mark_action("collect_context", "completed", f"collected repo context from {len(files)} files")
-        deterministic_summary = infer_repo_summary(repo_root, files, detect_languages(files), session)
+        deterministic_summary = infer_repo_summary(repo_root, files, detect_languages(files, describe_policy.languages_max_items), session)
         mark_action("synthesize", "completed", "assembled repository-level deterministic summary")
         evidence_payload, symbol_anchor_found = collect_describe_evidence(
             target=target,
@@ -682,7 +783,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             settings=llm_settings,
             repo_root=repo_root,
         )
-        sections, next_step = collect_repo_sections(repo_root, files, request, session, index)
+        sections, next_step = collect_repo_sections(repo_root, files, request, session, index, describe_policy)
         if not is_json:
             next_step = print_repo_description(
                 repo_root,
@@ -692,6 +793,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 index,
                 llm_outcome.summary,
                 view,
+                describe_policy,
             )
     else:
         files = list_directory_files(target.path, repo_root, session) if target.kind == "directory" else [target.path]
@@ -713,9 +815,9 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             settings=llm_settings,
             repo_root=repo_root,
         )
-        sections = collect_target_sections(target, repo_root, request, session)
+        sections = collect_target_sections(target, repo_root, request, session, describe_policy)
         if not is_json:
-            print_target_description(target, repo_root, request, session, llm_outcome.summary, view)
+            print_target_description(target, repo_root, request, session, llm_outcome.summary, view, describe_policy)
 
     uncertainty: list[str] = []
     if target.kind == "symbol":
@@ -744,6 +846,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             llm_used=bool(llm_outcome.usage.get("used")),
             evidence_count=len(evidence_payload),
         )
+    sections["describe_policy"] = describe_policy_section
     mark_action("finalize", "completed", "assembled final output contract")
     sections["action_orchestration"] = {
         "catalog": orchestration_catalog,
