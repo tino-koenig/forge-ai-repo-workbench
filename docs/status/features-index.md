@@ -126,7 +126,7 @@ Status values:
 | 114 | Init Baseline and Doctor Coherence for Provider Requirements | 2026-04-04 | defined | - | [114-init-baseline-and-doctor-coherence-for-provider-requirements.md](/Users/tino/PhpstormProjects/forge/docs/features/114-init-baseline-and-doctor-coherence-for-provider-requirements.md) |
 | 115 | Init Quality-Gate Matrix for Safety and Template Contracts | 2026-04-04 | defined | - | [115-init-quality-gate-matrix-for-safety-and-template-contracts.md](/Users/tino/PhpstormProjects/forge/docs/features/115-init-quality-gate-matrix-for-safety-and-template-contracts.md) |
 | 116 | Canonical Init Template Registry and CLI Choice Derivation | 2026-04-04 | implemented | 2026-04-04 | [116-canonical-init-template-registry-and-cli-choice-derivation.md](/Users/tino/PhpstormProjects/forge/docs/features/116-canonical-init-template-registry-and-cli-choice-derivation.md) |
-| 117 | Init Source-Scope and Framework Policy Onboarding | 2026-04-04 | defined | - | [117-init-source-scope-and-framework-policy-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/117-init-source-scope-and-framework-policy-onboarding.md) |
+| 117 | Init Source-Scope and Framework Policy Onboarding | 2026-04-04 | implemented | 2026-04-04 | [117-init-source-scope-and-framework-policy-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/117-init-source-scope-and-framework-policy-onboarding.md) |
 | 118 | Shared Init Default-Value Foundation with Central Config | 2026-04-04 | defined | - | [118-shared-init-default-value-foundation-with-central-config.md](/Users/tino/PhpstormProjects/forge/docs/features/118-shared-init-default-value-foundation-with-central-config.md) |
 
 ## Notes
@@ -172,3 +172,4 @@ Status values:
 - 063: Added named repo-local session store with TTL, auto-create on runtime-consuming commands, session command group, revive flow, bounded context retention, and resolver source integration (`session:<name>`).
 - 111: Extracted reusable protocol analytics/filtering foundation from logs mode and added direct foundation gate coverage.
 - 116: Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate.
+- 117: Init now captures source-scope/framework allowlist onboarding settings and persists them deterministically in generated config and template metadata.

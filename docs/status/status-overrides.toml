@@ -399,6 +399,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Centralized init template/option registry and derived CLI/mode choices from shared init foundation with parser drift gate."
 
+[[feature]]
+id = "117"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Init now captures source-scope/framework allowlist onboarding settings and persists them deterministically in generated config and template metadata."
+
 # Issue examples:
 # [[issue]]
 # id = "12"

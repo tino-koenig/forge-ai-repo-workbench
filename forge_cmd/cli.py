@@ -16,6 +16,7 @@ from core.init_foundation import (
     INIT_INDEX_ENRICHMENT_CHOICES,
     INIT_OUTPUT_LANGUAGE_CHOICES,
     INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_SOURCE_SCOPE_CHOICES,
     INIT_TEMPLATE_CHOICES,
 )
 from core.output_contracts import consume_last_contract, reset_last_contract
@@ -234,6 +235,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--index-enrichment",
         choices=INIT_INDEX_ENRICHMENT_CHOICES,
         help="Override generated index enrichment setting",
+    )
+    init_parser.add_argument(
+        "--source-scope",
+        choices=INIT_SOURCE_SCOPE_CHOICES,
+        help="Default retrieval source scope in generated config (repo_only|all)",
+    )
+    init_parser.add_argument(
+        "--framework-allowlist",
+        help="Optional comma-separated framework IDs/versions for generated source policy (e.g. typo3@12,symfony@7)",
     )
     init_parser.add_argument(
         "parts",

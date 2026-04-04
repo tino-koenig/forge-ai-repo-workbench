@@ -27,6 +27,7 @@ from core.init_foundation import (
     INIT_INDEX_ENRICHMENT_CHOICES,
     INIT_OUTPUT_LANGUAGE_CHOICES,
     INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_SOURCE_SCOPE_CHOICES,
     INIT_TEMPLATE_CHOICES,
 )
 from core.protocol_analytics_foundation import apply_filters as apply_protocol_filters
@@ -1874,6 +1875,7 @@ def gate_init_parser_choices_from_registry() -> None:
     output_language_choices = tuple(by_dest["output_language"].choices or ())
     review_strictness_choices = tuple(by_dest["review_strictness"].choices or ())
     index_enrichment_choices = tuple(by_dest["index_enrichment"].choices or ())
+    source_scope_choices = tuple(by_dest["source_scope"].choices or ())
 
     assert_true(
         template_choices == INIT_TEMPLATE_CHOICES,
@@ -1890,6 +1892,52 @@ def gate_init_parser_choices_from_registry() -> None:
     assert_true(
         index_enrichment_choices == INIT_INDEX_ENRICHMENT_CHOICES,
         "init parser choices: index-enrichment choices must match init foundation",
+    )
+    assert_true(
+        source_scope_choices == INIT_SOURCE_SCOPE_CHOICES,
+        "init parser choices: source-scope choices must match init foundation",
+    )
+
+
+def gate_init_source_policy_onboarding(repo_root: Path) -> None:
+    run_cmd(
+        [
+            "python3",
+            str(FORGE),
+            "--repo-root",
+            str(repo_root),
+            "init",
+            "--template",
+            "balanced",
+            "--non-interactive",
+            "--force",
+            "--source-scope",
+            "all",
+            "--framework-allowlist",
+            "typo3@12, symfony@7",
+        ],
+        cwd=ROOT,
+    )
+    config_payload = tomli.loads((repo_root / ".forge" / "config.toml").read_text(encoding="utf-8"))
+    source_policy = config_payload.get("query", {}).get("source_policy", {})
+    assert_true(
+        isinstance(source_policy, dict)
+        and source_policy.get("source_scope_default") == "all",
+        "init source policy: expected source_scope_default in generated config",
+    )
+    assert_true(
+        isinstance(source_policy, dict)
+        and source_policy.get("framework_allowlist") == ["typo3@12", "symfony@7"],
+        "init source policy: expected framework_allowlist in generated config",
+    )
+    meta_payload = tomli.loads((repo_root / ".forge" / "template-meta.toml").read_text(encoding="utf-8"))
+    assert_true(
+        meta_payload.get("source_scope_default") == "all",
+        "init source policy: expected source_scope_default in template metadata",
+    )
+    assert_true(
+        meta_payload.get("framework_allowlist") == ["typo3@12", "symfony@7"],
+        "init source policy: expected framework_allowlist in template metadata",
     )
 
 
@@ -3462,6 +3510,7 @@ def run_all_gates() -> None:
         gate_init_non_mutating_flows(temp_repo)
         gate_init_invalid_target_no_write(temp_repo)
         gate_init_default_alignment_with_config_foundation(temp_repo)
+        gate_init_source_policy_onboarding(temp_repo)
         gate_init_doctor_provider_baseline_coherence()
         gate_named_session_context_and_ttl(temp_repo)
         gate_env_file_autoload(temp_repo)

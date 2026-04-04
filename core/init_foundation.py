@@ -50,3 +50,5 @@ INIT_TEMPLATE_CHOICES = tuple(INIT_TEMPLATES.keys())
 INIT_OUTPUT_LANGUAGE_CHOICES = ("auto", "de", "en")
 INIT_REVIEW_STRICTNESS_CHOICES = ("balanced", "strict")
 INIT_INDEX_ENRICHMENT_CHOICES = ("enabled", "disabled")
+INIT_SOURCE_SCOPE_CHOICES = ("repo_only", "all")
+INIT_SOURCE_SCOPE_DEFAULT = "repo_only"

@@ -20,6 +20,8 @@ from core.config import (
 from core.init_foundation import (
     INIT_OUTPUT_LANGUAGE_CHOICES,
     INIT_REVIEW_STRICTNESS_CHOICES,
+    INIT_SOURCE_SCOPE_CHOICES,
+    INIT_SOURCE_SCOPE_DEFAULT,
     INIT_TEMPLATES,
     INIT_TEMPLATE_CHOICES,
     InitTemplate,
@@ -60,7 +62,37 @@ def _prompt_yes_no(label: str, default: bool) -> bool:
         print(f"Invalid choice '{raw}'.")
 
 
-def _render_config(template: InitTemplate, output_language: str, index_enrichment_enabled: bool) -> str:
+def _parse_framework_allowlist(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in raw.split(","):
+        value = part.strip()
+        if not value:
+            continue
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(value)
+    return out
+
+
+def _render_framework_allowlist(values: list[str]) -> str:
+    if not values:
+        return "[]"
+    quoted = ", ".join(f'"{item}"' for item in values)
+    return f"[{quoted}]"
+
+
+def _render_config(
+    template: InitTemplate,
+    output_language: str,
+    index_enrichment_enabled: bool,
+    source_scope_default: str,
+    framework_allowlist: list[str],
+) -> str:
     enrichment = "true" if index_enrichment_enabled else "false"
     planner_enabled = "true" if DEFAULT_QUERY_PLANNER_ENABLED else "false"
     orchestrator_enabled = "true" if DEFAULT_QUERY_ORCHESTRATOR_ENABLED else "false"
@@ -88,6 +120,10 @@ max_wall_time_ms = {DEFAULT_QUERY_ORCHESTRATOR_MAX_WALL_TIME_MS}
 
 [llm.prompt]
 output_language = "{output_language}"
+
+[query.source_policy]
+source_scope_default = "{source_scope_default}"
+framework_allowlist = {_render_framework_allowlist(framework_allowlist)}
 
 [index.enrichment]
 enabled = {enrichment}
@@ -119,6 +155,8 @@ def _render_template_meta(
     review_strictness: str,
     output_language: str,
     index_enrichment_enabled: bool,
+    source_scope_default: str,
+    framework_allowlist: list[str],
 ) -> str:
     now = datetime.now(timezone.utc).isoformat()
     enrichment = "true" if index_enrichment_enabled else "false"
@@ -132,6 +170,8 @@ init_mode = "{mode}"
 review_strictness = "{review_strictness}"
 output_language = "{output_language}"
 index_enrichment_enabled = {enrichment}
+source_scope_default = "{source_scope_default}"
+framework_allowlist = {_render_framework_allowlist(framework_allowlist)}
 """
 
 
@@ -264,6 +304,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     output_language = args.output_language or template.output_language
     review_strictness = args.review_strictness or template.review_strictness
     index_enrichment_enabled = template.index_enrichment_enabled
+    source_scope_default = str(getattr(args, "source_scope", "") or INIT_SOURCE_SCOPE_DEFAULT)
+    framework_allowlist = _parse_framework_allowlist(getattr(args, "framework_allowlist", None))
     if args.index_enrichment is not None:
         index_enrichment_enabled = args.index_enrichment == "enabled"
 
@@ -276,12 +318,21 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "Enable index explain-summary enrichment?",
             default=index_enrichment_enabled,
         )
+        source_scope_default = _prompt_choice(
+            "Default source scope",
+            list(INIT_SOURCE_SCOPE_CHOICES),
+            source_scope_default,
+        )
+        print("Framework allowlist (optional, comma-separated IDs like typo3@12). Leave empty for none.")
+        framework_allowlist = _parse_framework_allowlist(input("> ").strip())
 
     files_to_write = {
         "config.toml": _render_config(
             template=template,
             output_language=output_language,
             index_enrichment_enabled=index_enrichment_enabled,
+            source_scope_default=source_scope_default,
+            framework_allowlist=framework_allowlist,
         ),
         "review-rules.toml": _render_review_rules(review_strictness=review_strictness),
         "template-meta.toml": _render_template_meta(
@@ -290,6 +341,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             review_strictness=review_strictness,
             output_language=output_language,
             index_enrichment_enabled=index_enrichment_enabled,
+            source_scope_default=source_scope_default,
+            framework_allowlist=framework_allowlist,
         ),
         "config.local.toml.example": _render_local_example(),
     }
@@ -348,6 +401,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             sections={
                 "status": "dry_run",
                 "template_id": template.template_id,
+                "source_scope_default": source_scope_default,
+                "framework_allowlist": framework_allowlist,
                 "planned_files": [f".forge/{rel}" for rel in files_to_write],
             },
         )
@@ -392,6 +447,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "output_language": output_language,
             "review_strictness": review_strictness,
             "index_enrichment_enabled": index_enrichment_enabled,
+            "source_scope_default": source_scope_default,
+            "framework_allowlist": framework_allowlist,
         },
     }
     contract = build_contract(

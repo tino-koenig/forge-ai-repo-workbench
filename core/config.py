@@ -95,6 +95,12 @@ _CONFIG_SCHEMA: dict[str, Any] = {
             "test_to_fix_require_failure": None,
         },
     },
+    "query": {
+        "source_policy": {
+            "source_scope_default": None,
+            "framework_allowlist": {"*": None},
+        },
+    },
     "session": {
         "default_ttl_minutes": None,
     },
@@ -746,6 +752,11 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
         )
     if prompt_profile not in ALLOWED_PROMPT_PROFILES:
         validation_errors.append(f"unknown prompt profile '{prompt_profile}'")
+    source_scope_default = _nested_get(local_payload, "query.source_policy.source_scope_default")
+    if source_scope_default is None:
+        source_scope_default = _nested_get(payload, "query.source_policy.source_scope_default")
+    if source_scope_default is not None and str(source_scope_default).strip().lower() not in {"repo_only", "all"}:
+        validation_errors.append("query.source_policy.source_scope_default must be one of: repo_only, all")
     if query_planner_mode not in {"off", "optional", "preferred"}:
         validation_errors.append(
             f"unknown query planner mode '{query_planner_mode}' (expected off|optional|preferred)"
