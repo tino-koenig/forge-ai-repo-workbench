@@ -39,6 +39,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 083 / issue 26: explain:uses normalisiert direction vertraglich auf inbound und zeigt direction_requested/direction_effective explizit im contract
 - feature 082 / issue 25: explain:outputs nutzt jetzt nur producer-semantik (write/log/emit) statt passiver pfad-string-treffer; false-positive-regression-gate hinzugefuegt
 - feature 081 / issue 24: explain-facet-regressionsabdeckung als qualitaetsmatrix erweitert (alias/flag-paritaet, facet-sections, direction/source-scope, negative konfliktfaelle)
 - feature 075 / issue 18: erweitert ask/web quality gates um routing-boundary-assertions und deterministische no-network/provider-fallback-pruefung, inkl. verifizierter policy/provenance/freshness-kontrakte

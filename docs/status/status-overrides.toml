@@ -504,6 +504,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Tightened explain:outputs to producer-only evidence and added regression coverage against passive path-mention false positives."
 
+[[feature]]
+id = "083"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Normalized explain uses-direction semantics with explicit requested/effective metadata and regression gate coverage."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -616,6 +623,13 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Explain output-surface detection now requires producer semantics and is protected by a mention-only false-positive regression gate."
+
+[[issue]]
+id = "26"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Explain uses now enforces inbound effective direction with explicit normalization metadata and deterministic gate validation."
 
 [[issue]]
 id = "6"

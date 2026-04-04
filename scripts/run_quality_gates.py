@@ -4019,6 +4019,72 @@ def gate_explain_output_surface_precision(repo_root: Path) -> None:
     )
 
 
+def gate_explain_facet_semantics_validation(repo_root: Path) -> None:
+    uses_out = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:uses",
+                "--direction",
+                "out",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    explain_meta = uses_out.get("sections", {}).get("explain", {})
+    uncertainty = uses_out.get("uncertainty", [])
+    assert_true(explain_meta.get("focus") == "uses", "explain semantics: expected uses focus")
+    assert_true(
+        explain_meta.get("direction_requested") == "out",
+        "explain semantics: uses should retain requested direction metadata",
+    )
+    assert_true(
+        explain_meta.get("direction_effective") == "in",
+        "explain semantics: uses should normalize direction_effective to in",
+    )
+    assert_true(
+        explain_meta.get("direction") == "in",
+        "explain semantics: direction field should expose effective behavior",
+    )
+    assert_true(
+        any("normalized to 'in'" in str(item) for item in uncertainty),
+        "explain semantics: expected explicit normalization note in uncertainty",
+    )
+
+    uses_in = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "explain:uses",
+                "--direction",
+                "in",
+                "src/service.py",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    uses_in_meta = uses_in.get("sections", {}).get("explain", {})
+    assert_true(
+        uses_in_meta.get("direction_requested") == "in" and uses_in_meta.get("direction_effective") == "in",
+        "explain semantics: uses direction=in should remain unchanged",
+    )
+
+
 def gate_mode_capability_contract_query_read_only(repo_root: Path) -> None:
     before = snapshot_repo_files(repo_root)
     payload = parse_json_output(
@@ -4604,6 +4670,7 @@ def run_all_gates() -> None:
         gate_explain_structured_synthesis(temp_repo)
         gate_explain_facet_quality_matrix(temp_repo)
         gate_explain_output_surface_precision(temp_repo)
+        gate_explain_facet_semantics_validation(temp_repo)
         gate_mode_capability_contract_query_read_only(temp_repo)
         gate_query_action_orchestration(temp_repo)
         gate_adaptive_query_explain_feedback(temp_repo)

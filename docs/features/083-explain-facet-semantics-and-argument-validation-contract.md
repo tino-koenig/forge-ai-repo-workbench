@@ -19,3 +19,23 @@ Normalize and validate explain facet argument semantics, especially for `uses` a
 - `uses` direction semantics are explicit and consistent.
 - Contract metadata reflects effective behavior.
 - Quality gates cover normalized and rejected combinations.
+
+## Implemented Behavior (Current)
+
+- `explain:uses` now normalizes direction semantics to inbound (`in`) deterministically.
+- Explain metadata now exposes both requested and effective direction:
+  - `sections.explain.direction_requested`
+  - `sections.explain.direction_effective`
+  - `sections.explain.direction` (effective value)
+- Added regression gate `gate_explain_facet_semantics_validation`.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_explain_facet_semantics_validation` passes.
+
+## Known Limits / Notes
+
+- Current contract chooses normalization for `uses + --direction out` instead of hard rejection to keep CLI behavior stable and explicit.

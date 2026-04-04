@@ -1323,7 +1323,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     repo_root = Path(args.repo_root).resolve()
     explain_focus = str(getattr(args, "explain_focus", "overview") or "overview")
     explain_focus_source = str(getattr(args, "explain_focus_source", "default") or "default")
-    explain_direction = str(getattr(args, "direction", "out") or "out")
+    explain_direction_requested = str(getattr(args, "direction", "out") or "out")
+    explain_direction = explain_direction_requested
     explain_source_scope = str(getattr(args, "source_scope", "repo_only") or "repo_only")
     explain_command = str(getattr(args, "explain_command", "explain") or "explain")
     try:
@@ -1419,6 +1420,11 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             related = [path.relative_to(repo_root) for path in prioritized[:5]]
             break
     uncertainties = uncertainty_notes(target, evidence, request.profile)
+    if explain_focus == "uses" and explain_direction_requested != "in":
+        explain_direction = "in"
+        uncertainties.append(
+            f"explain uses semantics: direction '{explain_direction_requested}' is normalized to 'in'."
+        )
     next_step = f"Run: forge review {rel_target}"
     evidence_payload = [
         {
@@ -1594,6 +1600,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
             "focus": explain_focus,
             "focus_source": explain_focus_source,
             "direction": explain_direction,
+            "direction_requested": explain_direction_requested,
+            "direction_effective": explain_direction,
             "source_scope": explain_source_scope,
         },
         "graph_usage": {
@@ -1847,6 +1855,8 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print(f"Focus: {explain_focus}")
         print(f"Focus source: {explain_focus_source}")
         print(f"Direction: {explain_direction}")
+        if explain_direction_requested != explain_direction:
+            print(f"Direction requested: {explain_direction_requested}")
         print(f"Source scope: {explain_source_scope}")
     if from_run_meta:
         print("\n--- From Run ---")
