@@ -101,6 +101,6 @@ It creates the foundation for meaningful protocol logging and debugging while pr
 
 ## Known Limits / Notes
 
-- Protocol events are currently persisted in run history records; dedicated event-log file/rotation is covered by later logging features.
+- Protocol events are persisted in run history and (with feature 031) mirrored to `.forge/logs/events.jsonl`.
 - Step durations are measured around CLI/runtime boundaries and usage-reported LLM latency where available.
 - Metadata is sanitized and bounded; raw prompts/secrets are not included.

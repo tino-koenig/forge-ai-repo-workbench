@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from core.protocol_log import append_protocol_events
 from core.step_protocol import normalize_protocol_events
+from core.step_protocol import build_step_event
 
 
 def history_path(repo_root: Path) -> Path:
@@ -65,11 +67,34 @@ def append_run(
     records = load_runs(repo_root)
     next_id = (int(records[-1].get("id", 0)) + 1) if records else 1
     execution_payload = dict(execution)
-    execution_payload["protocol_events"] = normalize_protocol_events(
+    protocol_events = normalize_protocol_events(
         run_id=next_id,
         capability=str(request.get("capability") or "unknown"),
         events=execution_payload.get("protocol_events") if isinstance(execution_payload.get("protocol_events"), list) else [],
     )
+    protocol_warning = append_protocol_events(repo_root, protocol_events)
+    protocol_event_metadata: dict[str, Any] = {
+        "path": ".forge/logs/events.jsonl",
+        "event_count": len(protocol_events),
+    }
+    protocol_event_status = "completed"
+    if protocol_warning:
+        protocol_event_status = "fallback"
+        protocol_event_metadata["warning"] = protocol_warning
+        execution_payload["protocol_log_warning"] = protocol_warning
+    protocol_persist_event = build_step_event(
+        run_id=next_id,
+        capability=str(request.get("capability") or "unknown"),
+        step_name="protocol_log_persist",
+        step_type="io",
+        status=protocol_event_status,
+        duration_ms=0,
+        metadata=protocol_event_metadata,
+    )
+    protocol_events.append(protocol_persist_event)
+    execution_payload["protocol_events"] = protocol_events
+    # Best-effort: include persistence outcome event in JSONL stream too.
+    append_protocol_events(repo_root, [protocol_persist_event])
     record = {
         "id": next_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),

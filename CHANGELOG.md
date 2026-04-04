@@ -33,6 +33,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- feature 031: added protocol JSONL storage (`.forge/logs/events.jsonl`) with configurable size/age/count retention, timestamped rotation archives, and quality-gate coverage
 - feature 030: introduced a canonical step protocol/event model and persisted protocol-compliant `execution.protocol_events` in run history, including explicit deterministic/io steps and optional llm steps with bounded metadata
 - feature 029: added explicit LLM token/cost tracking in usage metadata (`token_usage`, `cost_tracking`, `cost`) with pricing config support, unknown fallbacks, and planner/orchestrator usage coverage
 - issue 1: contributor guidance now requires changelog entries with feature/issue reference for each change

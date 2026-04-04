@@ -40,7 +40,7 @@ Status values:
 | 028 | LLM Query Planner | 2026-04-03 | implemented | 2026-04-03 | [028-llm-query-planner.md](/Users/tino/PhpstormProjects/forge/docs/features/028-llm-query-planner.md) |
 | 029 | LLM Cost and Token Tracking | 2026-04-03 | implemented | 2026-04-04 | [029-llm-cost-and-token-tracking.md](/Users/tino/PhpstormProjects/forge/docs/features/029-llm-cost-and-token-tracking.md) |
 | 030 | LLM-Assisted Step Protocol and Event Model | 2026-04-03 | implemented | 2026-04-04 | [030-llm-assisted-step-protocol-and-event-model.md](/Users/tino/PhpstormProjects/forge/docs/features/030-llm-assisted-step-protocol-and-event-model.md) |
-| 031 | Protocol Log Storage (JSONL First) | 2026-04-03 | defined | - | [031-protocol-log-storage-jsonl-first.md](/Users/tino/PhpstormProjects/forge/docs/features/031-protocol-log-storage-jsonl-first.md) |
+| 031 | Protocol Log Storage (JSONL First) | 2026-04-03 | implemented | 2026-04-04 | [031-protocol-log-storage-jsonl-first.md](/Users/tino/PhpstormProjects/forge/docs/features/031-protocol-log-storage-jsonl-first.md) |
 | 032 | Log Viewer and Run-Focused Inspection | 2026-04-03 | defined | - | [032-log-viewer-and-run-focused-inspection.md](/Users/tino/PhpstormProjects/forge/docs/features/032-log-viewer-and-run-focused-inspection.md) |
 | 033 | Log Filtering and LLM Query Analytics | 2026-04-03 | defined | - | [033-log-filtering-and-llm-query-analytics.md](/Users/tino/PhpstormProjects/forge/docs/features/033-log-filtering-and-llm-query-analytics.md) |
 | 034 | Log Redaction and Privacy Guards | 2026-04-03 | defined | - | [034-log-redaction-and-privacy-guards.md](/Users/tino/PhpstormProjects/forge/docs/features/034-log-redaction-and-privacy-guards.md) |
@@ -83,6 +83,7 @@ Status values:
 - 025: Added --from-run resolution across explain/review/test/describe with provenance metadata.
 - 029: Added explicit token/cost tracking in llm_usage with pricing config, unknown fallbacks, and planner/orchestrator usage coverage.
 - 030: Added canonical step protocol schema and persisted execution.protocol_events with deterministic and optional llm steps.
+- 031: Added protocol JSONL storage at .forge/logs/events.jsonl with configurable size/age/count retention and timestamped rotation archives.
 - 035: LLM output language control via CLI/env/TOML and prompt propagation.
 - 036: Added central mode-action contract, executor enforcement wiring, and query planner boundary notes for blocked write intent.
 - 037: Added bounded query action orchestration with catalog decisions, budgets, fallback handling, and done_reason.

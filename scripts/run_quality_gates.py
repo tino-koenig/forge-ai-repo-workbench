@@ -1221,6 +1221,73 @@ def gate_run_history_contract_always_persisted(repo_root: Path) -> None:
     )
 
 
+def gate_protocol_log_storage_jsonl(repo_root: Path) -> None:
+    config_path = repo_root / ".forge" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "[logs.protocol]\n"
+        "max_file_size_bytes = 1200\n"
+        "max_event_age_days = 3650\n"
+        "max_events_count = 100\n",
+        encoding="utf-8",
+    )
+
+    for idx in range(5):
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                f"compute_price_{idx}",
+            ],
+            cwd=ROOT,
+        )
+
+    logs_dir = repo_root / ".forge" / "logs"
+    events_file = logs_dir / "events.jsonl"
+    assert_true(events_file.exists(), "protocol log: expected .forge/logs/events.jsonl to exist")
+    lines = [line for line in events_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(bool(lines), "protocol log: expected non-empty events.jsonl")
+    for raw in lines:
+        item = parse_json_output(raw)
+        for key in ("event_id", "run_id", "timestamp", "capability", "step_name", "step_type", "status", "metadata"):
+            assert_true(key in item, f"protocol log: expected key '{key}' in event line")
+
+    archives = sorted(logs_dir.glob("events-*.jsonl"))
+    assert_true(bool(archives), "protocol log: expected timestamped rotation archive file")
+
+    config_path.write_text(
+        "[logs.protocol]\n"
+        "max_file_size_bytes = 500000\n"
+        "max_event_age_days = 3650\n"
+        "max_events_count = 100\n",
+        encoding="utf-8",
+    )
+    for idx in range(8):
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                f"compute_price_limit_{idx}",
+            ],
+            cwd=ROOT,
+        )
+    lines_after_limit = [line for line in events_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert_true(
+        len(lines_after_limit) <= 100,
+        "protocol log: expected max_events_count retention to cap active events.jsonl",
+    )
+
+
 def gate_evidence_quality(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -1843,6 +1910,7 @@ def run_all_gates() -> None:
         gate_external_review_rules_invalid(temp_repo_rules_invalid)
         gate_from_run_references(temp_repo)
         gate_run_history_contract_always_persisted(temp_repo)
+        gate_protocol_log_storage_jsonl(temp_repo)
 
 
 def main() -> int:

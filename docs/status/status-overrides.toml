@@ -160,7 +160,9 @@ notes = "Added canonical step protocol schema and persisted execution.protocol_e
 
 [[feature]]
 id = "031"
-status = "defined"
+status = "implemented"
+implemented_on = "2026-04-04"
+notes = "Added protocol JSONL storage at .forge/logs/events.jsonl with configurable size/age/count retention and timestamped rotation archives."
 
 [[feature]]
 id = "032"
