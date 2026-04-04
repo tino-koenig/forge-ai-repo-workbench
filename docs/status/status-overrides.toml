@@ -583,6 +583,13 @@ implemented_on = "2026-04-04"
 notes = "Added ask/web regression gate coverage for blocked policy, freshness divergence, provenance typing, boundary routing, and no-network fallback."
 
 [[issue]]
+id = "19"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Retired stale ask compatibility remnants from query mode, aligned ask CLI wording, and enforced boundary checks via dedicated regression gate."
+
+[[issue]]
 id = "6"
 status = "implemented"
 defined_on = "2026-04-04"

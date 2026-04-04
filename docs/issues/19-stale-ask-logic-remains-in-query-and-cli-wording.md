@@ -24,3 +24,20 @@ This increases cognitive load and risks behavior drift between ask and query pat
 ## Linked Features
 
 - [076-ask-query-boundary-cleanup.md](/Users/tino/PhpstormProjects/forge/docs/features/076-ask-query-boundary-cleanup.md)
+
+## Implemented Behavior (Current)
+
+- Query mode no longer contains obsolete ask-only preset/filter compatibility paths.
+- CLI help text for `forge ask` reflects dedicated ask capability routing.
+- A regression gate (`gate_ask_query_boundary_cleanup`) verifies explicit ask/query boundary behavior.
+
+## How To Validate Quickly
+
+- Run:
+  - `python3 scripts/run_quality_gates.py`
+- Verify:
+  - `gate_ask_query_boundary_cleanup` passes.
+
+## Known Limits / Notes
+
+- The boundary cleanup intentionally does not change ask internals; it removes only stale query-side compatibility behavior and wording drift.
