@@ -364,6 +364,13 @@ defined_on = "2026-04-03"
 implemented_on = "2026-04-03"
 notes = "Query ranking now includes bounded path/symbol/summary signals plus source_type metadata and repo-first source-aware scoring."
 
+[[feature]]
+id = "062"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added runtime settings foundation with canonical registry, deterministic resolver (cli/session/repo/user/toml/default precedence), source tracing, and bootstrap/config wiring."
+
 # Issue examples:
 # [[issue]]
 # id = "12"

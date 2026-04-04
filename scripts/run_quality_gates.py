@@ -396,6 +396,141 @@ def gate_config_precedence(repo_root: Path) -> None:
     assert_true(sources.get("base_url") == "toml", "base_url source should be toml")
 
 
+def gate_runtime_settings_foundation(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / "config.toml").write_text(
+        (
+            "[llm]\n"
+            'provider = "openai_compatible"\n'
+            "[llm.openai_compatible]\n"
+            'base_url = "mock://openai/v1"\n'
+            'model = "model-from-toml"\n'
+            'api_key_env = "FORGE_LLM_API_KEY"\n'
+            "timeout_s = 2\n"
+        ),
+        encoding="utf-8",
+    )
+    (forge_dir / "runtime.toml").write_text(
+        (
+            "[llm]\n"
+            'model = "model-from-repo-runtime"\n'
+            'mode = "off"\n'
+            "[execution]\n"
+            'profile = "intensive"\n'
+            "[access]\n"
+            'web = "on"\n'
+            'write = "off"\n'
+            "[unknown]\n"
+            'key = "value"\n'
+        ),
+        encoding="utf-8",
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        user_runtime = Path(td) / "runtime.toml"
+        user_runtime.write_text(
+            (
+                "[llm]\n"
+                'model = "model-from-user-runtime"\n'
+                "[output]\n"
+                'format = "json"\n'
+                'view = "full"\n'
+            ),
+            encoding="utf-8",
+        )
+
+        env = os.environ.copy()
+        env["FORGE_USER_RUNTIME_TOML"] = str(user_runtime)
+        env["FORGE_RUNTIME_SESSION_JSON"] = json.dumps(
+            {
+                "llm.mode": "force",
+                "output.view": "compact",
+            }
+        )
+        env["FORGE_LLM_API_KEY"] = "runtime-foundation-key"
+
+        doctor_payload = parse_json_output(
+            run_cmd(
+                [
+                    "python3",
+                    str(FORGE),
+                    "--output-format",
+                    "json",
+                    "--repo-root",
+                    str(repo_root),
+                    "doctor",
+                ],
+                cwd=ROOT,
+                env=env,
+            ).stdout
+        )
+        runtime = doctor_payload.get("sections", {}).get("runtime_settings", {})
+        values = runtime.get("values", {}) if isinstance(runtime, dict) else {}
+        sources = runtime.get("sources", {}) if isinstance(runtime, dict) else {}
+        warnings = runtime.get("warnings", []) if isinstance(runtime, dict) else []
+        assert_true(values.get("llm.mode") == "force", "runtime foundation: session should override llm.mode")
+        assert_true(sources.get("llm.mode") == "session", "runtime foundation: llm.mode source should be session")
+        assert_true(
+            values.get("llm.model") == "model-from-repo-runtime",
+            "runtime foundation: repo scope should override user/toml for llm.model",
+        )
+        assert_true(sources.get("llm.model") == "repo", "runtime foundation: llm.model source should be repo")
+        assert_true(values.get("execution.profile") == "intensive", "runtime foundation: execution profile expected")
+        assert_true(sources.get("execution.profile") == "repo", "runtime foundation: execution profile source expected")
+        assert_true(values.get("output.format") == "json", "runtime foundation: output.format expected")
+        assert_true(
+            sources.get("output.format") == "cli",
+            "runtime foundation: output.format source should be cli when --output-format is explicit",
+        )
+        assert_true(any("unknown runtime setting key" in str(item) for item in warnings), "runtime foundation: expected unknown-key warning")
+
+        from types import SimpleNamespace
+        from core.runtime_settings_resolver import resolve_runtime_settings
+
+        prev_user_runtime = os.environ.get("FORGE_USER_RUNTIME_TOML")
+        prev_session_runtime = os.environ.get("FORGE_RUNTIME_SESSION_JSON")
+        os.environ["FORGE_USER_RUNTIME_TOML"] = str(user_runtime)
+        os.environ.pop("FORGE_RUNTIME_SESSION_JSON", None)
+        try:
+            resolved = resolve_runtime_settings(
+                repo_root=repo_root,
+                args=SimpleNamespace(runtime_session_values=None),
+                explicit_cli_values={},
+            )
+        finally:
+            if prev_user_runtime is None:
+                os.environ.pop("FORGE_USER_RUNTIME_TOML", None)
+            else:
+                os.environ["FORGE_USER_RUNTIME_TOML"] = prev_user_runtime
+            if prev_session_runtime is None:
+                os.environ.pop("FORGE_RUNTIME_SESSION_JSON", None)
+            else:
+                os.environ["FORGE_RUNTIME_SESSION_JSON"] = prev_session_runtime
+        assert_true(
+            resolved.sources.get("output.format") == "user",
+            "runtime foundation: output.format should come from user scope without CLI override",
+        )
+
+        query_payload = parse_json_output(
+            run_cmd(
+                [
+                    "python3",
+                    str(FORGE),
+                    "--output-format",
+                    "json",
+                    "--repo-root",
+                    str(repo_root),
+                    "query",
+                    "compute_price",
+                ],
+                cwd=ROOT,
+                env=env,
+            ).stdout
+        )
+        assert_true(query_payload.get("profile") == "detailed", "runtime foundation: execution.profile intensive should map to detailed")
+
+
 def gate_env_file_autoload(repo_root: Path) -> None:
     forge_dir = repo_root / ".forge"
     forge_dir.mkdir(parents=True, exist_ok=True)
@@ -2192,6 +2327,7 @@ def run_all_gates() -> None:
         gate_openai_compatible_provider(temp_repo)
         gate_config_toml_fallback(temp_repo)
         gate_config_precedence(temp_repo)
+        gate_runtime_settings_foundation(temp_repo)
         gate_env_file_autoload(temp_repo)
         gate_prompt_profile_policy(temp_repo)
         gate_prompt_template_resolution_failure(temp_repo_promptfail)

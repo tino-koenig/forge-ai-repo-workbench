@@ -10,8 +10,10 @@ import sys
 import time
 
 from core.capability_model import build_request
+from core.capability_model import CommandRequest, Profile
 from core.env_loader import load_env_file
 from core.output_contracts import consume_last_contract, reset_last_contract
+from core.runtime_settings_resolver import resolve_runtime_settings
 from core.run_history import append_run
 from core.runtime import execute
 from core.step_protocol import build_step_event, llm_step_events_from_usage
@@ -45,6 +47,11 @@ REQUIRES_PAYLOAD = {
 
 
 FROM_RUN_CAPABILITIES = {"explain", "review", "describe", "test"}
+PROFILE_VALUES = {Profile.SIMPLE.value, Profile.STANDARD.value, Profile.DETAILED.value}
+
+
+def _flag_present(argv_items: list[str], flag: str) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv_items)
 
 
 def _nearest_forge_marker_root(start: Path) -> Path | None:
@@ -520,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
     args.repo_root = str(repo_root)
     env_file_path = Path(args.env_file).resolve() if args.env_file else (repo_root / ".env")
     load_env_file(env_file_path)
+    argv_effective = argv or sys.argv[1:]
     parts = getattr(args, "parts", []) or []
     capability_name = args.capability
     ask_preset_map = {
@@ -546,7 +554,6 @@ def main(argv: list[str] | None = None) -> int:
         args.ask_mode = True
         args.ask_command = requested_capability
         args.ask_guided = bool(getattr(args, "guided", False))
-        argv_effective = argv or sys.argv[1:]
         user_set_view = any(item == "--view" or item.startswith("--view=") for item in argv_effective)
         if not user_set_view and not getattr(args, "details", False):
             args.view = "compact"
@@ -577,6 +584,41 @@ def main(argv: list[str] | None = None) -> int:
         args.explain_focus = None
         args.explain_focus_source = None
         args.explain_command = None
+
+    explicit_cli_values: dict[str, object] = {}
+    output_format_explicit = _flag_present(argv_effective, "--output-format")
+    view_explicit = _flag_present(argv_effective, "--view") or bool(getattr(args, "details", False))
+    llm_mode_explicit = _flag_present(argv_effective, "--llm-mode")
+    llm_model_explicit = _flag_present(argv_effective, "--llm-model")
+    args.llm_mode_explicit = llm_mode_explicit
+    args.llm_model_explicit = llm_model_explicit
+    if output_format_explicit:
+        explicit_cli_values["output.format"] = args.output_format
+    if view_explicit:
+        explicit_cli_values["output.view"] = "full" if getattr(args, "details", False) else args.view
+    if llm_mode_explicit:
+        explicit_cli_values["llm.mode"] = args.llm_mode
+    if llm_model_explicit and getattr(args, "llm_model", None):
+        explicit_cli_values["llm.model"] = args.llm_model
+
+    runtime_resolution = resolve_runtime_settings(
+        repo_root=repo_root,
+        args=args,
+        explicit_cli_values=explicit_cli_values,
+    )
+    args.runtime_settings_resolution = runtime_resolution
+    args.runtime_settings_values = dict(runtime_resolution.values)
+    args.runtime_settings_sources = dict(runtime_resolution.sources)
+
+    if not output_format_explicit:
+        runtime_output_format = runtime_resolution.values.get("output.format")
+        if runtime_output_format in {"text", "json"}:
+            args.output_format = str(runtime_output_format)
+    if not view_explicit:
+        runtime_view = runtime_resolution.values.get("output.view")
+        if runtime_view in {"compact", "standard", "full"}:
+            args.view = str(runtime_view)
+
     if args.capability == "config":
         if getattr(args, "config_command", None) != "validate":
             parser.error("Unsupported config command. Use: forge config validate")
@@ -595,6 +637,21 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
         return 2
+
+    profile_explicit = bool(parts and parts[0] in PROFILE_VALUES)
+    if not profile_explicit:
+        execution_profile = runtime_resolution.values.get("execution.profile")
+        mapped_profile = {
+            "fast": Profile.SIMPLE,
+            "balanced": Profile.STANDARD,
+            "intensive": Profile.DETAILED,
+        }.get(str(execution_profile))
+        if mapped_profile is not None and mapped_profile != request.profile:
+            request = CommandRequest(
+                capability=request.capability,
+                profile=mapped_profile,
+                payload=request.payload,
+            )
     preprocessing_duration_ms = int((time.perf_counter() - preprocessing_started) * 1000)
     protocol_events: list[dict[str, object]] = [
         build_step_event(

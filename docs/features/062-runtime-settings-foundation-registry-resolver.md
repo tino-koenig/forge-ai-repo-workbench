@@ -113,3 +113,65 @@ Session scope:
 - scope handling works for `session`, `repo`, and `user`
 - precedence order is covered by tests
 - foundation is ready for Feature 061 command UX implementation
+
+## Implemented Behavior (Current)
+
+- Added canonical runtime settings registry in `core/runtime_settings_registry.py` with initial key family:
+  - `output.format`, `output.view`
+  - `llm.mode`, `llm.model`
+  - `execution.profile`
+  - `access.web`, `access.write`
+- Added runtime resolver in `core/runtime_settings_resolver.py`:
+  - deterministic precedence merge (`cli > session > repo > user > toml > default`)
+  - source tracing per canonical key
+  - alias normalization trace + warnings
+  - scope loaders:
+    - `session` via `FORGE_RUNTIME_SESSION_JSON` (or injected args payload)
+    - `repo` via `.forge/runtime.toml`
+    - `user` via `FORGE_USER_RUNTIME_TOML` or `XDG_CONFIG_HOME` fallback
+- CLI bootstrap now resolves runtime settings once and passes resolved values/sources via args context.
+- Runtime settings are wired into active behavior:
+  - output defaults (`output.format`, `output.view`) when no explicit CLI flag is present
+  - profile default mapping via `execution.profile` (`fast|balanced|intensive` -> `simple|standard|detailed`) when no explicit profile prefix is provided
+  - LLM config resolution consumes runtime overrides for `llm.mode` and `llm.model` with explicit source tagging
+- Doctor JSON now exposes runtime resolver diagnostics in `sections.runtime_settings`.
+- Added writer stub API (`write_runtime_scope_stub`) for later `set/get` command integration.
+
+## How To Validate Quickly
+
+Create runtime files:
+
+```bash
+cat > .forge/runtime.toml <<'EOF'
+[llm]
+mode = "off"
+model = "repo-model"
+[execution]
+profile = "intensive"
+EOF
+```
+
+Optional session/user overlays:
+
+```bash
+export FORGE_RUNTIME_SESSION_JSON='{"llm.mode":"force","output.view":"full"}'
+export FORGE_USER_RUNTIME_TOML="$PWD/.forge/runtime-user.toml"
+```
+
+Inspect resolved runtime state:
+
+```bash
+forge --output-format json doctor
+```
+
+Look at:
+- `sections.runtime_settings.values`
+- `sections.runtime_settings.sources`
+- `sections.runtime_settings.normalization`
+- `sections.runtime_settings.warnings`
+
+## Known Limits / Notes
+
+- This foundation does not yet provide the public `forge set/get` UX (feature 061).
+- Session scope in feature 062 is resolver-backed input (env/args), not yet persisted named sessions (feature 063).
+- Runtime settings do not bypass capability contracts; read-only mode safety remains unchanged.

@@ -273,6 +273,12 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     )
 
     overall = _overall_status(checks)
+    runtime_resolution = getattr(args, "runtime_settings_resolution", None)
+    runtime_section = (
+        runtime_resolution.as_dict()
+        if runtime_resolution is not None and hasattr(runtime_resolution, "as_dict")
+        else None
+    )
     uncertainty = [
         "Doctor checks are point-in-time and environment-dependent.",
     ]
@@ -297,6 +303,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                 for item in checks
             ],
             "review_rules": {"loaded": len(loaded_rules), "errors": rule_errors},
+            "runtime_settings": runtime_section,
         },
     )
 
@@ -319,6 +326,18 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         print(f"- [{item.status}] {item.key}: {item.detail}")
         if item.recommendation and not is_compact(view):
             print(f"  Recommendation: {item.recommendation}")
+    if is_full(view) and runtime_section is not None:
+        print("\n--- Runtime Settings ---")
+        values = runtime_section.get("values", {})
+        sources = runtime_section.get("sources", {})
+        warnings = runtime_section.get("warnings", [])
+        if isinstance(values, dict):
+            for key in sorted(values):
+                print(f"- {key}={values[key]!r} (source={sources.get(key, 'unknown')})")
+        if isinstance(warnings, list) and warnings:
+            print("Warnings:")
+            for item in warnings[:8]:
+                print(f"- {item}")
     print("\n--- Uncertainty ---")
     notes = uncertainty if is_full(view) else uncertainty[:1]
     for note in notes:

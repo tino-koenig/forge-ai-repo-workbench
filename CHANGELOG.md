@@ -11,6 +11,7 @@ All notable changes to Forge should be documented in this file.
 - feature 046: query output now exposes retrieval-source metadata (`retrieval_source`) and source-origin metadata (`source_type`) with repo-first source-aware ranking
 - feature 047: explain now supports directional and source-scoped facet analysis for `symbols`/`dependencies`/`resources`/`uses` with edge sections (`dependency_edges_out`, `dependency_edges_in`, `resource_edges`)
 - feature 048: added deterministic `.forge/graph.json` edge cache (incremental file-hash reuse) and read-only graph consumption in explain/query, including optional framework graph references
+- feature 062: added runtime settings foundation (canonical registry + deterministic resolver with source tracing) and wired runtime overrides into CLI bootstrap, profile defaults, doctor diagnostics, and llm mode/model config precedence
 - feature 035: explicit LLM output-language control (`--llm-output-language`, `FORGE_LLM_OUTPUT_LANGUAGE`, `llm.prompt.output_language`)
 - feature 025: `--from-run` support for `explain`/`review`/`test`/`describe` with deterministic payload resolution and provenance metadata
 - feature 024: `forge runs prune` with `--dry-run`, retention criteria (`--keep-last`, `--older-than-days`), config defaults, and safe JSONL rewrite

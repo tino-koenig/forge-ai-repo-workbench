@@ -144,9 +144,33 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     local_config_path = repo_root / ".forge" / "config.local.toml"
     payload = _load_toml(config_path)
     local_payload = _load_toml(local_config_path)
+    runtime_values = getattr(args, "runtime_settings_values", {})
+    runtime_sources = getattr(args, "runtime_settings_sources", {})
+    if not isinstance(runtime_values, dict):
+        runtime_values = {}
+    if not isinstance(runtime_sources, dict):
+        runtime_sources = {}
+
+    def _runtime_candidate(key: str) -> tuple[str, Any]:
+        if key not in runtime_values:
+            return "runtime", None
+        source_tag = str(runtime_sources.get(key) or "session")
+        return f"runtime_{source_tag}", runtime_values.get(key)
+
+    mode_cli = getattr(args, "llm_mode", None) if bool(getattr(args, "llm_mode_explicit", False)) else None
+    mode_runtime_source, mode_runtime_value = _runtime_candidate("llm.mode")
+    mode_raw, mode_source = _first_non_none(
+        [
+            ("cli", mode_cli),
+            (mode_runtime_source, mode_runtime_value),
+            ("default", "auto"),
+        ]
+    )
+    resolved_mode = str(mode_raw or "auto")
+
     if "_error" in payload:
         return ResolvedLLMConfig(
-            mode=args.llm_mode,
+            mode=resolved_mode,
             provider=None,
             base_url=None,
             model=None,
@@ -180,12 +204,12 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             pricing_input_per_1k=None,
             pricing_output_per_1k=None,
             pricing_currency="USD",
-            source={"config": "error"},
+            source={"mode": mode_source, "config": "error"},
             validation_error=str(payload["_error"]),
         )
     if "_error" in local_payload:
         return ResolvedLLMConfig(
-            mode=args.llm_mode,
+            mode=resolved_mode,
             provider=None,
             base_url=None,
             model=None,
@@ -219,11 +243,12 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
             pricing_input_per_1k=None,
             pricing_output_per_1k=None,
             pricing_currency="USD",
-            source={"config.local": "error"},
+            source={"mode": mode_source, "config.local": "error"},
             validation_error=str(local_payload["_error"]),
         )
 
     source: dict[str, str] = {}
+    source["mode"] = mode_source
     provider, source["provider"] = _first_non_none(
         [
             ("cli", getattr(args, "llm_provider", None)),
@@ -243,6 +268,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     model, source["model"] = _first_non_none(
         [
             ("cli", getattr(args, "llm_model", None)),
+            _runtime_candidate("llm.model"),
             ("env", os.environ.get("FORGE_LLM_MODEL")),
             ("toml_local", _nested_get(local_payload, "llm.openai_compatible.model")),
             ("toml", _nested_get(payload, "llm.openai_compatible.model")),
@@ -571,7 +597,7 @@ def resolve_llm_config(args, repo_root: Path) -> ResolvedLLMConfig:
     validation_error = "; ".join(validation_errors) if validation_errors else None
 
     return ResolvedLLMConfig(
-        mode=args.llm_mode,
+        mode=resolved_mode,
         provider=str(provider) if isinstance(provider, str) else None,
         base_url=str(base_url) if isinstance(base_url, str) else None,
         model=str(model) if isinstance(model, str) else None,

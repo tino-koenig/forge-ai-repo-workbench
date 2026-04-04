@@ -71,7 +71,7 @@ Status values:
 | 059 | Explain Settings and Defaults Facets | 2026-04-04 | implemented | 2026-04-04 | [059-explain-settings-and-defaults-facets.md](/Users/tino/PhpstormProjects/forge/docs/features/059-explain-settings-and-defaults-facets.md) |
 | 060 | Explain LLM and Output Facets | 2026-04-04 | implemented | 2026-04-04 | [060-explain-llm-and-output-facets.md](/Users/tino/PhpstormProjects/forge/docs/features/060-explain-llm-and-output-facets.md) |
 | 061 | Runtime Settings via `forge set/get` | 2026-04-04 | defined | - | [061-runtime-settings-set-get.md](/Users/tino/PhpstormProjects/forge/docs/features/061-runtime-settings-set-get.md) |
-| 062 | Runtime Settings Foundation: Registry, Resolver, Source Tracing | 2026-04-04 | defined | - | [062-runtime-settings-foundation-registry-resolver.md](/Users/tino/PhpstormProjects/forge/docs/features/062-runtime-settings-foundation-registry-resolver.md) |
+| 062 | Runtime Settings Foundation: Registry, Resolver, Source Tracing | 2026-04-04 | implemented | 2026-04-04 | [062-runtime-settings-foundation-registry-resolver.md](/Users/tino/PhpstormProjects/forge/docs/features/062-runtime-settings-foundation-registry-resolver.md) |
 | 063 | Named Session Context with Auto-Create and TTL | 2026-04-04 | defined | - | [063-named-session-context-and-ttl.md](/Users/tino/PhpstormProjects/forge/docs/features/063-named-session-context-and-ttl.md) |
 | 064 | README v2: Value, Trust & Control Positioning | unknown | defined | - | [064-readme-v2-value-trust-and-control.md](/Users/tino/PhpstormProjects/forge/docs/features/064-readme-v2-value-trust-and-control.md) |
 | 065 | User Documentation Delivery on GitHub (DE/EN) | unknown | defined | - | [065-user-documentation-delivery-de-en-on-github.md](/Users/tino/PhpstormProjects/forge/docs/features/065-user-documentation-delivery-de-en-on-github.md) |
@@ -115,3 +115,4 @@ Status values:
 - 058: Added explain facet alias routing (`explain:<facet>`) with `--focus` parity, deterministic alias/flag conflict validation, and explain focus provenance fields in contracts.
 - 059: Implemented explain `settings` and `defaults` facets with deterministic direct answers plus structured `settings_influences` and `default_values` evidence sections.
 - 060: Implemented explain `llm` and `outputs` facets with deterministic direct answers plus structured `llm_participation` and `output_surfaces` sections.
+- 062: Added runtime settings foundation with canonical registry, deterministic resolver (cli/session/repo/user/toml/default precedence), source tracing, and bootstrap/config wiring.
