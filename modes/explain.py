@@ -18,6 +18,7 @@ from core.effects import ExecutionSession
 from core.framework_profiles import load_framework_registry, select_framework_profile
 from core.graph_cache import load_framework_graph_references, load_repo_graph
 from core.llm_integration import maybe_refine_summary, provenance_section, resolve_settings
+from core.mode_orchestrator import iter_bounded_cycles
 from core.output_contracts import build_contract, emit_contract_json
 from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import iter_repo_files, read_text_file
@@ -1394,17 +1395,21 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     evidence = gather_evidence_for_target(target, request)
     related: list[Path] = []
     if request.profile in {Profile.STANDARD, Profile.DETAILED}:
-        related_rel = find_related_files(repo_root, rel_target, session, limit=10)
-        related_abs = [repo_root / rel for rel in related_rel]
-        prioritized = prioritize_paths_by_index(
-            repo_root,
-            related_abs,
-            path_classes,
-            exclude_non_index_participating=True,
-        )
-        if not prioritized:
-            prioritized = related_abs
-        related = [path.relative_to(repo_root) for path in prioritized[:5]]
+        for cycle in iter_bounded_cycles(max_iterations=1, max_wall_time_ms=800):
+            if cycle.wall_time_exhausted:
+                break
+            related_rel = find_related_files(repo_root, rel_target, session, limit=10)
+            related_abs = [repo_root / rel for rel in related_rel]
+            prioritized = prioritize_paths_by_index(
+                repo_root,
+                related_abs,
+                path_classes,
+                exclude_non_index_participating=True,
+            )
+            if not prioritized:
+                prioritized = related_abs
+            related = [path.relative_to(repo_root) for path in prioritized[:5]]
+            break
     uncertainties = uncertainty_notes(target, evidence, request.profile)
     next_step = f"Run: forge review {rel_target}"
     evidence_payload = [

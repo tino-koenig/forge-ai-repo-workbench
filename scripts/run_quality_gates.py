@@ -1816,6 +1816,49 @@ def gate_query_index_scope_and_symbol_first(repo_root: Path) -> None:
     )
 
 
+def gate_central_mode_orchestrator_foundation(repo_root: Path) -> None:
+    orchestrator_path = ROOT / "core" / "mode_orchestrator.py"
+    assert_true(orchestrator_path.exists(), "mode orchestrator: expected core/mode_orchestrator.py")
+    orchestrator_code = orchestrator_path.read_text(encoding="utf-8")
+    assert_true(
+        "def iter_bounded_cycles" in orchestrator_code,
+        "mode orchestrator: expected iter_bounded_cycles foundation entrypoint",
+    )
+    query_code = (ROOT / "modes" / "query.py").read_text(encoding="utf-8")
+    explain_code = (ROOT / "modes" / "explain.py").read_text(encoding="utf-8")
+    assert_true(
+        "from core.mode_orchestrator import iter_bounded_cycles" in query_code,
+        "mode orchestrator: query must consume central orchestrator foundation",
+    )
+    assert_true(
+        "from core.mode_orchestrator import iter_bounded_cycles" in explain_code,
+        "mode orchestrator: explain must consume central orchestrator foundation",
+    )
+    payload = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--llm-provider",
+                "mock",
+                "--repo-root",
+                str(repo_root),
+                "query",
+                "compute_price",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    orchestration = payload.get("sections", {}).get("action_orchestration", {})
+    assert_true(isinstance(orchestration, dict), "mode orchestrator: expected query action_orchestration contract")
+    assert_true(
+        orchestration.get("done_reason") in {"sufficient_evidence", "budget_exhausted", "policy_blocked", "no_progress"},
+        "mode orchestrator: unexpected query done_reason after foundation integration",
+    )
+
+
 def gate_query_planner_success(repo_root: Path) -> None:
     payload = parse_json_output(
         run_cmd(
@@ -3821,6 +3864,7 @@ def run_all_gates() -> None:
         gate_query_token_aware_matching(temp_repo)
         gate_query_planner_priority_transfer(temp_repo)
         gate_query_index_scope_and_symbol_first(temp_repo)
+        gate_central_mode_orchestrator_foundation(temp_repo)
         gate_query_planner_success(temp_repo)
         gate_query_planner_fallback(temp_repo)
         gate_llm_observability_redaction(temp_repo)

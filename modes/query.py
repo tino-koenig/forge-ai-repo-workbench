@@ -4,7 +4,6 @@ import fnmatch
 import re
 from dataclasses import dataclass
 from pathlib import Path
-import time
 
 from core.analysis_primitives import index_allows_path, load_index_entry_map, load_index_path_class_map, path_class_weight
 from core.capability_model import CommandRequest, EffectClass, Profile
@@ -19,6 +18,7 @@ from core.llm_integration import (
     resolve_settings,
 )
 from core.mode_capability_contract import evaluate_action_eligibility
+from core.mode_orchestrator import iter_bounded_cycles
 from core.output_contracts import build_contract, emit_contract_json
 from core.output_views import is_compact, is_full, resolve_view
 from core.repo_io import TEXT_FILE_EXTENSIONS, iter_repo_files, read_text_file
@@ -1891,11 +1891,14 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
     progress_threshold = 1.5
     budget_tokens_used = 0
     budget_files_used = 0
-    loop_started = time.perf_counter()
 
-    for iteration_idx in range(1, llm_settings.query_orchestrator_max_iterations + 1):
-        elapsed_ms = int((time.perf_counter() - loop_started) * 1000)
-        if elapsed_ms >= llm_settings.query_orchestrator_max_wall_time_ms:
+    for cycle in iter_bounded_cycles(
+        max_iterations=llm_settings.query_orchestrator_max_iterations,
+        max_wall_time_ms=llm_settings.query_orchestrator_max_wall_time_ms,
+    ):
+        iteration_idx = cycle.iteration
+        elapsed_ms = cycle.elapsed_ms
+        if cycle.wall_time_exhausted:
             orchestration_done_reason = "budget_exhausted"
             break
 
@@ -1969,7 +1972,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_files_after=budget_files_used,
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
-                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    elapsed_ms=elapsed_ms,
                     handler_status="blocked",
                     handler_detail="decision not executable due to policy/budget block before handler stage",
                     top_candidates_before=top_candidates_before,
@@ -2016,7 +2019,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_files_after=budget_files_used,
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
-                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    elapsed_ms=elapsed_ms,
                     handler_status="stop",
                     handler_detail="decision requested stop before handler stage",
                     top_candidates_before=top_candidates_before,
@@ -2246,7 +2249,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
                     budget_files_after=budget_files_used,
                     budget_tokens_used=budget_tokens_used,
                     budget_files_used=budget_files_used,
-                    elapsed_ms=int((time.perf_counter() - loop_started) * 1000),
+                    elapsed_ms=elapsed_ms,
                     handler_status=handler_status,
                     handler_detail=handler_detail,
                     top_candidates_before=top_candidates_before,
@@ -2273,9 +2276,7 @@ def run(request: CommandRequest, args, session: ExecutionSession) -> int:
         else:
             search_noop_streak = 0
 
-        elapsed_after_ms = int((time.perf_counter() - loop_started) * 1000)
-        if elapsed_after_ms >= llm_settings.query_orchestrator_max_wall_time_ms:
-            orchestration_done_reason = "budget_exhausted"
+        elapsed_after_ms = elapsed_ms
         if budget_tokens_used >= llm_settings.query_orchestrator_max_tokens:
             orchestration_done_reason = "budget_exhausted"
         if budget_files_used >= llm_settings.query_orchestrator_max_files:

@@ -441,6 +441,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Query now runs deterministic symbol-first resolution for definition/location intents with explicit symbol-stage evidence and output metadata."
 
+[[feature]]
+id = "079"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Added central bounded orchestration foundation in core and wired reuse in query and explain modes."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
@@ -483,3 +490,10 @@ status = "implemented"
 defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Query content scan now honors index participation and combines this with symbol-first resolution for definition queries."
+
+[[issue]]
+id = "22"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Query now uses shared core orchestration cycle control, and explain reuses the same foundation."
