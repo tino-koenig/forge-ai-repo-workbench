@@ -43,6 +43,7 @@ All notable changes to Forge should be documented in this file.
 - issue 5: quality-gate runner now supports focused `--only` execution (repeat/comma forms), keeps default full-suite behavior unchanged, and fails fast on unknown gate names with actionable diagnostics
 - issue 56: quality-gate runner now prepends repo root to `sys.path`, fixing CI/direct-invocation `ModuleNotFoundError: core`; quality-gates workflow also upgraded to `actions/checkout@v5` and `actions/setup-python@v6` to avoid Node.js 20 deprecation warnings
 - issue 57: added central TOML compatibility layer (`core/toml_compat.py`) and replaced direct `tomli` imports across runtime/gate modules with `tomllib`/`tomli` fallback, fixing Python 3.11 quality-gates startup failures
+- issue 58: quality-gates fixture setup now creates `.forge/` markers in all temporary copied repos, preventing early CLI aborts from repository-context discovery preconditions
 - feature 069 / issue 10: `forge index` now persists graph-build failure warnings to `.forge/index.json` (`graph.warning`) so artifact metadata matches console graph-status output
 - feature 071 / issue 13: framework graph refs now enforce schema/version validation on load, exclude invalid refs from active usage, and expose per-ref validation warnings in query/explain `graph_usage`
 - feature 070 / issue 12: repo graph load now validates schema/version compatibility, rejects invalid payloads deterministically, and exposes graph validation state/warnings in query/explain graph_usage

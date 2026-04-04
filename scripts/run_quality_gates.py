@@ -5699,6 +5699,20 @@ def run_all_gates() -> None:
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_promptfail)
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules)
         shutil.copytree(FIXTURE_BASIC_SRC, temp_repo_rules_invalid)
+        for repo in (
+            temp_repo,
+            temp_repo_frontend,
+            temp_repo_mixed,
+            temp_repo_malformed,
+            temp_repo_unknown_cfg,
+            temp_repo_provider_required,
+            temp_repo_logs_malformed,
+            temp_repo_protocol_local,
+            temp_repo_promptfail,
+            temp_repo_rules,
+            temp_repo_rules_invalid,
+        ):
+            (repo / ".forge").mkdir(parents=True, exist_ok=True)
 
         fixtures_by_param: dict[str, Path] = {
             "repo_root": temp_repo,
