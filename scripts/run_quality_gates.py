@@ -1007,6 +1007,132 @@ def gate_init_doctor_provider_baseline_coherence() -> None:
             shutil.rmtree(repo, ignore_errors=True)
 
 
+def gate_init_overwrite_block_and_force_contract(repo_root: Path) -> None:
+    forge_dir = repo_root / ".forge"
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    config_path = forge_dir / "config.toml"
+    original = "# preexisting\n[llm]\n"
+    config_path.write_text(original, encoding="utf-8")
+
+    blocked = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "init",
+                "--template",
+                "balanced",
+                "--non-interactive",
+            ],
+            cwd=ROOT,
+            expect_ok=False,
+        ).stdout
+    )
+    assert_true(
+        blocked.get("sections", {}).get("status") == "overwrite_blocked",
+        "init overwrite contract: expected overwrite_blocked without --force",
+    )
+    assert_true(
+        config_path.read_text(encoding="utf-8") == original,
+        "init overwrite contract: existing file must remain unchanged when blocked",
+    )
+
+    forced = parse_json_output(
+        run_cmd(
+            [
+                "python3",
+                str(FORGE),
+                "--output-format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+                "init",
+                "--template",
+                "balanced",
+                "--non-interactive",
+                "--force",
+            ],
+            cwd=ROOT,
+        ).stdout
+    )
+    assert_true(
+        forced.get("sections", {}).get("status") == "initialized",
+        "init overwrite contract: expected initialized status with --force",
+    )
+    for rel in (
+        ".forge/config.toml",
+        ".forge/review-rules.toml",
+        ".forge/template-meta.toml",
+        ".forge/config.local.toml.example",
+    ):
+        assert_true((repo_root / rel).exists(), f"init overwrite contract: expected file {rel}")
+
+
+def gate_init_template_output_contract_matrix() -> None:
+    templates = ("balanced", "strict-review", "lightweight")
+    for template_id in templates:
+        repo = Path(tempfile.mkdtemp(prefix=f"forge-init-contract-{template_id}-"))
+        try:
+            run_cmd(
+                [
+                    "python3",
+                    str(FORGE),
+                    "--repo-root",
+                    str(repo),
+                    "init",
+                    "--template",
+                    template_id,
+                    "--non-interactive",
+                    "--force",
+                ],
+                cwd=ROOT,
+            )
+            cfg = tomli.loads((repo / ".forge" / "config.toml").read_text(encoding="utf-8"))
+            rules = tomli.loads((repo / ".forge" / "review-rules.toml").read_text(encoding="utf-8"))
+            meta = tomli.loads((repo / ".forge" / "template-meta.toml").read_text(encoding="utf-8"))
+            local_example = (repo / ".forge" / "config.local.toml.example").read_text(encoding="utf-8")
+
+            assert_true("llm" in cfg and isinstance(cfg.get("llm"), dict), f"init template contract ({template_id}): missing llm block")
+            assert_true(
+                isinstance(cfg.get("llm", {}).get("query_planner"), dict),
+                f"init template contract ({template_id}): missing llm.query_planner",
+            )
+            assert_true(
+                isinstance(cfg.get("llm", {}).get("query_orchestrator"), dict),
+                f"init template contract ({template_id}): missing llm.query_orchestrator",
+            )
+            assert_true(
+                isinstance(cfg.get("index", {}).get("enrichment"), dict),
+                f"init template contract ({template_id}): missing index.enrichment",
+            )
+            assert_true(
+                isinstance(cfg.get("query", {}).get("source_policy"), dict),
+                f"init template contract ({template_id}): missing query.source_policy",
+            )
+            assert_true(
+                meta.get("template_id") == template_id,
+                f"init template contract ({template_id}): expected template_id in template-meta",
+            )
+            assert_true(
+                isinstance(meta.get("framework_allowlist"), list),
+                f"init template contract ({template_id}): expected framework_allowlist list in template-meta",
+            )
+            assert_true(
+                isinstance(rules.get("rule"), list) and bool(rules.get("rule")),
+                f"init template contract ({template_id}): expected at least one review rule",
+            )
+            assert_true(
+                "[llm]" in local_example and "provider = \"openai_compatible\"" in local_example,
+                f"init template contract ({template_id}): expected local provider example",
+            )
+        finally:
+            shutil.rmtree(repo, ignore_errors=True)
+
+
 def gate_named_session_context_and_ttl(repo_root: Path) -> None:
     query_payload = parse_json_output(
         run_cmd(
@@ -3512,6 +3638,8 @@ def run_all_gates() -> None:
         gate_init_default_alignment_with_config_foundation(temp_repo)
         gate_init_source_policy_onboarding(temp_repo)
         gate_init_doctor_provider_baseline_coherence()
+        gate_init_overwrite_block_and_force_contract(temp_repo)
+        gate_init_template_output_contract_matrix()
         gate_named_session_context_and_ttl(temp_repo)
         gate_env_file_autoload(temp_repo)
         gate_prompt_profile_policy(temp_repo)

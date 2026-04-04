@@ -25,3 +25,26 @@ Add dedicated init regression gates to enforce onboarding and safety contracts.
 - Init gates run in standard quality-gate pipeline.
 - Gate matrix catches side-effect regressions and template drift.
 - CI/local gate output pinpoints contract breaches.
+
+## Implemented Behavior (Current)
+
+- Init coverage is now part of the standard quality-gate pipeline with dedicated gates for:
+  - non-mutating flows (`--list-templates`, `--dry-run`, non-tty failure, invalid target)
+  - overwrite safety (`overwrite_blocked` without `--force`, deterministic write with `--force`)
+  - template output contracts across all templates
+  - `init -> doctor` baseline coherence
+  - source-policy onboarding persistence
+
+## How To Validate Quickly
+
+- Run `python3 scripts/run_quality_gates.py`.
+- Confirm init-specific gates pass:
+  - `gate_init_non_mutating_flows`
+  - `gate_init_invalid_target_no_write`
+  - `gate_init_overwrite_block_and_force_contract`
+  - `gate_init_template_output_contract_matrix`
+  - `gate_init_doctor_provider_baseline_coherence`
+
+## Known Limits / Notes
+
+- Gates assert deterministic file/contract behavior; they do not validate visual/UX wording of interactive prompts.

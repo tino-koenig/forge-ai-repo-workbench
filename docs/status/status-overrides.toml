@@ -406,6 +406,13 @@ defined_on = "2026-04-04"
 implemented_on = "2026-04-04"
 notes = "Init now captures source-scope/framework allowlist onboarding settings and persists them deterministically in generated config and template metadata."
 
+[[feature]]
+id = "115"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-04"
+notes = "Expanded init gate matrix to lock non-mutating safety, overwrite/force contract, template-output contract, and onboarding coherence."
+
 # Issue examples:
 # [[issue]]
 # id = "12"
