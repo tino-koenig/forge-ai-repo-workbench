@@ -5,6 +5,7 @@ All notable changes to Forge should be documented in this file.
 ## Unreleased
 
 ### Added
+- feature 124: added parallel Foundation 02 orchestration core (`core/orchestration_foundation.py`) with typed deterministic decision/state/diagnostic models, explicit done-reason priority, centralized progress aggregation, FSM transition validation, structured replan/recovery/handoff/block control signals, anti-loop/replan-budget enforcement, deterministic forensic iteration traces, and dedicated unit tests
 - feature 123: added parallel Foundation 11 observability core (`core/observability_foundation.py`) with typed structured telemetry events, required run/stage/action/decision/policy/budget correlation metadata, redaction contract enforcement, level-based sampling that preserves diagnostic/correlation core fields, local retention-aware run storage, event-derived run summaries, and dedicated unit tests
 - feature 122: added parallel Foundation 10 output-contract core (`core/output_contract_foundation.py`) with typed contract models, stable required section mapping and section-status semantics, central section-builder base, schema validation, JSON-first human-view derivation, and dedicated unit tests
 - feature 121: added parallel Foundation 01 mode-execution core (`core/mode_execution_foundation.py`) with declarative stage-plan invariants (`init/finalize`), closed stage status space, partial mergeable `state_delta`, best-effort finalize, section-contribution forwarding, minimal deterministic trace output, and dedicated unit tests
