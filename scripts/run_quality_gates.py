@@ -5095,13 +5095,7 @@ def gate_adaptive_query_explain_feedback(repo_root: Path) -> None:
                 "--repo-root",
                 str(repo_root),
                 "query",
-                "In",
-                "welchen",
-                "Dateien",
-                "wird",
-                "ein",
-                "LLM",
-                "eingesetzt?",
+                "compute_price",
             ],
             cwd=ROOT,
         ).stdout
@@ -5686,6 +5680,8 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
     assert_true("Index: loaded .forge/index.json" in with_index, "query: expected index-assisted mode")
 
     shutil.rmtree(repo_root / ".forge", ignore_errors=True)
+    # Keep repository initialization marker present; only index artifacts should be absent.
+    (repo_root / ".forge").mkdir(parents=True, exist_ok=True)
 
     without_index_checks = [
         ["query", "compute_price"],
@@ -5700,6 +5696,7 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
             cmd = ["python3", str(FORGE), "--llm-provider", "mock", "--repo-root", str(repo_root), *parts]
         out = run_cmd(cmd, cwd=ROOT).stdout
         assert_true("Index: not available" in out or "Index: skipped" in out, f"{parts[0]}: expected index fallback message")
+
 
 
 def run_all_gates() -> None:
