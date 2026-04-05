@@ -1500,9 +1500,7 @@ def gate_prompt_profile_policy(repo_root: Path) -> None:
                 "json",
                 "--repo-root",
                 str(repo_root),
-                "query",
-                "standard",
-                "compute_price",
+                "describe",
             ],
             cwd=ROOT,
         ).stdout
@@ -1510,7 +1508,7 @@ def gate_prompt_profile_policy(repo_root: Path) -> None:
     mismatch_usage = mismatch_payload.get("sections", {}).get("llm_usage", {})
     assert_true(mismatch_usage.get("used") is False, "invalid profile mapping should fallback")
     reason = str(mismatch_usage.get("fallback_reason", ""))
-    assert_true("not allowed for capability 'query'" in reason, "expected profile-compatibility fallback reason")
+    assert_true("not allowed for capability 'describe'" in reason, "expected profile-compatibility fallback reason")
 
 
 def gate_run_history_and_views(repo_root: Path) -> None:
