@@ -4381,7 +4381,7 @@ def gate_explain_structured_synthesis(repo_root: Path) -> None:
 
 
 def gate_explain_facet_quality_matrix(repo_root: Path) -> None:
-    target = "core/llm_observability.py"
+    target = "src/service.py"
     facet_aliases = {
         "settings": "settings_influences",
         "defaults": "default_values",
