@@ -156,6 +156,7 @@ class RetrievalFoundationTests(unittest.TestCase):
         outcome = run_retrieval(request, context)
         self.assertEqual(outcome.status, "blocked")
         self.assertTrue(any(d.code in ("source_blocked_by_policy", "nondeterministic_source_blocked") for d in outcome.retrieval_diagnostics))
+        self.assertTrue(any(d.code == "no_sources_selected_due_to_constraints" for d in outcome.retrieval_diagnostics))
         self.assertTrue(any(item.selection_status == "blocked_policy" for item in outcome.source_usage))
 
     def test_status_error_when_query_terms_missing(self) -> None:
@@ -237,6 +238,33 @@ class RetrievalFoundationTests(unittest.TestCase):
         outcome = run_retrieval(request, context)
         self.assertEqual(outcome.status, "partial")
         self.assertTrue(any(item.selection_status == "out_of_target" for item in outcome.source_usage))
+        self.assertTrue(any(d.code == "no_sources_matching_scope_or_target" for d in outcome.retrieval_diagnostics))
+
+    def test_empty_result_no_matches_is_ok_with_explicit_diagnostic(self) -> None:
+        context = RetrievalContext(sources=self._base_sources())
+        request = RetrievalRequest(
+            query_terms=(QueryTermSignal(term="absent_term_123", signal_type="keyword"),),
+            target_scope="code",
+            source_scope="all",
+            budget_view=BudgetView(max_candidates=10, max_evidence_items=10, max_external_calls=0),
+            policy_context=PolicyContext(),
+        )
+        outcome = run_retrieval(request, context)
+        self.assertEqual(outcome.status, "ok")
+        self.assertEqual(outcome.candidates, tuple())
+        self.assertEqual(outcome.evidence_items, tuple())
+        self.assertTrue(any(d.code == "no_retrieval_matches" for d in outcome.retrieval_diagnostics))
+
+    def test_empty_result_due_to_budget_is_partial_with_explicit_diagnostic(self) -> None:
+        context = RetrievalContext(sources=self._base_sources())
+        outcome = run_retrieval(
+            self._request(max_candidates=0, max_evidence_items=0, max_external_calls=0),
+            context,
+        )
+        self.assertEqual(outcome.status, "partial")
+        self.assertEqual(outcome.candidates, tuple())
+        self.assertEqual(outcome.evidence_items, tuple())
+        self.assertTrue(any(d.code == "retrieval_emptied_by_budget" for d in outcome.retrieval_diagnostics))
 
     def test_query_term_signal_type_validation(self) -> None:
         with self.assertRaises(ValueError):

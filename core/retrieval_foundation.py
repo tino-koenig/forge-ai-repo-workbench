@@ -752,22 +752,36 @@ def _apply_budget_limits(
     return limited_candidates, limited_evidence, diagnostics, partial
 
 
-def _status_for_no_selected_sources(
-    context: RetrievalContext,
+def _derive_retrieval_status(
+    *,
+    candidates: Sequence[RetrievalCandidate],
+    evidence_items: Sequence[RetrievalEvidence],
     source_usage: Sequence[RetrievalSourceUsage],
     diagnostics: Sequence[RetrievalDiagnostic],
+    source_partial: bool,
+    budget_partial: bool,
 ) -> RetrievalStatus:
-    if not context.sources:
+    if any(item.severity == "error" for item in diagnostics):
         return "error"
+
+    has_empty = not candidates and not evidence_items
+    if not has_empty:
+        return "partial" if source_partial or budget_partial else "ok"
+
     statuses = {item.selection_status for item in source_usage}
     blocked_statuses = {"blocked_policy", "blocked_budget", "blocked_nondeterministic"}
     non_matching_statuses = {"out_of_scope", "out_of_target"}
+
     if statuses & blocked_statuses:
         return "blocked"
+    if source_partial or budget_partial:
+        return "partial"
     if statuses and statuses.issubset(non_matching_statuses):
         return "partial"
+    if any(item.selection_status == "selected" for item in source_usage):
+        return "ok"
     if diagnostics:
-        return "blocked"
+        return "partial"
     return "error"
 
 
@@ -797,8 +811,36 @@ def run_retrieval(request: RetrievalRequest, context: RetrievalContext) -> Retri
     diagnostics.extend(source_diags)
 
     if not selected_sources:
-        status = _status_for_no_selected_sources(context, source_usage_seed, diagnostics)
-        if not diagnostics:
+        statuses = {item.selection_status for item in source_usage_seed}
+        blocked_statuses = {"blocked_policy", "blocked_budget", "blocked_nondeterministic"}
+        non_matching_statuses = {"out_of_scope", "out_of_target"}
+        if not context.sources:
+            diagnostics.append(
+                RetrievalDiagnostic(
+                    code="no_retrieval_sources_configured",
+                    message="No retrieval sources are configured in context.",
+                    severity="error",
+                )
+            )
+        elif statuses and statuses.issubset(non_matching_statuses):
+            diagnostics.append(
+                RetrievalDiagnostic(
+                    code="no_sources_matching_scope_or_target",
+                    message="No retrieval sources matched source_scope/target_scope constraints.",
+                    severity="warning",
+                    context={"selection_statuses": tuple(sorted(statuses))},
+                )
+            )
+        elif statuses & blocked_statuses:
+            diagnostics.append(
+                RetrievalDiagnostic(
+                    code="no_sources_selected_due_to_constraints",
+                    message="No retrieval sources selected due to policy/budget constraints.",
+                    severity="warning",
+                    context={"selection_statuses": tuple(sorted(statuses & blocked_statuses))},
+                )
+            )
+        elif not diagnostics:
             diagnostics.append(
                 RetrievalDiagnostic(
                     code="no_sources_selected",
@@ -806,6 +848,14 @@ def run_retrieval(request: RetrievalRequest, context: RetrievalContext) -> Retri
                     severity="error",
                 )
             )
+        status = _derive_retrieval_status(
+            candidates=tuple(),
+            evidence_items=tuple(),
+            source_usage=source_usage_seed,
+            diagnostics=diagnostics,
+            source_partial=source_partial,
+            budget_partial=False,
+        )
         return RetrievalOutcome(
             retrieval_contract_version=RETRIEVAL_CONTRACT_VERSION,
             candidates=tuple(),
@@ -833,12 +883,31 @@ def run_retrieval(request: RetrievalRequest, context: RetrievalContext) -> Retri
         request, candidates_deduped, evidence_deduped
     )
     diagnostics.extend(budget_diags)
-
-    status: RetrievalStatus = "ok"
-    if source_partial or budget_partial:
-        status = "partial"
     if not candidates_limited and not evidence_limited:
-        status = "partial" if diagnostics else "ok"
+        if budget_partial:
+            diagnostics.append(
+                RetrievalDiagnostic(
+                    code="retrieval_emptied_by_budget",
+                    message="All retrieval results were removed by budget limits.",
+                    severity="warning",
+                )
+            )
+        else:
+            diagnostics.append(
+                RetrievalDiagnostic(
+                    code="no_retrieval_matches",
+                    message="No retrieval candidates or evidence matched the query terms.",
+                    severity="info",
+                )
+            )
+    status = _derive_retrieval_status(
+        candidates=candidates_limited,
+        evidence_items=evidence_limited,
+        source_usage=source_usage,
+        diagnostics=diagnostics,
+        source_partial=source_partial,
+        budget_partial=budget_partial,
+    )
 
     return RetrievalOutcome(
         retrieval_contract_version=RETRIEVAL_CONTRACT_VERSION,
