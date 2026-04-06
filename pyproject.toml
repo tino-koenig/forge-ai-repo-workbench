@@ -21,3 +21,30 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["forge", "forge_cmd", "core", "modes"]
+
+[tool.mutmut]
+paths_to_mutate = [
+  "core/mode_execution_foundation.py",
+  "core/runtime_settings_foundation.py",
+  "core/runtime_settings_foundation_registry.py",
+  "core/workspace_foundation.py",
+  "core/workspace_locators.py",
+  "core/workspace_scope_rules.py",
+  "core/workspace_roles.py",
+  "core/observability_foundation.py",
+  "core/orchestration_foundation.py",
+  "core/retrieval_foundation.py",
+  "core/evidence_ranking_foundation.py",
+  "core/target_resolution_foundation.py",
+]
+tests_dir = [
+  "tests/test_mode_execution_foundation.py",
+  "tests/test_runtime_settings_foundation.py",
+  "tests/test_runtime_settings_foundation_registry.py",
+  "tests/test_workspace_foundation.py",
+  "tests/test_observability_foundation.py",
+  "tests/test_orchestration_foundation.py",
+  "tests/test_retrieval_foundation.py",
+  "tests/test_evidence_ranking_foundation.py",
+  "tests/test_target_resolution_foundation.py",
+]
