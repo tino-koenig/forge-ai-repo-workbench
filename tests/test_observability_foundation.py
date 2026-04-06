@@ -335,6 +335,75 @@ class ObservabilityFoundationTests(unittest.TestCase):
         self.assertEqual(summary.replan_reasons, tuple())
         self.assertEqual(summary.stop_reasons, ("budget_exhausted",))
 
+    def test_block_reasons_deduplicate_same_reason(self) -> None:
+        run_id = obs_start_run(self.context)
+        common_kwargs = {
+            "context": self.context,
+            "run_id": run_id,
+            "redaction_status": "not_needed",
+            "iteration_id": "iter-1",
+            "policy_version": "policy-1",
+            "settings_snapshot_id": "settings-1",
+        }
+        obs_log_event(
+            obs_make_event(
+                event_type=EVENT_ACTION_BLOCKED,
+                payload={"reason_code": "write_scope_denied"},
+                action_id="a1",
+                action_input_hash="input-1",
+                **common_kwargs,
+            )
+        )
+        obs_log_event(
+            obs_make_event(
+                event_type=EVENT_POLICY_BLOCKED,
+                payload={"reason_code": "write_scope_denied"},
+                **common_kwargs,
+            )
+        )
+
+        summary = obs_end_run(run_id, None)
+        self.assertEqual(summary.block_reasons, ("write_scope_denied",))
+
+    def test_block_reasons_keep_distinct_values_in_first_seen_order(self) -> None:
+        run_id = obs_start_run(self.context)
+        common_kwargs = {
+            "context": self.context,
+            "run_id": run_id,
+            "redaction_status": "not_needed",
+            "iteration_id": "iter-1",
+            "policy_version": "policy-1",
+            "settings_snapshot_id": "settings-1",
+        }
+        obs_log_event(
+            obs_make_event(
+                event_type=EVENT_ACTION_BLOCKED,
+                payload={"reason_code": "write_scope_denied"},
+                action_id="a1",
+                action_input_hash="input-1",
+                **common_kwargs,
+            )
+        )
+        obs_log_event(
+            obs_make_event(
+                event_type=EVENT_POLICY_BLOCKED,
+                payload={"reason_code": "policy_blocked"},
+                **common_kwargs,
+            )
+        )
+        obs_log_event(
+            obs_make_event(
+                event_type=EVENT_ACTION_BLOCKED,
+                payload={"reason_code": "write_scope_denied"},
+                action_id="a2",
+                action_input_hash="input-2",
+                **common_kwargs,
+            )
+        )
+
+        summary = obs_end_run(run_id, None)
+        self.assertEqual(summary.block_reasons, ("write_scope_denied", "policy_blocked"))
+
     def test_sampling_does_not_remove_required_correlation_fields(self) -> None:
         run_id = obs_start_run(self.context)
         event = obs_make_event(

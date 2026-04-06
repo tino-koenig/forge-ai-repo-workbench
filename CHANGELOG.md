@@ -48,6 +48,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- issue 83: observability run-summary aggregation now deduplicates `block_reasons` per reason code (first-seen order), preventing duplicate blocked-action reason inflation
 - issue 82: workspace foundation pattern normalization now guards scalar non-iterable inputs and emits structured diagnostics instead of raising runtime `TypeError`
 - issue 81: output-contract foundation now preserves `action_orchestration` normative fields (`decision`, `control_signal`) in the builder schema so builder-produced payloads align with validator contract checks
 - issue 77: evidence-ranking status derivation now enforces strict precedence where error diagnostics/candidate errors cannot be downgraded to partial (`error` takes priority over `partial`/`ok`)

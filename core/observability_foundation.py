@@ -412,6 +412,15 @@ def _derive_run_summary(events: Sequence[ObsEvent]) -> ObsRunSummary:
     stop_reasons: list[str] = []
     replan_reasons: list[str] = []
     block_reasons: list[str] = []
+    seen_block_reasons: set[str] = set()
+
+    def _append_block_reason(reason: object) -> None:
+        if not isinstance(reason, str):
+            return
+        if reason in seen_block_reasons:
+            return
+        seen_block_reasons.add(reason)
+        block_reasons.append(reason)
 
     for event in events:
         timestamp = datetime.fromisoformat(event.timestamp.replace("Z", "+00:00"))
@@ -431,9 +440,6 @@ def _derive_run_summary(events: Sequence[ObsEvent]) -> ObsRunSummary:
             action_status_counts["noop"] += 1
         elif event.event_type == EVENT_ACTION_BLOCKED:
             action_status_counts["blocked"] += 1
-            reason = event.payload.get("reason_code")
-            if isinstance(reason, str):
-                block_reasons.append(reason)
 
         if event.decision_source:
             decision_source_counts[event.decision_source] = decision_source_counts.get(event.decision_source, 0) + 1
@@ -452,9 +458,7 @@ def _derive_run_summary(events: Sequence[ObsEvent]) -> ObsRunSummary:
             if control_signal == "replan" and isinstance(reason, str):
                 replan_reasons.append(reason)
         elif event.event_type in (EVENT_ACTION_BLOCKED, EVENT_POLICY_BLOCKED):
-            reason = event.payload.get("reason_code")
-            if isinstance(reason, str):
-                block_reasons.append(reason)
+            _append_block_reason(event.payload.get("reason_code"))
 
     started_at = datetime.fromisoformat(start_event.timestamp.replace("Z", "+00:00"))
     finished_at = datetime.fromisoformat(end_event.timestamp.replace("Z", "+00:00"))
