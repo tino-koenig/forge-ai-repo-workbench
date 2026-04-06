@@ -415,20 +415,19 @@ def _derive_outcome_status(
     candidates: Sequence[RankedCandidate],
     diagnostics: Sequence[RankingDiagnostic],
 ) -> RankingStatus:
-    # Foundation 08 status semantics:
-    # - ok: ranking completed with ranked candidates and no partial/error signals.
-    # - partial: ranking completed but inputs/results indicate incomplete certainty/coverage.
-    # - error: ranking could not produce usable ranking output.
-    if retrieval_outcome.status == "error":
+    # Foundation 08 status priority:
+    # error > partial > ok
+    # (blocked retrieval is represented as partial in Foundation 08 status space).
+    has_error_diagnostic = any(diagnostic.severity == "error" for diagnostic in diagnostics)
+    has_error_candidate = any(candidate.status == "error" for candidate in candidates)
+    if retrieval_outcome.status == "error" or has_error_diagnostic or has_error_candidate:
         return "error"
     if not candidates:
         return "partial" if diagnostics or retrieval_outcome.status in ("partial", "blocked") else "error"
     if retrieval_outcome.status in ("partial", "blocked"):
         return "partial"
-    if any(candidate.status in ("partial", "error") for candidate in candidates):
+    if any(candidate.status == "partial" for candidate in candidates):
         return "partial"
-    if any(diagnostic.severity == "error" for diagnostic in diagnostics):
-        return "error"
     return "ok"
 
 

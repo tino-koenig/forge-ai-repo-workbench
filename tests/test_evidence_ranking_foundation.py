@@ -6,10 +6,13 @@ from core.evidence_ranking_foundation import (
     COMPONENT_EVIDENCE_COUNT,
     COMPONENT_RERANK_LOCATOR_TERM_MATCH,
     COMPONENT_RETRIEVAL_RAW_SCORE,
+    RankedCandidate,
     RankingContext,
     RankingDiagnostic,
     RankingPolicy,
     RankingRequest,
+    ScoreComponent,
+    _derive_outcome_status,
     default_ranking_policy,
     rank_evidence,
     rerank_ranking_policy,
@@ -287,6 +290,52 @@ class EvidenceRankingFoundationTests(unittest.TestCase):
         partial_candidates = [item for item in ranked.candidates if item.locator == "/repo/without.py"]
         self.assertEqual(len(partial_candidates), 1)
         self.assertEqual(partial_candidates[0].status, "partial")
+
+    def test_outcome_status_prioritizes_error_diagnostics_over_partial(self) -> None:
+        retrieval_outcome = RetrievalOutcome(
+            retrieval_contract_version=RETRIEVAL_CONTRACT_VERSION,
+            candidates=tuple(),
+            evidence_items=tuple(),
+            retrieval_diagnostics=tuple(),
+            source_usage=tuple(),
+            status="ok",
+        )
+        candidate_partial = RankedCandidate(
+            locator="/repo/a.py",
+            locator_kind="path",
+            evidence=tuple(),
+            score_total=0.1,
+            score_components=(
+                ScoreComponent(
+                    component_id="x",
+                    weight=1.0,
+                    raw_value=0.1,
+                    contribution=0.1,
+                    reason="test",
+                ),
+            ),
+            policy_id=default_ranking_policy().policy_id,
+            status="partial",
+            explanation=tuple(),
+        )
+        diagnostics = (
+            RankingDiagnostic(code="partial_signal", message="partial", severity="warning"),
+            RankingDiagnostic(code="hard_error", message="error", severity="error"),
+        )
+        status = _derive_outcome_status(retrieval_outcome, (candidate_partial,), diagnostics)
+        self.assertEqual(status, "error")
+
+    def test_outcome_status_partial_without_error_diagnostics(self) -> None:
+        retrieval_outcome = RetrievalOutcome(
+            retrieval_contract_version=RETRIEVAL_CONTRACT_VERSION,
+            candidates=tuple(),
+            evidence_items=tuple(),
+            retrieval_diagnostics=tuple(),
+            source_usage=tuple(),
+            status="partial",
+        )
+        status = _derive_outcome_status(retrieval_outcome, tuple(), tuple())
+        self.assertEqual(status, "partial")
 
 
 if __name__ == "__main__":
