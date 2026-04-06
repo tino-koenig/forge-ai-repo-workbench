@@ -239,6 +239,36 @@ class OutputContractFoundationTests(unittest.TestCase):
         self.assertIn("invalid_action_orchestration_control_signal", diagnostic_codes)
         self.assertIn("invalid_action_orchestration_done_reason_value", diagnostic_codes)
 
+    def test_builder_preserves_orchestration_decision_fields_for_validator(self) -> None:
+        contract = build_contract_core(
+            capability="query",
+            profile="standard",
+            summary="ok",
+            evidence=(),
+            uncertainty=(),
+            next_step="next",
+            section_inputs={
+                "action_orchestration": SectionInput(
+                    payload={
+                        "status": "partial",
+                        "decision": "replan",
+                        "control_signal": "pause",
+                        "done_reason": "policy_blocked",
+                    }
+                )
+            },
+        )
+
+        orchestration_payload = contract.sections["action_orchestration"].payload
+        self.assertEqual(orchestration_payload["decision"], "replan")
+        self.assertEqual(orchestration_payload["control_signal"], "pause")
+        self.assertFalse(contract.sections["action_orchestration"].diagnostics)
+
+        diagnostics = validate_contract_schema(contract)
+        diagnostic_codes = {item.code for item in diagnostics}
+        self.assertIn("invalid_action_orchestration_decision_value", diagnostic_codes)
+        self.assertIn("invalid_action_orchestration_control_signal", diagnostic_codes)
+
 
 if __name__ == "__main__":
     unittest.main()

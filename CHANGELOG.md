@@ -48,6 +48,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- issue 81: output-contract foundation now preserves `action_orchestration` normative fields (`decision`, `control_signal`) in the builder schema so builder-produced payloads align with validator contract checks
 - issue 77: evidence-ranking status derivation now enforces strict precedence where error diagnostics/candidate errors cannot be downgraded to partial (`error` takes priority over `partial`/`ok`)
 - issue 76: mode-execution now guarantees explicit `ExecutionOutcome.terminal_status` via deterministic fallback derivation (`error` > `blocked` > `ok`) when no stage sets `state_delta.terminal_status`
 - issue 75: target-resolution transition validation now uses explicit `target_mode` (resolved from request constraints/hints or deterministic capability→mode mapping) and carries `target_capability` separately, removing mode/capability conflation in from-run transition checks

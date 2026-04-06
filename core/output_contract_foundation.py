@@ -152,7 +152,7 @@ _SECTION_BUILDERS: dict[str, SectionBuilderBase] = {
     "action_orchestration": SectionBuilderBase(
         "action_orchestration",
         "1",
-        ("status", "done_reason", "actions", "iterations", "metadata"),
+        ("status", "decision", "control_signal", "done_reason", "actions", "iterations", "metadata"),
     ),
     "budget": SectionBuilderBase(
         "budget",
