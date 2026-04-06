@@ -115,22 +115,26 @@ def _coerce_value(raw_value: object, spec: SettingSpec) -> tuple[int | float | b
         return _parse_bool(raw_value)
 
     if spec.kind == "int":
-        value, code, reason = _parse_int(raw_value)
+        parsed_int, code, reason = _parse_int(raw_value)
         if code is not None:
             return None, code, reason
-        in_bounds, bounds_code, bounds_reason = _validate_bounds(value, spec)
+        if parsed_int is None:
+            return None, CODE_INVALID_TYPE, "Expected integer value."
+        in_bounds, bounds_code, bounds_reason = _validate_bounds(parsed_int, spec)
         if not in_bounds:
             return None, bounds_code, bounds_reason
-        return value, None, None
+        return parsed_int, None, None
 
     if spec.kind == "float":
-        value, code, reason = _parse_float(raw_value)
+        parsed_float, code, reason = _parse_float(raw_value)
         if code is not None:
             return None, code, reason
-        in_bounds, bounds_code, bounds_reason = _validate_bounds(value, spec)
+        if parsed_float is None:
+            return None, CODE_INVALID_TYPE, "Expected floating-point value."
+        in_bounds, bounds_code, bounds_reason = _validate_bounds(parsed_float, spec)
         if not in_bounds:
             return None, bounds_code, bounds_reason
-        return value, None, None
+        return parsed_float, None, None
 
     if spec.kind == "enum":
         if not isinstance(raw_value, str):
@@ -158,11 +162,11 @@ def resolve_setting(
     spec = active_registry.get(key)
 
     if spec is None:
-        diagnostics: list[SettingDiagnostic] = []
+        unknown_key_diagnostics: list[SettingDiagnostic] = []
         for source in SOURCE_PRIORITY:
             values = sources.get(source, {})
             if key in values:
-                diagnostics.append(
+                unknown_key_diagnostics.append(
                     SettingDiagnostic(
                         key=key,
                         raw_value=values[key],
@@ -172,8 +176,8 @@ def resolve_setting(
                         code=CODE_UNKNOWN_KEY,
                     )
                 )
-        if not diagnostics:
-            diagnostics.append(
+        if not unknown_key_diagnostics:
+            unknown_key_diagnostics.append(
                 SettingDiagnostic(
                     key=key,
                     raw_value=None,
@@ -187,7 +191,7 @@ def resolve_setting(
             key=key,
             value=None,
             source=DEFAULT_SOURCE,
-            diagnostics=tuple(diagnostics),
+            diagnostics=tuple(unknown_key_diagnostics),
         )
 
     diagnostics: list[SettingDiagnostic] = []

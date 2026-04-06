@@ -88,7 +88,17 @@ class SettingSpec:
 
     def _validate_default_constraints(self) -> None:
         if self.kind in ("int", "float"):
-            numeric_default = float(self.default) if self.kind == "float" else self.default
+            numeric_default: int | float
+            if self.kind == "float":
+                if isinstance(self.default, bool) or not isinstance(self.default, (int, float)):
+                    raise ValueError(f"{self.key}: default must be numeric for bound checks")
+                numeric_default = float(self.default)
+            else:
+                if isinstance(self.default, bool) or not isinstance(self.default, int):
+                    raise ValueError(f"{self.key}: default must be numeric for bound checks")
+                numeric_default = self.default
+            if isinstance(numeric_default, bool) or not isinstance(numeric_default, (int, float)):
+                raise ValueError(f"{self.key}: default must be numeric for bound checks")
             if self.min is not None and numeric_default < self.min:
                 raise ValueError(f"{self.key}: default is below min")
             if self.max is not None and numeric_default > self.max:

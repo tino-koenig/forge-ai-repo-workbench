@@ -53,6 +53,21 @@ FIXTURE_FRONTEND_SRC = ROOT / "tests" / "fixtures" / "frontend_repo"
 FIXTURE_MIXED_SRC = ROOT / "tests" / "fixtures" / "mixed_sparse_repo"
 FIXTURE_MALFORMED_SRC = ROOT / "tests" / "fixtures" / "malformed_repo"
 _SELECTED_GATES: list[str] = []
+IMPLEMENTED_FOUNDATION_MYPY_FILES: tuple[str, ...] = (
+    "core/mode_execution_foundation.py",
+    "core/runtime_settings_foundation.py",
+    "core/runtime_settings_foundation_registry.py",
+    "core/workspace_foundation.py",
+    "core/workspace_locators.py",
+    "core/workspace_scope_rules.py",
+    "core/workspace_roles.py",
+    "core/output_contract_foundation.py",
+    "core/observability_foundation.py",
+    "core/orchestration_foundation.py",
+    "core/retrieval_foundation.py",
+    "core/evidence_ranking_foundation.py",
+    "core/target_resolution_foundation.py",
+)
 
 
 class GateError(RuntimeError):
@@ -5710,6 +5725,39 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
         assert_true("Index: not available" in out or "Index: skipped" in out, f"{parts[0]}: expected index fallback message")
 
 
+def gate_foundation_mypy_contracts() -> None:
+    candidate_commands: list[list[str]] = []
+    venv_python = ROOT / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        candidate_commands.append([str(venv_python), "-m", "mypy"])
+    candidate_commands.append([sys.executable, "-m", "mypy"])
+    mypy_bin = shutil.which("mypy")
+    if mypy_bin:
+        candidate_commands.append([mypy_bin])
+
+    selected_cmd: list[str] | None = None
+    for base_cmd in candidate_commands:
+        probe = subprocess.run(
+            [*base_cmd, "--version"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if probe.returncode == 0:
+            selected_cmd = base_cmd
+            break
+    if selected_cmd is None:
+        raise GateError("mypy is not available for gate_foundation_mypy_contracts")
+
+    run_cmd(
+        [
+            *selected_cmd,
+            *IMPLEMENTED_FOUNDATION_MYPY_FILES,
+        ],
+        cwd=ROOT,
+    )
+
 
 def run_all_gates() -> None:
     with tempfile.TemporaryDirectory(prefix="forge-gates-") as temp_dir:
@@ -5849,6 +5897,7 @@ def run_all_gates() -> None:
         gate_explicit_mode_transition_workflows(temp_repo)
         gate_effect_boundaries(temp_repo)
         gate_fallback_with_and_without_index(temp_repo)
+        gate_foundation_mypy_contracts()
         gate_frontend_fixture(temp_repo_frontend)
         gate_mixed_fixture_describe(temp_repo_mixed)
         gate_describe_quality_gate_matrix(temp_repo)

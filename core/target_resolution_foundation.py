@@ -513,10 +513,13 @@ def _allowed_candidate_kinds(request: TargetRequest) -> tuple[str, ...]:
     raw = request.constraints.get("allowed_candidate_kinds")
     if raw is None:
         return ("path", "symbol", "directory", "repo")
+    values: tuple[str, ...]
     if isinstance(raw, str):
         values = (raw.strip(),)
-    else:
+    elif isinstance(raw, Sequence):
         values = tuple(str(item).strip() for item in raw)
+    else:
+        return ("path", "symbol", "directory", "repo")
     allowed = tuple(item for item in values if item in ("path", "symbol", "directory", "repo"))
     return allowed or ("path", "symbol", "directory", "repo")
 
@@ -572,7 +575,10 @@ def _resolved_result_from_candidate(
     resolved_path = candidate.path
     resolved_symbol = candidate.symbol
     resolved_target = candidate.normalized_target
-    anchors = tuple(candidate.metadata.get("evidence_anchors", tuple()))
+    raw_anchors = candidate.metadata.get("evidence_anchors", tuple())
+    anchors: tuple[Mapping[str, object], ...] = tuple()
+    if isinstance(raw_anchors, Sequence):
+        anchors = tuple(anchor for anchor in raw_anchors if isinstance(anchor, Mapping))
     return TargetResolutionResult(
         resolution_contract_version=RESOLUTION_CONTRACT_VERSION,
         resolution_status="resolved",

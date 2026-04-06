@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from time import time
-from typing import Callable, Literal, Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence, cast
 
 StageStatus = Literal["ok", "noop", "blocked", "error"]
 TerminalStatus = Literal["ok", "blocked", "error"]
@@ -161,8 +161,18 @@ def apply_stage_result(state: ExecutionState, result: StageResult) -> ExecutionS
         if iteration_delta:
             iteration_delta = {}
 
-    terminal_status = state_delta.pop("terminal_status", state.terminal_status)
-    done_reason = state_delta.pop("done_reason", state.done_reason)
+    terminal_status_raw = state_delta.pop("terminal_status", state.terminal_status)
+    done_reason_raw = state_delta.pop("done_reason", state.done_reason)
+
+    terminal_status: TerminalStatus | None = state.terminal_status
+    if terminal_status_raw in ("ok", "blocked", "error"):
+        terminal_status = cast(TerminalStatus, terminal_status_raw)
+    elif terminal_status_raw is None:
+        terminal_status = None
+
+    done_reason: str | None = state.done_reason
+    if isinstance(done_reason_raw, str) or done_reason_raw is None:
+        done_reason = done_reason_raw
 
     merged_domain = _merge_mapping(state.domain_state, domain_delta if isinstance(domain_delta, Mapping) else {})
     merged_iteration = _merge_mapping(
