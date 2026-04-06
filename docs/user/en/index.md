@@ -13,12 +13,165 @@ hide:
   .md-main {
     margin-top: 0;
   }
+
+
+  .forge-hero__copy {
+    padding: 1.05rem 1.05rem 1rem;
+  }
+
+  .forge-lang-switch {
+    margin-bottom: 0.72rem;
+  }
+
+
+  .forge-lang-switch--global {
+    max-width: 84rem;
+    margin: 0.42rem auto 0.32rem;
+    padding: 0 1.05rem;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.008em;
+    line-height: 1;
+  }
+
+  .forge-lang-switch--global a {
+    text-decoration: none;
+    opacity: 0.56;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .forge-lang-switch--global a.is-active {
+    opacity: 0.94;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.08rem;
+  }
+
+  .forge-lang-switch--global span {
+    opacity: 0.24;
+    line-height: 1;
+  }
+
+  .forge-lang-switch--global .forge-theme-toggle {
+    padding: 0.14rem 0.46rem;
+    min-height: auto;
+    border-radius: 999px;
+    font-size: 0.69rem;
+    font-weight: 550;
+    letter-spacing: 0.006em;
+    line-height: 1;
+    border-width: 1px;
+    opacity: 0.82;
+  }
+
+  .forge-lang-switch--global .forge-theme-toggle:hover {
+    opacity: 0.94;
+  }
+
+  .forge-hero__copy h1 {
+    margin-top: 0;
+    margin-bottom: 0.95rem;
+  }
+
+  .forge-lead {
+    margin-top: 0;
+    margin-bottom: 0.65rem;
+  }
+
+  .forge-subline {
+    margin-top: 0;
+    margin-bottom: 0.9rem;
+    font-size: 0.89rem;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: 0.005em;
+    color: color-mix(in srgb, var(--forge-text) 58%, transparent);
+    max-width: 46ch;
+  }
+
+  .forge-hero__actions {
+    gap: 0.6rem;
+    margin-bottom: 0.78rem;
+  }
+
+  .forge-hero__example {
+    margin-top: 1.2rem;
+    max-width: 54ch;
+    padding: 0.45rem 0.56rem;
+    border: 1px solid color-mix(in srgb, var(--forge-border) 72%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--forge-copy-bg) 68%, transparent);
+    color: color-mix(in srgb, var(--forge-text) 78%, transparent);
+    font-size: 0.84rem;
+    line-height: 1.45;
+    opacity: 0.85;
+  }
+
+  .forge-hero__example strong {
+    font-weight: 600;
+  }
+
+  .forge-hero__example code {
+    font-size: 0.87em;
+  }
+
+  .forge-trust-card {
+    padding: 1.05rem 1.15rem;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--md-primary-fg-color) 35%, transparent);
+    background: color-mix(in srgb, var(--md-primary-fg-color) 8%, transparent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .forge-start-card--trust {
+    align-self: stretch;
+  }
+
+  .forge-trust-card p {
+    margin-top: 0;
+    margin-bottom: 0.7rem;
+  }
+
+  .forge-trust-card ul {
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+
+  .forge-trust-card li {
+    margin-bottom: 0.4rem;
+  }
+  .forge-start-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .forge-start-card--quick {
+    grid-column: span 2;
+  }
+
+  .forge-start-card--docs {
+    grid-column: span 1;
+  }
+
+  .forge-start-card--setup {
+    grid-column: span 1;
+  }
+
+  .forge-start-card--trust {
+    grid-column: span 2;
+  }
 </style>
 
 <div class="forge-lang-switch forge-lang-switch--global" aria-label="Language selection">
   <a class="is-active" href="./">EN</a>
   <span>•</span>
-  <a href="../de/">DE</a>
+  <a href="de/">DE</a>
   <span>•</span>
   <button type="button" class="forge-theme-toggle" data-forge-theme-toggle aria-label="Toggle theme">Dark</button>
 </div>
@@ -26,19 +179,19 @@ hide:
   <div class="forge-hero__copy">
     <h1>Forge - Your AI Repo Workbench</h1>
     <p class="forge-lead">
-      With control, not magic. Forge helps you query, review, test, and improve repositories with explicit steps, visible evidence, and auditable outputs.
+      Find the exact file, inspect the evidence, understand why it matters, and improve repositories with explicit steps and auditable outputs.
     </p>
     <p class="forge-subline">No black box. No hidden jumps. Just visible repo work: query, explain, review, propose.</p>
     <div class="forge-hero__actions">
-      <a class="md-button md-button--primary" href="getting-started.md">Get Started</a>
-      <a class="md-button" href="core-commands.md">See Commands</a>
+      <a class="md-button md-button--primary" href="getting-started/">Get Started</a>
+      <a class="md-button" href="core-commands/">See Commands</a>
     </div>
     <div class="forge-hero__example">
       <strong>Example:</strong> You ask <code>"Where is session TTL configured?"</code>. Forge finds the matching files, shows the relevant lines, explains why they matter, and keeps every step traceable for review and safe changes.
     </div>
   </div>
   <div class="forge-hero__visual">
-    <img src="../assets/images/forge-landing-visual.svg" alt="Forge architecture visual" />
+    <img src="assets/images/forge-landing-visual.svg" alt="Forge architecture visual" />
   </div>
 </section>
 
@@ -52,7 +205,7 @@ hide:
       </div>
       <div class="forge-card__body">
         <h3>Explicit Modes</h3>
-        <p>Mode behavior stays understandable: query, review, describe, test.</p>
+        <p>No hidden workflows — every mode has a clear job, visible flow, and predictable scope.</p>
       </div>
     </div>
   </article>
@@ -63,7 +216,7 @@ hide:
       </div>
       <div class="forge-card__body">
         <h3>Human-Auditable</h3>
-        <p>Outputs are grounded in paths, matches, diagnostics, and traceable decisions.</p>
+        <p>No guessing — see exactly which files, lines, evidence, diagnostics, and decisions produced the result.</p>
       </div>
     </div>
   </article>
@@ -74,7 +227,7 @@ hide:
       </div>
       <div class="forge-card__body">
         <h3>Composable Foundations</h3>
-        <p>Advanced workflows are built from inspectable core foundations.</p>
+        <p>Build on a strong core — composable foundations give you a reliable base for your own workflows, applications, and stricter requirements.</p>
       </div>
     </div>
   </article>
@@ -85,7 +238,7 @@ hide:
       </div>
       <div class="forge-card__body">
         <h3>Useful by Default</h3>
-        <p>Strong defaults, optional configuration, and local-first repository workflows.</p>
+        <p>Start immediately — strong defaults, team templates, and framework-aware setup for common stacks like TYPO3 help you get useful results fast.</p>
       </div>
     </div>
   </article>
@@ -94,49 +247,62 @@ hide:
 ## Quick CLI Example
 
 ```bash
-forge query "Where is session TTL configured?"
-forge review src/checkout.py --focus reliability
-forge describe core/workspace_foundation.py
+# Find the implementation entry point
+forge query "Where is the runtime settings resolver implemented?"
+
+# Inspect the exact file and evidence
+forge explain core/runtime_settings_foundation.py
+
+# Review the implementation
+forge review core/runtime_settings_foundation.py --focus correctness
+
+# Prepare a safer improvement
+forge propose core/runtime_settings_foundation.py --goal "tighten runtime setting validation"
 ```
 
-## Choose your entry point based on time and goal
+## Choose how you want to start
+
+Pick the path that fits best: jump straight into a hands-on quick start, follow the guided setup, or begin with the docs.
 
 <div class="forge-start-grid">
   <article class="forge-start-card forge-start-card--quick">
-    <h3>Quick Start</h3>
+    <h3>Hands-On Quick Start</h3>
+    <p>Run Forge in under a minute and see real results immediately.</p>
     <pre><code>python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
 forge init --non-interactive --template typo3-v14
-forge query "Where is the runtime settings resolver implemented?"</code></pre>
-  </article>
-  <article class="forge-start-card forge-start-card--setup">
-    <h3>Installation and Setup</h3>
-    <ul>
-      <li><a href="getting-started.md">Guided Setup</a></li>
-      <li><a href="installation.md">Installation</a></li>
-      <li><a href="llm-setup.md">LLM Setup</a></li>
-    </ul>
+forge query "Where is the runtime settings resolver implemented?"
+forge review core/runtime_settings_foundation.py --focus correctness</code></pre>
   </article>
   <article class="forge-start-card forge-start-card--docs">
     <h3>Documentation</h3>
-    <p>Navigate user docs, developer foundations, and the full open-source repository.</p>
+    <p>Explore how Forge works — from user workflows to developer foundations and the full open-source repository.</p>
     <ul>
-      <li><a href="./">User Documentation</a></li>
+      <li><a href="getting-started/">User Documentation</a></li>
       <li><a href="https://github.com/tino-koenig/forge/tree/main/docs/developer">Developer Documentation</a></li>
       <li><a href="https://github.com/tino-koenig/forge">GitHub Repository</a></li>
     </ul>
   </article>
+  <article class="forge-start-card forge-start-card--setup">
+    <h3>Installation and Setup</h3>
+    <p>Set up Forge step by step — from installation to LLM configuration.</p>
+    <ul>
+      <li><a href="getting-started/">Guided Setup</a></li>
+      <li><a href="getting-started/">Installation</a></li>
+      <li><a href="llm-setup/">LLM Setup</a></li>
+    </ul>
+  </article>
   <article class="forge-start-card forge-start-card--trust forge-trust-card">
     <h3>Trust, Safety, Openness</h3>
-    <p>Forge is built to stay inspectable, bounded, and usable in real environments with explicit rules, visible limits, and auditable behavior.</p>
+    <p>Forge is built to stay inspectable, bounded, and usable in real environments — with explicit rules, visible limits, and auditable behavior. Nothing important is hidden, and every step remains traceable.</p>
     <ul>
-      <li><strong>Developer Documentation:</strong> Foundations, contracts, and architecture notes live in <code>docs/developer/</code>.</li>
-      <li><strong>Trust &amp; Safety:</strong> <a href="trust-and-safety.md">Rules, safeguards, and boundaries</a> are explicit and enforceable.</li>
-      <li><strong>Logging &amp; Limits:</strong> Runtime limits and diagnostics remain visible in <a href="runtime-settings-and-sessions.md">Runtime Settings &amp; Sessions</a>.</li>
-      <li><strong>LLM Providers &amp; Local LLM:</strong> OpenAI-compatible endpoints are documented in <a href="llm-setup.md">LLM Setup</a>.</li>
-      <li><strong>Open Source (MIT):</strong> Forge is fully open and auditable under the MIT license.</li>
+      <li><strong>Developer Documentation:</strong> Foundations, contracts, and architecture notes are fully documented in <code>docs/developer/</code> and stay aligned with the implementation.</li>
+      <li><strong>Trust &amp; Safety:</strong> <a href="trust-and-safety/">Rules, safeguards, and boundaries</a> are explicit, versioned, and enforceable.</li>
+      <li><strong>Logging &amp; Limits:</strong> Runtime limits, read/write scope, and diagnostics stay visible and explainable in <a href="runtime-settings-and-sessions/">Runtime Settings &amp; Sessions</a>.</li>
+      <li><strong>LLM Providers &amp; Local LLM:</strong> OpenAI-compatible endpoints (OpenAI, LiteLLM, vLLM) are supported with clear setup and behavior in <a href="llm-setup/">LLM Setup</a>.</li>
+      <li><strong>Open Source (MIT):</strong> Forge is fully open and auditable under the MIT license (<code>LICENSE</code> in the repository).</li>
     </ul>
   </article>
 </div>

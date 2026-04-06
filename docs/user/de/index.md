@@ -14,7 +14,6 @@ hide:
     margin-top: 0;
   }
 
-
   .forge-hero__copy {
     padding: 1.05rem 1.05rem 1rem;
   }
@@ -22,7 +21,6 @@ hide:
   .forge-lang-switch {
     margin-bottom: 0.72rem;
   }
-
 
   .forge-lang-switch--global {
     max-width: 84rem;
@@ -145,6 +143,7 @@ hide:
   .forge-trust-card li {
     margin-bottom: 0.4rem;
   }
+
   .forge-start-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -168,34 +167,34 @@ hide:
   }
 </style>
 
-<div class="forge-lang-switch forge-lang-switch--global" aria-label="Language selection">
-  <a class="is-active" href="./">EN</a>
+<div class="forge-lang-switch forge-lang-switch--global" aria-label="Sprachauswahl">
+  <a href="../">EN</a>
   <span>•</span>
-  <a href="../de/">DE</a>
+  <a class="is-active" href="./">DE</a>
   <span>•</span>
-  <button type="button" class="forge-theme-toggle" data-forge-theme-toggle aria-label="Toggle theme">Dark</button>
+  <button type="button" class="forge-theme-toggle" data-forge-theme-toggle aria-label="Theme umschalten">Dark</button>
 </div>
 <section class="forge-hero">
   <div class="forge-hero__copy">
     <h1>Forge - Your AI Repo Workbench</h1>
     <p class="forge-lead">
-      Find the exact file, inspect the evidence, understand why it matters, and improve repositories with explicit steps and auditable outputs.
+      Finde die richtige Stelle im Code, verstehe Zusammenhänge und Abhängigkeiten und verbessere dein Repository nachvollziehbar und kontrolliert.
     </p>
-    <p class="forge-subline">No black box. No hidden jumps. Just visible repo work: query, explain, review, propose.</p>
+    <p class="forge-subline">Keine Black Box. Keine unklaren Zwischenschritte. Mit query, explain, review und propose wird die Arbeit am Repository schneller, präziser und bleibt jederzeit überprüfbar.</p>
     <div class="forge-hero__actions">
-      <a class="md-button md-button--primary" href="getting-started/">Get Started</a>
-      <a class="md-button" href="core-commands/">See Commands</a>
+      <a class="md-button md-button--primary" href="getting-started/">Direkt starten</a>
+      <a class="md-button" href="core-commands/">Commands entdecken</a>
     </div>
     <div class="forge-hero__example">
-      <strong>Example:</strong> You ask <code>"Where is session TTL configured?"</code>. Forge finds the matching files, shows the relevant lines, explains why they matter, and keeps every step traceable for review and safe changes.
+      <strong>Beispiel:</strong> Du fragst <code>"Wo ist der Runtime-Settings-Resolver implementiert?"</code>. Forge findet die relevanten Dateien, zeigt dir die entscheidenden Zeilen mit den passenden Belegen und macht jeden weiteren Schritt für review und sichere Änderungen nachvollziehbar.
     </div>
   </div>
   <div class="forge-hero__visual">
-    <img src="../assets/images/forge-landing-visual.svg" alt="Forge architecture visual" />
+    <img src="../assets/images/forge-landing-visual.svg" alt="Forge Architektur-Visualisierung" />
   </div>
 </section>
 
-## Why Forge
+## Warum Forge überzeugt
 
 <div class="forge-card-grid">
   <article class="forge-card">
@@ -204,8 +203,8 @@ hide:
         <svg viewBox="0 0 24 24"><path d="m12 16 7.36-5.73L21 9l-9-7-9 7 1.63 1.27M12 18.54l-7.38-5.73L3 14.07l9 7 9-7-1.63-1.27z"/></svg>
       </div>
       <div class="forge-card__body">
-        <h3>Explicit Modes</h3>
-        <p>No hidden workflows — every mode has a clear job, visible flow, and predictable scope.</p>
+        <h3>Klare Modes</h3>
+        <p>Keine versteckten Workflows — jeder Mode hat eine klare Aufgabe, einen sichtbaren Ablauf und einen verlässlichen Scope.</p>
       </div>
     </div>
   </article>
@@ -215,8 +214,8 @@ hide:
         <svg viewBox="0 0 24 24"><path d="m10 17-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9m-6-8L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5z"/></svg>
       </div>
       <div class="forge-card__body">
-        <h3>Human-Auditable</h3>
-        <p>No guessing — see exactly which files, lines, evidence, diagnostics, and decisions produced the result.</p>
+        <h3>Nachvollziehbar statt rätselhaft</h3>
+        <p>Kein Rätselraten — du siehst genau, welche Dateien, Zeilen, Belege, Diagnostics und Entscheidungen zu einem Ergebnis geführt haben.</p>
       </div>
     </div>
   </article>
@@ -226,8 +225,8 @@ hide:
         <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5A2.5 2.5 0 0 0 10.5 1 2.5 2.5 0 0 0 8 3.5V5H4a2 2 0 0 0-2 2v3.8h1.5c1.5 0 2.7 1.2 2.7 2.7S5 16.2 3.5 16.2H2V20a2 2 0 0 0 2 2h3.8v-1.5c0-1.5 1.2-2.7 2.7-2.7s2.7 1.2 2.7 2.7V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/></svg>
       </div>
       <div class="forge-card__body">
-        <h3>Composable Foundations</h3>
-        <p>Build on a strong core — composable foundations give you a reliable base for your own workflows, applications, and stricter requirements.</p>
+        <h3>Starker Kern für eigene Lösungen</h3>
+        <p>Forge bringt einen starken Kern mit, auf dem du eigene Workflows, Anwendungen und strengere Anforderungen sauber aufbauen kannst.</p>
       </div>
     </div>
   </article>
@@ -237,72 +236,72 @@ hide:
         <svg viewBox="0 0 24 24"><path d="m13.13 22.19-1.63-3.83c1.57-.58 3.04-1.36 4.4-2.27zM5.64 12.5l-3.83-1.63 6.1-2.77C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39S16.66.269 11 5.93c-2.19 2.19-3.5 4.6-4.35 6.71-.28.75-.09 1.57.46 2.13l2.13 2.12c.55.56 1.37.74 2.12.46A19.1 19.1 0 0 0 18.07 13c5.66-5.66 3.54-10.61 3.54-10.61m-7.07 7.07c-.78-.78-.78-2.05 0-2.83s2.05-.78 2.83 0c.77.78.78 2.05 0 2.83s-2.05.78-2.83 0m-5.66 7.07-1.41-1.41zM6.24 22l3.64-3.64c-.34-.09-.67-.24-.97-.45L4.83 22zM2 22h1.41l4.77-4.76-1.42-1.41L2 20.59zm0-2.83 4.09-4.08c-.21-.3-.36-.62-.45-.97L2 17.76z"/></svg>
       </div>
       <div class="forge-card__body">
-        <h3>Useful by Default</h3>
-        <p>Start immediately — strong defaults, team templates, and framework-aware setup for common stacks like TYPO3 help you get useful results fast.</p>
+        <h3>Schnell produktiv</h3>
+        <p>Starke Defaults, Team-Templates und framework-aware Setup für gängige Stacks wie TYPO3 bringen dich schnell zu brauchbaren Ergebnissen.</p>
       </div>
     </div>
   </article>
 </div>
 
-## Quick CLI Example
+## Ein kurzer CLI-Ablauf
 
 ```bash
-# Find the implementation entry point
-forge query "Where is the runtime settings resolver implemented?"
+# Passende Stelle im Code finden
+forge query "Wo ist der Runtime-Settings-Resolver implementiert?"
 
-# Inspect the exact file and evidence
+# Exakte Datei und Belege prüfen
 forge explain core/runtime_settings_foundation.py
 
-# Review the implementation
+# Implementierung prüfen
 forge review core/runtime_settings_foundation.py --focus correctness
 
-# Prepare a safer improvement
+# Sichere Verbesserung vorbereiten
 forge propose core/runtime_settings_foundation.py --goal "tighten runtime setting validation"
 ```
 
-## Choose how you want to start
+## Der passende Einstieg
 
-Pick the path that fits best: jump straight into a hands-on quick start, follow the guided setup, or begin with the docs.
+Wähle den Weg, der am besten zu dir passt: direkt praktisch loslegen, Forge Schritt für Schritt einrichten oder zuerst die Dokumentation nutzen.
 
 <div class="forge-start-grid">
   <article class="forge-start-card forge-start-card--quick">
-    <h3>Hands-On Quick Start</h3>
-    <p>Run Forge in under a minute and see real results immediately.</p>
+    <h3>Schneller Einstieg</h3>
+    <p>Starte in unter einer Minute und erhalte sofort erste belastbare Ergebnisse.</p>
     <pre><code>python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
 forge init --non-interactive --template typo3-v14
-forge query "Where is the runtime settings resolver implemented?"
+forge query "Wo ist der Runtime-Settings-Resolver implementiert?"
 forge review core/runtime_settings_foundation.py --focus correctness</code></pre>
   </article>
   <article class="forge-start-card forge-start-card--docs">
-    <h3>Documentation</h3>
-    <p>Explore how Forge works — from user workflows to developer foundations and the full open-source repository.</p>
+    <h3>Dokumentation</h3>
+    <p>Verstehe, wie Forge aufgebaut ist und wie du es nutzt — von User-Workflows über Developer-Foundations bis zum vollständigen Open-Source-Repository.</p>
     <ul>
-      <li><a href="getting-started/">User Documentation</a></li>
-      <li><a href="https://github.com/tino-koenig/forge/tree/main/docs/developer">Developer Documentation</a></li>
-      <li><a href="https://github.com/tino-koenig/forge">GitHub Repository</a></li>
+      <li><a href="getting-started/">User-Dokumentation</a></li>
+      <li><a href="https://github.com/tino-koenig/forge/tree/main/docs/developer">Developer-Dokumentation</a></li>
+      <li><a href="https://github.com/tino-koenig/forge">GitHub-Repository</a></li>
     </ul>
   </article>
   <article class="forge-start-card forge-start-card--setup">
-    <h3>Installation and Setup</h3>
-    <p>Set up Forge step by step — from installation to LLM configuration.</p>
+    <h3>Installation und Einrichtung</h3>
+    <p>Richte Forge Schritt für Schritt ein — von der Installation bis zur LLM-Konfiguration.</p>
     <ul>
       <li><a href="getting-started/">Guided Setup</a></li>
       <li><a href="getting-started/">Installation</a></li>
-      <li><a href="llm-setup/">LLM Setup</a></li>
+      <li><a href="llm-setup/">LLM-Setup</a></li>
     </ul>
   </article>
   <article class="forge-start-card forge-start-card--trust forge-trust-card">
-    <h3>Trust, Safety, Openness</h3>
-    <p>Forge is built to stay inspectable, bounded, and usable in real environments — with explicit rules, visible limits, and auditable behavior. Nothing important is hidden, and every step remains traceable.</p>
+    <h3>Trust, Safety und Offenheit</h3>
+    <p>Forge ist dafür gebaut, in realen Umgebungen prüfbar, begrenzt und verlässlich nutzbar zu bleiben — mit expliziten Regeln, sichtbaren Limits und nachvollziehbarem Verhalten. Nichts Wichtiges bleibt verborgen, und jeder Schritt bleibt überprüfbar.</p>
     <ul>
-      <li><strong>Developer Documentation:</strong> Foundations, contracts, and architecture notes are fully documented in <code>docs/developer/</code> and stay aligned with the implementation.</li>
-      <li><strong>Trust &amp; Safety:</strong> <a href="trust-and-safety/">Rules, safeguards, and boundaries</a> are explicit, versioned, and enforceable.</li>
-      <li><strong>Logging &amp; Limits:</strong> Runtime limits, read/write scope, and diagnostics stay visible and explainable in <a href="runtime-settings-and-sessions/">Runtime Settings &amp; Sessions</a>.</li>
-      <li><strong>LLM Providers &amp; Local LLM:</strong> OpenAI-compatible endpoints (OpenAI, LiteLLM, vLLM) are supported with clear setup and behavior in <a href="llm-setup/">LLM Setup</a>.</li>
-      <li><strong>Open Source (MIT):</strong> Forge is fully open and auditable under the MIT license (<code>LICENSE</code> in the repository).</li>
+      <li><strong>Developer-Dokumentation:</strong> Foundations, Contracts und Architekturhinweise sind in <code>docs/developer/</code> vollständig dokumentiert und eng mit der Implementierung verzahnt.</li>
+      <li><strong>Trust &amp; Safety:</strong> <a href="trust-and-safety/">Regeln, Schutzmechanismen und Grenzen</a> sind explizit, versioniert und verbindlich beschrieben.</li>
+      <li><strong>Logging &amp; Limits:</strong> Laufzeitgrenzen, Read/Write-Scope und Diagnostics bleiben in <a href="runtime-settings-and-sessions/">Runtime Settings &amp; Sessions</a> sichtbar, nachvollziehbar und dokumentiert.</li>
+      <li><strong>LLM-Provider &amp; Local LLM:</strong> OpenAI-kompatible Endpunkte wie OpenAI, LiteLLM und vLLM sind in <a href="llm-setup/">LLM-Setup</a> mit klarem Setup und transparentem Verhalten beschrieben.</li>
+      <li><strong>Open Source (MIT):</strong> Forge ist unter der MIT-Lizenz vollständig offen, prüfbar und auditierbar (<code>LICENSE</code> im Repository).</li>
     </ul>
   </article>
 </div>
