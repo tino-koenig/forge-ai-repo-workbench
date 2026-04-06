@@ -442,10 +442,11 @@ def _derive_run_summary(events: Sequence[ObsEvent]) -> ObsRunSummary:
 
         if event.event_type == EVENT_DECISION_MADE:
             decision = event.payload.get("decision")
+            control_signal = event.payload.get("control_signal")
             reason = event.payload.get("reason_code")
             if decision == "stop" and isinstance(reason, str):
                 stop_reasons.append(reason)
-            if decision == "replan" and isinstance(reason, str):
+            if control_signal == "replan" and isinstance(reason, str):
                 replan_reasons.append(reason)
         elif event.event_type in (EVENT_ACTION_BLOCKED, EVENT_POLICY_BLOCKED):
             reason = event.payload.get("reason_code")

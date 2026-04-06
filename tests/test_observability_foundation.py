@@ -207,7 +207,7 @@ class ObservabilityFoundationTests(unittest.TestCase):
                 context=self.context,
                 run_id=run_id,
                 event_type=EVENT_DECISION_MADE,
-                payload={"decision": "replan", "reason_code": "no_progress"},
+                payload={"decision": "continue", "control_signal": "replan", "reason_code": "no_progress"},
                 redaction_status="not_needed",
                 iteration_id="iter-1",
                 decision_source="fallback",
@@ -279,6 +279,61 @@ class ObservabilityFoundationTests(unittest.TestCase):
         self.assertIn("no_progress", summary.replan_reasons)
         self.assertIn("write_scope_denied", summary.block_reasons)
         self.assertIsNotNone(obs_get_run_summary(run_id))
+
+    def test_replan_summary_uses_control_signal_for_continue(self) -> None:
+        run_id = obs_start_run(self.context)
+        obs_log_event(
+            obs_make_event(
+                context=self.context,
+                run_id=run_id,
+                event_type=EVENT_DECISION_MADE,
+                payload={"decision": "continue", "control_signal": "replan", "reason_code": "no_progress"},
+                redaction_status="not_needed",
+                iteration_id="iter-1",
+                policy_version="policy-1",
+                settings_snapshot_id="settings-1",
+            )
+        )
+
+        summary = obs_end_run(run_id, None)
+        self.assertEqual(summary.replan_reasons, ("no_progress",))
+
+    def test_replan_summary_ignores_continue_without_replan_signal(self) -> None:
+        run_id = obs_start_run(self.context)
+        obs_log_event(
+            obs_make_event(
+                context=self.context,
+                run_id=run_id,
+                event_type=EVENT_DECISION_MADE,
+                payload={"decision": "continue", "control_signal": "none", "reason_code": "normal_progress"},
+                redaction_status="not_needed",
+                iteration_id="iter-1",
+                policy_version="policy-1",
+                settings_snapshot_id="settings-1",
+            )
+        )
+
+        summary = obs_end_run(run_id, None)
+        self.assertEqual(summary.replan_reasons, tuple())
+
+    def test_replan_summary_ignores_stop_without_replan_signal(self) -> None:
+        run_id = obs_start_run(self.context)
+        obs_log_event(
+            obs_make_event(
+                context=self.context,
+                run_id=run_id,
+                event_type=EVENT_DECISION_MADE,
+                payload={"decision": "stop", "control_signal": "none", "reason_code": "budget_exhausted"},
+                redaction_status="not_needed",
+                iteration_id="iter-1",
+                policy_version="policy-1",
+                settings_snapshot_id="settings-1",
+            )
+        )
+
+        summary = obs_end_run(run_id, None)
+        self.assertEqual(summary.replan_reasons, tuple())
+        self.assertEqual(summary.stop_reasons, ("budget_exhausted",))
 
     def test_sampling_does_not_remove_required_correlation_fields(self) -> None:
         run_id = obs_start_run(self.context)
