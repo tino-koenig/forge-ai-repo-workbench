@@ -128,6 +128,15 @@ Status values:
 | 116 | Canonical Init Template Registry and CLI Choice Derivation | 2026-04-04 | implemented | 2026-04-04 | [116-canonical-init-template-registry-and-cli-choice-derivation.md](/Users/tino/PhpstormProjects/forge/docs/features/116-canonical-init-template-registry-and-cli-choice-derivation.md) |
 | 117 | Init Source-Scope and Framework Policy Onboarding | 2026-04-04 | implemented | 2026-04-04 | [117-init-source-scope-and-framework-policy-onboarding.md](/Users/tino/PhpstormProjects/forge/docs/features/117-init-source-scope-and-framework-policy-onboarding.md) |
 | 118 | Shared Init Default-Value Foundation with Central Config | 2026-04-04 | implemented | 2026-04-04 | [118-shared-init-default-value-foundation-with-central-config.md](/Users/tino/PhpstormProjects/forge/docs/features/118-shared-init-default-value-foundation-with-central-config.md) |
+| 119 | Repository / Workspace Foundation Core Bootstrap | 2026-04-05 | defined | - | [119-repository-workspace-foundation-core-bootstrap.md](/Users/tino/PhpstormProjects/forge/docs/features/119-repository-workspace-foundation-core-bootstrap.md) |
+| 120 | Runtime Settings Foundation Parallel Core Bootstrap | 2026-04-05 | defined | - | [120-runtime-settings-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/120-runtime-settings-foundation-parallel-core.md) |
+| 121 | Mode Execution Foundation Parallel Core Bootstrap | 2026-04-05 | defined | - | [121-mode-execution-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/121-mode-execution-foundation-parallel-core.md) |
+| 122 | Output Contract Foundation Parallel Core Bootstrap | 2026-04-05 | defined | - | [122-output-contract-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/122-output-contract-foundation-parallel-core.md) |
+| 123 | Observability Foundation Parallel Core Bootstrap | 2026-04-05 | defined | - | [123-observability-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/123-observability-foundation-parallel-core.md) |
+| 124 | Orchestration Foundation Parallel Core Bootstrap | 2026-04-05 | defined | - | [124-orchestration-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/124-orchestration-foundation-parallel-core.md) |
+| 125 | Retrieval Foundation Parallel Core Bootstrap | 2026-04-06 | defined | - | [125-retrieval-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/125-retrieval-foundation-parallel-core.md) |
+| 126 | Evidence Ranking Foundation Parallel Core Bootstrap | 2026-04-06 | defined | - | [126-evidence-ranking-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/126-evidence-ranking-foundation-parallel-core.md) |
+| 127 | Target Resolution Foundation Parallel Core Bootstrap | 2026-04-06 | defined | - | [127-target-resolution-foundation-parallel-core.md](/Users/tino/PhpstormProjects/forge/docs/features/127-target-resolution-foundation-parallel-core.md) |
 
 ## Notes
 - 000: Meta/test planning document closed; no runtime implementation scope.

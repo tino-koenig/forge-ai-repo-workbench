@@ -1166,6 +1166,181 @@ implemented_on = "2026-04-04"
 notes = "Init defaults now share central config foundation to prevent drift."
 
 [[issue]]
+id = "56"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "57"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "58"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "59"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "60"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "61"
+status = "implemented"
+defined_on = "2026-04-04"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "62"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "63"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "64"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "65"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "66"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "67"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "68"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "69"
+status = "implemented"
+defined_on = "2026-04-05"
+implemented_on = "2026-04-05"
+notes = "Legacy mode/gate issue was fixed in the pre-foundation runtime stabilization sequence; kept for traceability."
+
+[[issue]]
+id = "70"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Implemented foundation mypy contracts now pass cleanly and are enforced by a dedicated quality gate."
+
+[[issue]]
+id = "71"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Mutation-test infrastructure now uses explicit mutmut foundation scope and deterministic test-target configuration."
+
+[[issue]]
+id = "72"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Pytest fixture imports no longer require manual PYTHONPATH; tests run deterministically from repo root."
+
+[[issue]]
+id = "73"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Observability summary now derives replan counts from control_signal instead of decision."
+
+[[issue]]
+id = "74"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Workspace symlink policy now applies consistently even for nonexistent target paths."
+
+[[issue]]
+id = "75"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Target-resolution transitions now separate target_mode from capability semantics."
+
+[[issue]]
+id = "76"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Mode execution now guarantees explicit terminal_status in outcomes."
+
+[[issue]]
+id = "77"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Evidence ranking status derivation now prioritizes error diagnostics."
+
+[[issue]]
+id = "78"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Retrieval empty-result status semantics are now explicit and deterministic."
+
+[[issue]]
+id = "79"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Output contract validator now enforces strict normative orchestration value sets."
+
+[[issue]]
+id = "80"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Observability stable hash now uses canonical JSON serialization."
+
+[[issue]]
 id = "6"
 status = "implemented"
 defined_on = "2026-04-04"

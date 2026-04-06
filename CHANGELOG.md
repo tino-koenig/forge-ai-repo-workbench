@@ -48,6 +48,11 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- issue 77: evidence-ranking status derivation now enforces strict precedence where error diagnostics/candidate errors cannot be downgraded to partial (`error` takes priority over `partial`/`ok`)
+- issue 76: mode-execution now guarantees explicit `ExecutionOutcome.terminal_status` via deterministic fallback derivation (`error` > `blocked` > `ok`) when no stage sets `state_delta.terminal_status`
+- issue 75: target-resolution transition validation now uses explicit `target_mode` (resolved from request constraints/hints or deterministic capability→mode mapping) and carries `target_capability` separately, removing mode/capability conflation in from-run transition checks
+- issue 74: workspace symlink detection now checks path-segment traversal independent of final-target existence, so `allow_symlinks=false` consistently blocks read/write scope access for nonexistent paths under symlink chains
+- issue 73: observability run-summary derivation now counts replans from `decision_made.payload.control_signal == "replan"` (instead of invalid `decision == "replan"`), aligned with Foundation 02 decision/control-signal contract and covered by dedicated regression tests
 - feature 066: added MkDocs Material docs MVP with DE/EN landing/core pages, locale parity check script, and GitHub Pages build/deploy workflow
 - issue 5: quality-gate runner now supports focused `--only` execution (repeat/comma forms), keeps default full-suite behavior unchanged, and fails fast on unknown gate names with actionable diagnostics
 - issue 56: quality-gate runner now prepends repo root to `sys.path`, fixing CI/direct-invocation `ModuleNotFoundError: core`; quality-gates workflow also upgraded to `actions/checkout@v5` and `actions/setup-python@v6` to avoid Node.js 20 deprecation warnings
