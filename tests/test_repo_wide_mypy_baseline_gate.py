@@ -5,13 +5,34 @@ import unittest
 from unittest.mock import patch
 
 from scripts.run_quality_gates import (
+    FOUNDATION_MYPY_EXCLUDED_ROOTS,
+    IMPLEMENTED_FOUNDATION_MYPY_FILES,
+    REPO_WIDE_MYPY_EXCLUDED_ROOTS,
+    REPO_WIDE_MYPY_PATHS,
     GateError,
     _extract_mypy_error_count,
+    _typing_scope_metadata,
     gate_repo_wide_mypy_baseline,
 )
 
 
 class RepoWideMypyBaselineGateTests(unittest.TestCase):
+    def test_typing_scope_metadata_is_explicit_and_aligned(self) -> None:
+        foundation_scope = _typing_scope_metadata("foundation")
+        repo_scope = _typing_scope_metadata("repo_wide")
+
+        self.assertEqual(foundation_scope["includes"], IMPLEMENTED_FOUNDATION_MYPY_FILES)
+        self.assertEqual(foundation_scope["excludes"], FOUNDATION_MYPY_EXCLUDED_ROOTS)
+        self.assertEqual(foundation_scope["pass_semantics"], "scoped_success_only")
+
+        self.assertEqual(repo_scope["includes"], REPO_WIDE_MYPY_PATHS)
+        self.assertEqual(repo_scope["excludes"], REPO_WIDE_MYPY_EXCLUDED_ROOTS)
+        self.assertEqual(repo_scope["pass_semantics"], "baseline_non_regression_only")
+
+    def test_typing_scope_metadata_rejects_unknown_gate(self) -> None:
+        with self.assertRaises(GateError):
+            _typing_scope_metadata("unknown")
+
     def test_extract_mypy_error_count_from_summary(self) -> None:
         proc = subprocess.CompletedProcess(
             args=["mypy"],

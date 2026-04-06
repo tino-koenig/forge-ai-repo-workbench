@@ -1376,6 +1376,13 @@ implemented_on = "2026-04-06"
 notes = "Quality gates now expose repo-wide mypy health with an advisory baseline gate separate from foundation mypy enforcement."
 
 [[issue]]
+id = "86"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Typing gate scope metadata is now centralized and emitted explicitly with includes/excludes and scoped PASS semantics."
+
+[[issue]]
 id = "6"
 status = "implemented"
 defined_on = "2026-04-04"

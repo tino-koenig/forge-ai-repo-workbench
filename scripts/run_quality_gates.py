@@ -70,6 +70,8 @@ IMPLEMENTED_FOUNDATION_MYPY_FILES: tuple[str, ...] = (
 )
 REPO_WIDE_MYPY_PATHS: tuple[str, ...] = ("core", "modes", "forge", "forge_cmd")
 REPO_WIDE_MYPY_BASELINE_ERRORS = 206
+FOUNDATION_MYPY_EXCLUDED_ROOTS: tuple[str, ...] = ("modes", "forge", "forge_cmd")
+REPO_WIDE_MYPY_EXCLUDED_ROOTS: tuple[str, ...] = ("tests", "docs", "scripts", "site", "mutants")
 
 
 class GateError(RuntimeError):
@@ -5729,6 +5731,12 @@ def gate_fallback_with_and_without_index(repo_root: Path) -> None:
 
 def gate_foundation_mypy_contracts() -> None:
     selected_cmd = _select_mypy_command()
+    scope = _typing_scope_metadata("foundation")
+    print(
+        "[quality-gates] typing scope: "
+        f"gate={scope['gate']}, mode={scope['mode']}, semantics={scope['pass_semantics']}, "
+        f"includes={','.join(scope['includes'])}, excludes={','.join(scope['excludes'])}"
+    )
 
     run_cmd(
         [
@@ -5772,8 +5780,29 @@ def _extract_mypy_error_count(proc: subprocess.CompletedProcess[str]) -> int:
     return len(re.findall(r":\s*error:", output))
 
 
+def _typing_scope_metadata(gate_name: str) -> dict[str, object]:
+    if gate_name == "foundation":
+        return {
+            "gate": "foundation_mypy_contracts",
+            "mode": "enforced",
+            "pass_semantics": "scoped_success_only",
+            "includes": IMPLEMENTED_FOUNDATION_MYPY_FILES,
+            "excludes": FOUNDATION_MYPY_EXCLUDED_ROOTS,
+        }
+    if gate_name == "repo_wide":
+        return {
+            "gate": "repo_wide_mypy_baseline",
+            "mode": "advisory_baseline",
+            "pass_semantics": "baseline_non_regression_only",
+            "includes": REPO_WIDE_MYPY_PATHS,
+            "excludes": REPO_WIDE_MYPY_EXCLUDED_ROOTS,
+        }
+    raise GateError(f"Unknown typing scope gate '{gate_name}'.")
+
+
 def gate_repo_wide_mypy_baseline() -> None:
     selected_cmd = _select_mypy_command()
+    scope = _typing_scope_metadata("repo_wide")
     proc = run_cmd(
         [*selected_cmd, *REPO_WIDE_MYPY_PATHS],
         cwd=ROOT,
@@ -5783,7 +5812,8 @@ def gate_repo_wide_mypy_baseline() -> None:
     print(
         "[quality-gates] repo-wide mypy advisory: "
         f"errors={error_count}, baseline={REPO_WIDE_MYPY_BASELINE_ERRORS}, "
-        f"paths={','.join(REPO_WIDE_MYPY_PATHS)}"
+        f"includes={','.join(scope['includes'])}, excludes={','.join(scope['excludes'])}, "
+        f"semantics={scope['pass_semantics']}"
     )
     if error_count > REPO_WIDE_MYPY_BASELINE_ERRORS:
         raise GateError(

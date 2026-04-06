@@ -48,6 +48,7 @@ All notable changes to Forge should be documented in this file.
 - feature 057: added reusable LLM foundation (`core/llm_foundation.py`) with shared policy/settings/prompt/provider/run-step APIs and integrated delegation from `core/llm_integration.py`
 
 ### Changed
+- issue 86: typing quality-gate scope metadata is now centralized and emitted explicitly (includes/excludes + scoped PASS semantics) for both foundation and repo-wide mypy gates
 - issue 85: quality gates now surface repo-wide mypy health separately via advisory baseline gate (`core,modes,forge,forge_cmd`) and fail only on baseline regression (`>206` errors)
 - issue 84: output-contract validator now enforces minimum `action_orchestration` fields (`status`, `done_reason`) for `available` and `fallback` section states with explicit missing-field diagnostics
 - issue 83: observability run-summary aggregation now deduplicates `block_reasons` per reason code (first-seen order), preventing duplicate blocked-action reason inflation
