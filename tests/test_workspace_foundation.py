@@ -62,6 +62,35 @@ class WorkspaceFoundationTests(unittest.TestCase):
         self.assertTrue(any(root.endswith("/.forge") for root in workspace.artifact_roots))
         self.assertFalse(any(root.endswith("/.git") for root in workspace.artifact_roots))
 
+    def test_pattern_scalar_inputs_do_not_crash_and_emit_diagnostics(self) -> None:
+        workspace = self._workspace(
+            {
+                "repo_roots": 1,
+                "artifact_roots": True,
+                "include_repo": 5,
+                "ignore_local": False,
+            }
+        )
+
+        self.assertEqual(workspace.workspace_status, "partial")
+        self.assertTrue(any(d.code == "invalid_pattern_input_shape" for d in workspace.diagnostics))
+        self.assertEqual(workspace.repo_roots[0], self.repo_root.resolve().as_posix())
+        self.assertTrue(any(root.endswith("/.forge") for root in workspace.artifact_roots))
+
+    def test_pattern_string_and_list_inputs_are_preserved(self) -> None:
+        workspace = self._workspace(
+            {
+                "include_cli": "src/**",
+                "include_local": ["docs/**", "tests/**"],
+                "ignore_repo": None,
+            }
+        )
+
+        include_patterns = {(rule.rule_source, rule.pattern) for rule in workspace.include_rules}
+        self.assertIn(("cli", "src/**"), include_patterns)
+        self.assertIn(("local", "docs/**"), include_patterns)
+        self.assertIn(("local", "tests/**"), include_patterns)
+
     def test_normalize_locator_normalizes_paths_and_refs(self) -> None:
         workspace = self._workspace()
 

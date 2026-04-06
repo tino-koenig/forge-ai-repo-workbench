@@ -150,15 +150,34 @@ def _normalize_scope_list(items: Sequence[str] | None, workspace_root: str) -> t
     return tuple(scopes)
 
 
-def _normalize_patterns(raw: Any) -> tuple[str, ...]:
+def _normalize_patterns(
+    raw: Any,
+    diagnostics: list[ScopeDiagnostic] | None = None,
+    field_name: str = "patterns",
+) -> tuple[str, ...]:
     if raw is None:
         return tuple()
     if isinstance(raw, str):
         value = raw.strip()
         return (value,) if value else tuple()
 
+    try:
+        iterator = iter(raw)
+    except TypeError:
+        if diagnostics is not None:
+            diagnostics.append(
+                ScopeDiagnostic(
+                    code="invalid_pattern_input_shape",
+                    message=(
+                        f"Invalid pattern input for '{field_name}': expected string or iterable, "
+                        f"got {type(raw).__name__}."
+                    ),
+                )
+            )
+        return tuple()
+
     values: list[str] = []
-    for item in raw:
+    for item in iterator:
         value = str(item).strip()
         if value:
             values.append(value)
@@ -225,15 +244,20 @@ def compute_workspace_snapshot_id(workspace: WorkspaceContext) -> str:
 
 def resolve_workspace_context(args: Any, repo_root: str | Path) -> WorkspaceContext:
     arg_map = _extract_args_map(args)
+    diagnostics: list[ScopeDiagnostic] = []
 
     normalized_repo_root = Path(repo_root).resolve().as_posix()
     workspace_root_raw = arg_map.get("workspace_root") or normalized_repo_root
     workspace_root = _to_abs_posix(str(workspace_root_raw), normalized_repo_root)
 
-    repo_roots_raw = _normalize_patterns(arg_map.get("repo_roots")) or (normalized_repo_root,)
+    repo_roots_raw = _normalize_patterns(
+        arg_map.get("repo_roots"), diagnostics=diagnostics, field_name="repo_roots"
+    ) or (normalized_repo_root,)
     repo_roots = tuple(dict.fromkeys(_to_abs_posix(item, workspace_root) for item in repo_roots_raw))
 
-    artifact_roots_raw = _normalize_patterns(arg_map.get("artifact_roots"))
+    artifact_roots_raw = _normalize_patterns(
+        arg_map.get("artifact_roots"), diagnostics=diagnostics, field_name="artifact_roots"
+    )
     artifact_roots = tuple(
         dict.fromkeys(
             [
@@ -249,8 +273,12 @@ def resolve_workspace_context(args: Any, repo_root: str | Path) -> WorkspaceCont
 
     write_scopes = _normalize_scope_list(arg_map.get("write_scopes"), workspace_root)
 
-    default_include = _normalize_patterns(arg_map.get("include_default")) or ("**",)
-    default_ignore = _normalize_patterns(arg_map.get("ignore_default")) or (
+    default_include = _normalize_patterns(
+        arg_map.get("include_default"), diagnostics=diagnostics, field_name="include_default"
+    ) or ("**",)
+    default_ignore = _normalize_patterns(
+        arg_map.get("ignore_default"), diagnostics=diagnostics, field_name="ignore_default"
+    ) or (
         ".git/**",
         ".forge/**",
         "node_modules/**",
@@ -275,19 +303,25 @@ def resolve_workspace_context(args: Any, repo_root: str | Path) -> WorkspaceCont
                 source=RULE_SOURCE_REPO,
                 priority=RULE_PRIORITY_REPO,
                 decision="include",
-                patterns=_normalize_patterns(arg_map.get("include_repo")),
+                patterns=_normalize_patterns(
+                    arg_map.get("include_repo"), diagnostics=diagnostics, field_name="include_repo"
+                ),
             ),
             _RuleSpec(
                 source=RULE_SOURCE_LOCAL,
                 priority=RULE_PRIORITY_LOCAL,
                 decision="include",
-                patterns=_normalize_patterns(arg_map.get("include_local")),
+                patterns=_normalize_patterns(
+                    arg_map.get("include_local"), diagnostics=diagnostics, field_name="include_local"
+                ),
             ),
             _RuleSpec(
                 source=RULE_SOURCE_CLI,
                 priority=RULE_PRIORITY_CLI,
                 decision="include",
-                patterns=_normalize_patterns(arg_map.get("include_cli")),
+                patterns=_normalize_patterns(
+                    arg_map.get("include_cli"), diagnostics=diagnostics, field_name="include_cli"
+                ),
             ),
         ]
     )
@@ -304,19 +338,25 @@ def resolve_workspace_context(args: Any, repo_root: str | Path) -> WorkspaceCont
                 source=RULE_SOURCE_REPO,
                 priority=RULE_PRIORITY_REPO,
                 decision="ignore",
-                patterns=_normalize_patterns(arg_map.get("ignore_repo")),
+                patterns=_normalize_patterns(
+                    arg_map.get("ignore_repo"), diagnostics=diagnostics, field_name="ignore_repo"
+                ),
             ),
             _RuleSpec(
                 source=RULE_SOURCE_LOCAL,
                 priority=RULE_PRIORITY_LOCAL,
                 decision="ignore",
-                patterns=_normalize_patterns(arg_map.get("ignore_local")),
+                patterns=_normalize_patterns(
+                    arg_map.get("ignore_local"), diagnostics=diagnostics, field_name="ignore_local"
+                ),
             ),
             _RuleSpec(
                 source=RULE_SOURCE_CLI,
                 priority=RULE_PRIORITY_CLI,
                 decision="ignore",
-                patterns=_normalize_patterns(arg_map.get("ignore_cli")),
+                patterns=_normalize_patterns(
+                    arg_map.get("ignore_cli"), diagnostics=diagnostics, field_name="ignore_cli"
+                ),
             ),
         ]
     )
@@ -325,8 +365,6 @@ def resolve_workspace_context(args: Any, repo_root: str | Path) -> WorkspaceCont
     case_policy = str(arg_map.get("platform_case_policy") or _default_case_policy())
 
     workspace_id = f"workspace:{workspace_root}"
-    diagnostics: list[ScopeDiagnostic] = []
-
     if case_policy not in (CASE_POLICY_SENSITIVE, CASE_POLICY_INSENSITIVE):
         diagnostics.append(
             ScopeDiagnostic(

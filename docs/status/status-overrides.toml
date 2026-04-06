@@ -1348,6 +1348,13 @@ implemented_on = "2026-04-06"
 notes = "Output contract action-orchestration builder now preserves decision/control_signal to align with validator contract checks."
 
 [[issue]]
+id = "82"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Workspace pattern normalization now handles non-iterable scalar input with deterministic diagnostics instead of runtime crashes."
+
+[[issue]]
 id = "6"
 status = "implemented"
 defined_on = "2026-04-04"
