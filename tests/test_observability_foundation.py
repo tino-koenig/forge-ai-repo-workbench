@@ -387,6 +387,39 @@ class ObservabilityFoundationTests(unittest.TestCase):
         self.assertEqual(payload_keys, ["a", "b"])
         self.assertEqual(nested_keys, ["c", "d"])
 
+    def test_state_hash_is_deterministic_for_equal_logical_state(self) -> None:
+        run_id = obs_start_run(self.context)
+        event_a = obs_make_event(
+            context=self.context,
+            run_id=run_id,
+            event_type=EVENT_ACTION_EXECUTED,
+            payload={"result": "ok"},
+            redaction_status="not_needed",
+            action_id="a1",
+            iteration_id="iter-1",
+            policy_version="policy-1",
+            settings_snapshot_id="settings-1",
+            action_input_hash="input-a",
+            state_before={"z": 2, "a": {"k2": 2, "k1": 1}},
+            state_after={"b": [3, 2, 1], "a": 1},
+        )
+        event_b = obs_make_event(
+            context=self.context,
+            run_id=run_id,
+            event_type=EVENT_ACTION_EXECUTED,
+            payload={"result": "ok"},
+            redaction_status="not_needed",
+            action_id="a2",
+            iteration_id="iter-2",
+            policy_version="policy-1",
+            settings_snapshot_id="settings-1",
+            action_input_hash="input-b",
+            state_before={"a": {"k1": 1, "k2": 2}, "z": 2},
+            state_after={"a": 1, "b": [3, 2, 1]},
+        )
+        self.assertEqual(event_a.state_hash_before, event_b.state_hash_before)
+        self.assertEqual(event_a.state_hash_after, event_b.state_hash_after)
+
     def test_retention_prunes_closed_runs_after_window(self) -> None:
         short_context = ObsContext(
             capability="query",

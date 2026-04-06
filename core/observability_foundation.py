@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from itertools import count
+import json
 from typing import Callable, Literal, Mapping, Sequence
 
 ObsLevel = Literal["minimal", "standard", "debug"]
@@ -91,7 +92,9 @@ def _contains_unredacted_sensitive_value(payload: Mapping[str, object]) -> bool:
 
 
 def _hash_state(payload: Mapping[str, object]) -> str:
-    canonical = repr(_normalize_payload(payload)).encode("utf-8")
+    normalized = _normalize_payload(payload)
+    canonical_json = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canonical = canonical_json.encode("utf-8")
     return sha256(canonical).hexdigest()
 
 
