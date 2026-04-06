@@ -124,8 +124,8 @@ forge query "Where is the runtime settings resolver implemented?"</code></pre>
     <p>Navigate user docs, developer foundations, and the full open-source repository.</p>
     <ul>
       <li><a href="./">User Documentation</a></li>
-      <li><a href="https://github.com/example/forge-ai-repo-workbench/tree/main/docs/developer">Developer Documentation</a></li>
-      <li><a href="https://github.com/example/forge-ai-repo-workbench">GitHub Repository</a></li>
+      <li><a href="https://github.com/tino-koenig/forge/tree/main/docs/developer">Developer Documentation</a></li>
+      <li><a href="https://github.com/tino-koenig/forge">GitHub Repository</a></li>
     </ul>
   </article>
   <article class="forge-start-card forge-start-card--trust forge-trust-card">

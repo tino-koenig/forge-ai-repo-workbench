@@ -4,8 +4,8 @@ This directory contains user-facing documentation in English and German.
 
 ## Language Entry Points
 
-- English: [docs/user/en/index.md](/Users/tino/PhpstormProjects/forge/docs/user/en/index.md)
-- Deutsch: [docs/user/de/index.md](/Users/tino/PhpstormProjects/forge/docs/user/de/index.md)
+- English: `en/index.md`
+- Deutsch: `de/index.md`
 
 ## Core Sections (both locales)
 
@@ -22,4 +22,4 @@ This directory contains user-facing documentation in English and German.
 ## Contribution
 
 Contribution workflow and DE/EN parity checklist:
-- [docs/user/CONTRIBUTING.md](/Users/tino/PhpstormProjects/forge/docs/user/CONTRIBUTING.md)
+- `CONTRIBUTING.md`

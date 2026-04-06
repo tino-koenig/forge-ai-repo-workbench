@@ -1,7 +1,7 @@
 site_name: Forge - AI Repo Workbench
 site_description: Explicit AI for real repository work.
-site_url: https://example.github.io/forge-ai-repo-workbench/
-repo_url: https://github.com/example/forge-ai-repo-workbench
+site_url: https://tino-koenig.github.io/forge/
+repo_url: https://github.com/tino-koenig/forge
 docs_dir: docs/user
 theme:
   name: material
