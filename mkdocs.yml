@@ -23,6 +23,12 @@ plugins:
           name: Deutsch
           build: true
 
+extra_css:
+  - assets/stylesheets/landing.css
+
+extra_javascript:
+  - assets/javascripts/landing-theme-toggle.js
+
 nav:
   - Home: en/index.md
   - Getting Started: en/getting-started.md

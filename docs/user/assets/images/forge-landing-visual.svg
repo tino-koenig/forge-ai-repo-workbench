@@ -1,0 +1,173 @@
+<svg width="900" height="560" viewBox="0 0 900 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="900" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FAFD"/>
+      <stop offset="1" stop-color="#EFF6F4"/>
+    </linearGradient>
+    <linearGradient id="bg-dark" x1="0" y1="0" x2="900" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2232"/>
+      <stop offset="1" stop-color="#14322B"/>
+    </linearGradient>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0D4F78"/>
+      <stop offset="1" stop-color="#2B7A64"/>
+    </linearGradient>
+    <linearGradient id="wire-dark" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#62B2E8"/>
+      <stop offset="1" stop-color="#66C7A6"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .forge-diagram-bg {
+      fill: url(#bg);
+      stroke: #C8D9E6;
+    }
+
+    .forge-diagram-title {
+      fill: #31495D;
+    }
+
+    .forge-diagram-subtitle {
+      fill: #6B7F90;
+    }
+
+    .forge-diagram-card {
+      fill: #FFFFFF;
+      stroke: #90B4CB;
+    }
+
+    .forge-diagram-card-alt {
+      fill: #FFFFFF;
+      stroke: #99B8CC;
+    }
+
+    .forge-diagram-card-title {
+      fill: #0D4F78;
+    }
+
+    .forge-diagram-card-label {
+      fill: #27425A;
+    }
+
+    .forge-diagram-card-note {
+      fill: #6B7F90;
+    }
+
+    .forge-diagram-output {
+      fill: #F7FCF9;
+      stroke: #5E9B7D;
+    }
+
+    .forge-diagram-output-label {
+      fill: #245F4E;
+    }
+
+    .forge-diagram-output-title {
+      fill: #2B7A64;
+    }
+
+    .forge-diagram-node {
+      fill: #C8561A;
+    }
+
+    .forge-diagram-wire {
+      stroke: url(#wire);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .forge-diagram-bg {
+        fill: url(#bg-dark);
+        stroke: #4B6D86;
+      }
+
+      .forge-diagram-title {
+        fill: #D8E8F5;
+      }
+
+      .forge-diagram-subtitle {
+        fill: #9FB6C9;
+      }
+
+      .forge-diagram-card {
+        fill: #142636;
+        stroke: #4E7694;
+      }
+
+      .forge-diagram-card-alt {
+        fill: #142636;
+        stroke: #4E7694;
+      }
+
+      .forge-diagram-card-title {
+        fill: #8FCAF3;
+      }
+
+      .forge-diagram-card-label {
+        fill: #C4D9EA;
+      }
+
+      .forge-diagram-card-note {
+        fill: #8FAABF;
+      }
+
+      .forge-diagram-output {
+        fill: #113027;
+        stroke: #5EA887;
+      }
+
+      .forge-diagram-output-label {
+        fill: #9CD3BE;
+      }
+
+      .forge-diagram-output-title {
+        fill: #8AD8BA;
+      }
+
+      .forge-diagram-wire {
+        stroke: url(#wire-dark);
+      }
+    }
+  </style>
+
+  <rect class="forge-diagram-bg" x="1" y="1" width="898" height="558" rx="20" stroke-width="2"/>
+  <text class="forge-diagram-title" x="54" y="40" font-family="'IBM Plex Mono', monospace" font-size="22" font-weight="600">Every result is built from visible steps</text>
+  <text class="forge-diagram-subtitle" x="54" y="70" font-family="'IBM Plex Mono', monospace" font-size="16">Inspectable foundations, clear handoffs, auditable output</text>
+
+  <rect class="forge-diagram-card" x="54" y="94" width="250" height="132" rx="14"/>
+  <text class="forge-diagram-card-title" x="79" y="140" font-family="'IBM Plex Mono', monospace" font-size="23">Foundation 12</text>
+  <text class="forge-diagram-card-label" x="79" y="168" font-family="'IBM Plex Mono', monospace" font-size="16">Workspace / Scope</text>
+  <text class="forge-diagram-card-note" x="79" y="191" font-family="'IBM Plex Mono', monospace" font-size="14.5">(safe boundaries)</text>
+
+  <rect class="forge-diagram-card" x="336" y="94" width="250" height="132" rx="14"/>
+  <text class="forge-diagram-card-title" x="364" y="140" font-family="'IBM Plex Mono', monospace" font-size="23">Foundation 07</text>
+  <text class="forge-diagram-card-label" x="364" y="168" font-family="'IBM Plex Mono', monospace" font-size="16">Retrieval / Evidence</text>
+  <text class="forge-diagram-card-note" x="364" y="191" font-family="'IBM Plex Mono', monospace" font-size="14.5">(find matches)</text>
+
+  <rect class="forge-diagram-card" x="618" y="94" width="228" height="132" rx="14"/>
+  <text class="forge-diagram-card-title" x="645" y="140" font-family="'IBM Plex Mono', monospace" font-size="23">Foundation 08</text>
+  <text class="forge-diagram-card-label" x="645" y="168" font-family="'IBM Plex Mono', monospace" font-size="16">Ranking / Explain</text>
+  <text class="forge-diagram-card-note" x="645" y="191" font-family="'IBM Plex Mono', monospace" font-size="14.5">(compare candidates)</text>
+
+  <rect class="forge-diagram-card-alt" x="88" y="262" width="300" height="130" rx="14"/>
+  <text class="forge-diagram-card-title" x="114" y="307" font-family="'IBM Plex Mono', monospace" font-size="23">Foundation 02</text>
+  <text class="forge-diagram-card-label" x="114" y="338" font-family="'IBM Plex Mono', monospace" font-size="16">Orchestration / Decisions</text>
+
+  <rect class="forge-diagram-card-alt" x="428" y="262" width="384" height="130" rx="14"/>
+  <text class="forge-diagram-card-title" x="456" y="307" font-family="'IBM Plex Mono', monospace" font-size="23">Foundation 10 + 11</text>
+  <text class="forge-diagram-card-label" x="456" y="338" font-family="'IBM Plex Mono', monospace" font-size="16">Output Contract / Observability</text>
+
+  <rect class="forge-diagram-output" x="255" y="432" width="396" height="90" rx="12" stroke-width="2.5"/>
+  <text class="forge-diagram-output-label" x="453" y="468" font-family="'IBM Plex Mono', monospace" font-size="15" text-anchor="middle">OUTPUT</text>
+  <text class="forge-diagram-output-title" x="453" y="496" font-family="'IBM Plex Mono', monospace" font-size="24" text-anchor="middle">Human-Auditable Result</text>
+
+  <path class="forge-diagram-wire" d="M304 160H336" stroke-width="5" stroke-linecap="round"/>
+  <path class="forge-diagram-wire" d="M586 160H618" stroke-width="5" stroke-linecap="round"/>
+  <path class="forge-diagram-wire" d="M237 227V262" stroke-width="5" stroke-linecap="round"/>
+  <path class="forge-diagram-wire" d="M730 227V262" stroke-width="5" stroke-linecap="round"/>
+  <path class="forge-diagram-wire" d="M388 327H428" stroke-width="5" stroke-linecap="round"/>
+  <path class="forge-diagram-wire" d="M451 392V432" stroke-width="5" stroke-linecap="round"/>
+
+  <circle class="forge-diagram-node" cx="237" cy="244" r="8"/>
+  <circle class="forge-diagram-node" cx="730" cy="244" r="8"/>
+  <circle class="forge-diagram-node" cx="451" cy="412" r="8"/>
+</svg>

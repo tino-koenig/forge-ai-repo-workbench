@@ -34,7 +34,7 @@ hide:
     </div>
   </div>
   <div class="forge-hero__visual">
-    <img src="assets/images/forge-landing-visual.svg" alt="Forge architecture visual" />
+    <img src="../assets/images/forge-landing-visual.svg" alt="Forge architecture visual" />
   </div>
 </section>
 
