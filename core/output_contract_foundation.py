@@ -22,6 +22,9 @@ REQUIRED_SECTION_KEYS: tuple[str, ...] = (
 )
 
 SUPPORTED_VIEWS: tuple[str, ...] = ("compact", "standard", "full")
+NORMATIVE_DECISION_VALUES: tuple[str, ...] = ("continue", "stop")
+NORMATIVE_CONTROL_SIGNALS: tuple[str, ...] = ("none", "replan", "recover", "handoff", "block")
+NORMATIVE_DONE_REASONS: tuple[str, ...] = ("sufficient_evidence", "no_progress", "budget_exhausted", "policy_blocked", "error")
 
 
 @dataclass(frozen=True)
@@ -378,6 +381,63 @@ def _validate_action_orchestration_semantics(
             ContractDiagnostic(
                 code="invalid_action_orchestration_done_reason",
                 message="action_orchestration.payload.done_reason must be a string.",
+                severity="error",
+                section="action_orchestration",
+            )
+        )
+    decision = payload.get("decision")
+    if "decision" in payload and not isinstance(decision, str):
+        diagnostics.append(
+            ContractDiagnostic(
+                code="invalid_action_orchestration_decision",
+                message="action_orchestration.payload.decision must be a string.",
+                severity="error",
+                section="action_orchestration",
+            )
+        )
+    if isinstance(decision, str) and decision not in NORMATIVE_DECISION_VALUES:
+        diagnostics.append(
+            ContractDiagnostic(
+                code="invalid_action_orchestration_decision_value",
+                message=(
+                    "action_orchestration.payload.decision must be one of: "
+                    f"{', '.join(NORMATIVE_DECISION_VALUES)}."
+                ),
+                severity="error",
+                section="action_orchestration",
+            )
+        )
+    control_signal = payload.get("control_signal")
+    if "control_signal" in payload and not isinstance(control_signal, str):
+        diagnostics.append(
+            ContractDiagnostic(
+                code="invalid_action_orchestration_control_signal_type",
+                message="action_orchestration.payload.control_signal must be a string.",
+                severity="error",
+                section="action_orchestration",
+            )
+        )
+    if isinstance(control_signal, str) and control_signal not in NORMATIVE_CONTROL_SIGNALS:
+        diagnostics.append(
+            ContractDiagnostic(
+                code="invalid_action_orchestration_control_signal",
+                message=(
+                    "action_orchestration.payload.control_signal must be one of: "
+                    f"{', '.join(NORMATIVE_CONTROL_SIGNALS)}."
+                ),
+                severity="error",
+                section="action_orchestration",
+            )
+        )
+    done_reason = payload.get("done_reason")
+    if isinstance(done_reason, str) and done_reason not in NORMATIVE_DONE_REASONS:
+        diagnostics.append(
+            ContractDiagnostic(
+                code="invalid_action_orchestration_done_reason_value",
+                message=(
+                    "action_orchestration.payload.done_reason must be one of: "
+                    f"{', '.join(NORMATIVE_DONE_REASONS)}."
+                ),
                 severity="error",
                 section="action_orchestration",
             )

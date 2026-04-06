@@ -217,6 +217,28 @@ class OutputContractFoundationTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["done_reason"], "policy_blocked")
 
+    def test_validate_contract_schema_enforces_normative_orchestration_values(self) -> None:
+        contract = build_contract_core(
+            capability="query",
+            profile="standard",
+            summary="ok",
+            evidence=(),
+            uncertainty=(),
+            next_step="next",
+            section_inputs={},
+        ).as_dict()
+        contract["sections"]["action_orchestration"]["status"] = "available"
+        contract["sections"]["action_orchestration"]["payload"] = {
+            "decision": "replan",
+            "control_signal": "pause",
+            "done_reason": "unknown_reason",
+        }
+        diagnostics = validate_contract_schema(contract)
+        diagnostic_codes = {item.code for item in diagnostics}
+        self.assertIn("invalid_action_orchestration_decision_value", diagnostic_codes)
+        self.assertIn("invalid_action_orchestration_control_signal", diagnostic_codes)
+        self.assertIn("invalid_action_orchestration_done_reason_value", diagnostic_codes)
+
 
 if __name__ == "__main__":
     unittest.main()
