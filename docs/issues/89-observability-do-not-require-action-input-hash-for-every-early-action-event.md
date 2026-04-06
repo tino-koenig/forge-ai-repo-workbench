@@ -47,6 +47,15 @@ It does not include redesign of the event catalog, redaction strategy, retention
 - Replace prefix-wide `action_*` requirement with a narrower event-type rule based on semantic phase.
 - Document the requirement boundary in code comments and tests.
 
+## Implemented Behavior (Current)
+
+- Observability now requires `action_input_hash` only for execution-phase action events:
+  - `action_executed`
+  - `action_noop`
+  - `action_blocked`
+- Early lifecycle action events such as `action_planned` no longer fail schema validation when no stable action input hash is available.
+- Existing orchestration-correlation requirements (`iteration_id`, `policy_version`, `settings_snapshot_id`) remain unchanged.
+
 ## How To Validate Quickly
 
 1. Emit an early action event without `action_input_hash`.

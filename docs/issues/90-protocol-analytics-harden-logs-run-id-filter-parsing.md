@@ -47,6 +47,12 @@ It does not include redesign of other filter parameters, event schema changes, o
 - Parse `logs_run_id` through a safe conversion path before list filtering.
 - Return a domain-specific `ValueError` message (or existing project-standard diagnostic form) instead of uncaught conversion exceptions.
 
+## Implemented Behavior (Current)
+
+- Protocol analytics `apply_filters(...)` now parses `logs_run_id` via safe integer conversion before filtering.
+- Invalid `--run-id` input now raises a controlled validation error (`invalid --run-id filter: expected integer`) instead of crashing through direct integer conversion.
+- Valid numeric `logs_run_id` filtering semantics remain unchanged.
+
 ## How To Validate Quickly
 
 1. Run analytics filtering with a valid numeric `logs_run_id`; verify expected subset.
@@ -57,4 +63,3 @@ It does not include redesign of other filter parameters, event schema changes, o
 
 - This issue only addresses `logs_run_id` parsing robustness.
 - Similar hardening for other filters can be handled separately if needed.
-

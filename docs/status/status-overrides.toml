@@ -1383,6 +1383,34 @@ implemented_on = "2026-04-06"
 notes = "Typing gate scope metadata is now centralized and emitted explicitly with includes/excludes and scoped PASS semantics."
 
 [[issue]]
+id = "87"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Foundation 10 validator now accepts non-terminal action_orchestration done_reason=null, aligning with Foundation 02 continue-state semantics."
+
+[[issue]]
+id = "88"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Target-resolution explicit-path matching now expands home-prefixed paths (~) before known-path/known-directory checks."
+
+[[issue]]
+id = "89"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Observability now requires action_input_hash only for execution-phase action events, not for early action_planned events."
+
+[[issue]]
+id = "90"
+status = "implemented"
+defined_on = "2026-04-06"
+implemented_on = "2026-04-06"
+notes = "Protocol analytics run-id filtering now uses safe parsing and returns controlled validation errors for invalid --run-id input."
+
+[[issue]]
 id = "6"
 status = "implemented"
 defined_on = "2026-04-04"

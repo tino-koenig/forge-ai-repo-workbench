@@ -53,6 +53,12 @@ It does not cover unrelated orchestration fields, broader minimum-field enforcem
 - Update both orchestration emission and output-contract validation to follow the same rule.
 - Preserve strict validation, but only against the final shared semantics.
 
+## Implemented Behavior (Current)
+
+- Foundation 10 output-contract validation now accepts `action_orchestration.payload.done_reason = null` when present.
+- This aligns with Foundation 02 non-terminal orchestration semantics where ongoing `continue` decisions can carry `done_reason=None`.
+- Minimum-field enforcement for `action_orchestration` remains unchanged; the fix only removes the cross-foundation type mismatch for non-terminal payloads.
+
 ## How To Validate Quickly
 
 1. Produce a non-terminal `action_orchestration` payload from Foundation 02 with `decision="continue"`.

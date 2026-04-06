@@ -48,6 +48,12 @@ It does not include broad path canonicalization redesign, symlink-policy changes
 - Normalize explicit path targets with home expansion (`Path(...).expanduser()`) before known-path checks.
 - Keep matching deterministic and compatible with existing resolution strategy and diagnostics.
 
+## Implemented Behavior (Current)
+
+- Explicit target-resolution path matching now expands home-prefixed inputs (`~`) before comparing against `known_paths` and `known_directories`.
+- Resolved explicit-path outputs now consistently use the expanded canonical path when a home-prefixed input matches known targets.
+- Existing non-home explicit-path behavior remains unchanged.
+
 ## How To Validate Quickly
 
 1. Provide a known path in absolute form.
@@ -59,4 +65,3 @@ It does not include broad path canonicalization redesign, symlink-policy changes
 
 - This issue addresses only home-marker expansion in explicit path flows.
 - It does not define new behavior for environment-variable path interpolation.
-
