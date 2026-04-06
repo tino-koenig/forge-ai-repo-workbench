@@ -19,6 +19,8 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+mutants/
+site/
 
 # IDE / editor
 .idea/
