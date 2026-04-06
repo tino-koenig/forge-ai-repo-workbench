@@ -250,6 +250,30 @@ class WorkspaceFoundationTests(unittest.TestCase):
         allowed_decision = is_in_read_scope(locator_allowed, workspace_allowed)
         self.assertEqual(allowed_decision.decision, DECISION_ALLOW)
 
+    def test_symlink_policy_blocks_nonexistent_target_in_symlink_chain(self) -> None:
+        (self.repo_root / "real").mkdir(parents=True, exist_ok=True)
+        (self.repo_root / "src").mkdir(parents=True, exist_ok=True)
+        (self.repo_root / "src" / "linked").symlink_to(self.repo_root / "real", target_is_directory=True)
+
+        workspace = self._workspace({"allow_symlinks": False, "write_scopes": [str(self.repo_root / "src")]})
+        locator = normalize_locator("src/linked/missing.py", workspace)
+
+        read_decision = is_in_read_scope(locator, workspace)
+        self.assertEqual(read_decision.decision, DECISION_DENY)
+        self.assertEqual(read_decision.reason_code, "symlink_not_allowed")
+
+        write_decision = is_in_write_scope(locator, workspace)
+        self.assertEqual(write_decision.decision, DECISION_DENY)
+        self.assertEqual(write_decision.reason_code, "write_requires_read_scope")
+        self.assertTrue(any(d.code == "symlink_not_allowed" for d in write_decision.diagnostics))
+
+        workspace_allowed = self._workspace({"allow_symlinks": True, "write_scopes": [str(self.repo_root / "src")]})
+        allowed_locator = normalize_locator("src/linked/missing.py", workspace_allowed)
+        allowed_read = is_in_read_scope(allowed_locator, workspace_allowed)
+        allowed_write = is_in_write_scope(allowed_locator, workspace_allowed)
+        self.assertEqual(allowed_read.decision, DECISION_ALLOW)
+        self.assertEqual(allowed_write.decision, DECISION_ALLOW)
+
     def test_case_policy_insensitive_for_scope_and_roles(self) -> None:
         workspace = self._workspace(
             {

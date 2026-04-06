@@ -167,9 +167,6 @@ def _rule_rank(rule: WorkspaceRule) -> tuple[int, int, str]:
 def _contains_symlink(locator: CanonicalLocator, workspace: WorkspaceContext) -> bool:
     if locator.workspace_relative_path is None:
         return False
-    candidate = Path(workspace.workspace_root) / locator.workspace_relative_path
-    if not candidate.exists():
-        return False
 
     cursor = Path(workspace.workspace_root)
     for part in Path(locator.workspace_relative_path).parts:
